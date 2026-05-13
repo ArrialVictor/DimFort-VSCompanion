@@ -1,0 +1,18 @@
+# Build / install
+node_modules/
+out/
+*.vsix
+.vscode-test/
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+# Editor / IDE local state
+*.swp
+*.swo
+.idea/
+
+# Local-only notes
+NOTES.local.md

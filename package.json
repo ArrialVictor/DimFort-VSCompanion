@@ -1,0 +1,135 @@
+{
+  "name": "dimfort-vscode",
+  "displayName": "DimFort",
+  "description": "Dimensional homogeneity checker for Fortran (LSP client).",
+  "version": "0.0.1",
+  "publisher": "dimfort",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ArrialVictor/DimFort-Companion.git"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:fortran",
+    "onLanguage:FortranFreeForm",
+    "onLanguage:fortran-modern",
+    "onLanguage:fortran_fixed-form",
+    "onLanguage:fortran-fixed-form"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dimfort.restartLanguageServer",
+        "title": "DimFort: Restart Language Server",
+        "category": "DimFort"
+      },
+      {
+        "command": "dimfort.toggleInlayHints",
+        "title": "DimFort: Toggle Inlay Hints",
+        "category": "DimFort"
+      },
+      {
+        "command": "dimfort.toggleCompletion",
+        "title": "DimFort: Toggle Unit Completion",
+        "category": "DimFort"
+      },
+      {
+        "command": "dimfort.toggleCodeActions",
+        "title": "DimFort: Toggle Code Actions",
+        "category": "DimFort"
+      },
+      {
+        "command": "dimfort.toggleGotoDefinition",
+        "title": "DimFort: Toggle Go to Definition",
+        "category": "DimFort"
+      },
+      {
+        "command": "dimfort.toggleCodeLens",
+        "title": "DimFort: Toggle Code Lens",
+        "category": "DimFort"
+      }
+    ],
+    "configuration": {
+      "title": "DimFort",
+      "properties": {
+        "dimfort.executable": {
+          "type": "string",
+          "default": "dimfort",
+          "description": "Path to the `dimfort` executable. Override if the binary isn't on $PATH (e.g. point at a virtualenv: /path/to/.venv/bin/dimfort)."
+        },
+        "dimfort.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace LSP messages between VSCode and the DimFort server (visible in the Output panel)."
+        },
+        "dimfort.inlayHints.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline ghost-text units next to each variable reference."
+        },
+        "dimfort.completion.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Suggest known unit names when typing inside `@unit{…}`."
+        },
+        "dimfort.codeActions.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Offer a quick fix that inserts a `!< @unit{}` annotation on variable declarations that lack one."
+        },
+        "dimfort.gotoDefinition.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Go to Definition on variables and function/subroutine calls."
+        },
+        "dimfort.codeLens.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show a CodeLens above each function/subroutine definition with its inferred signature. Off by default — can be visually busy on dense files; turn on with the `DimFort: Toggle Code Lens` command."
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "fortran",
+        "extensions": [
+          ".f90",
+          ".F90",
+          ".f95",
+          ".F95",
+          ".f03",
+          ".F03",
+          ".f08",
+          ".F08"
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^3.9.1",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}
