@@ -18,13 +18,13 @@ VSCode renders them as squiggles and entries in the Problems panel.
 2. **Install the extension** in development mode:
 
    ```bash
-   cd Homogeneity/vscode-extension
+   cd Homogeneity/DimFort-VSCompanion
    npm install
    npm run compile
    ```
 
 3. **Launch the extension host**:
-   - Open `Homogeneity/vscode-extension/` in VSCode.
+   - Open `Homogeneity/DimFort-VSCompanion/` in VSCode.
    - Press <kbd>F5</kbd> ("Run Extension"). A second VSCode window opens
      with the extension loaded.
    - Open any `.f90` file; you should see diagnostics on save.
@@ -57,7 +57,7 @@ export PATH="/opt/homebrew/opt/node@20/bin:$PATH"
 Then build:
 
 ```bash
-cd Homogeneity/vscode-extension
+cd Homogeneity/DimFort-VSCompanion
 npm install                  # if you haven't already
 npm install --save-dev @vscode/vsce
 npm run compile
