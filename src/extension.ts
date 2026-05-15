@@ -28,6 +28,8 @@ export function activate(context: vscode.ExtensionContext): void {
     codeActionsEnabled: config.get<boolean>("codeActions.enabled", true),
     gotoDefinitionEnabled: config.get<boolean>("gotoDefinition.enabled", true),
     codeLensEnabled: config.get<boolean>("codeLens.enabled", true),
+    maxWorksetSize: config.get<number>("maxWorksetSize", 40),
+    externalModules: config.get<string[]>("externalModules", []),
   };
 
   const clientOptions: LanguageClientOptions = {

@@ -99,6 +99,20 @@
           "type": "boolean",
           "default": false,
           "description": "Show a CodeLens above each function/subroutine definition with its inferred signature. Off by default — can be visually busy on dense files; turn on with the `DimFort: Toggle Code Lens` command."
+        },
+        "dimfort.maxWorksetSize": {
+          "type": "integer",
+          "default": 40,
+          "minimum": 1,
+          "description": "Maximum number of files included in a single check pipeline. On large workspaces (e.g. LMDZ: 2435 files) the full transitive use-closure can be too deep to compile in memory; when it exceeds this cap, DimFort keeps the active file plus its nearest dependencies in topo order. Restart the language server to apply."
+        },
+        "dimfort.externalModules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra module names treated as external (i.e. not resolved against the workspace; no U007 diagnostic when missing). Extends DimFort's built-in allowlist (Fortran intrinsics, mpi, netcdf, ioipsl, …). Restart the language server to apply."
         }
       }
     },
