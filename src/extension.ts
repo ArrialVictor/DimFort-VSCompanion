@@ -90,6 +90,27 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  // Workspace-wide check. Forwards to the server-registered
+  // dimfort.checkWorkspace command, which walks the workspace index
+  // and publishes diagnostics for every file. Progress is surfaced
+  // via the status-bar spinner the server emits.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.checkWorkspace", async () => {
+      if (!client) {
+        vscode.window.showWarningMessage("DimFort: language client not started.");
+        return;
+      }
+      try {
+        await client.sendRequest("workspace/executeCommand", {
+          command: "dimfort.checkWorkspace",
+          arguments: [],
+        });
+      } catch (err) {
+        vscode.window.showErrorMessage(`DimFort: workspace check failed — ${err}`);
+      }
+    }),
+  );
+
   // Per-feature toggles. Each one flips the corresponding setting and
   // restarts the language server so the change takes effect. Visible
   // from the Command Palette as "DimFort: Toggle …".

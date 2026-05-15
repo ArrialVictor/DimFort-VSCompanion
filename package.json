@@ -55,6 +55,11 @@
         "command": "dimfort.toggleCodeLens",
         "title": "DimFort: Toggle Code Lens",
         "category": "DimFort"
+      },
+      {
+        "command": "dimfort.checkWorkspace",
+        "title": "DimFort: Check Whole Workspace",
+        "category": "DimFort"
       }
     ],
     "configuration": {
