@@ -16,3 +16,7 @@ Thumbs.db
 
 # Local-only notes
 NOTES.local.md
+
+# Python bytecode (icon generator script)
+__pycache__/
+*.pyc
