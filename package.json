@@ -28,37 +28,37 @@
     "commands": [
       {
         "command": "dimfort.restartLanguageServer",
-        "title": "DimFort: Restart Language Server",
+        "title": "Restart Language Server",
         "category": "DimFort"
       },
       {
         "command": "dimfort.toggleInlayHints",
-        "title": "DimFort: Toggle Inlay Hints",
+        "title": "Toggle Inlay Hints",
         "category": "DimFort"
       },
       {
         "command": "dimfort.toggleCompletion",
-        "title": "DimFort: Toggle Unit Completion",
+        "title": "Toggle Unit Completion",
         "category": "DimFort"
       },
       {
         "command": "dimfort.toggleCodeActions",
-        "title": "DimFort: Toggle Code Actions",
+        "title": "Toggle Code Actions",
         "category": "DimFort"
       },
       {
         "command": "dimfort.toggleGotoDefinition",
-        "title": "DimFort: Toggle Go to Definition",
+        "title": "Toggle Go to Definition",
         "category": "DimFort"
       },
       {
         "command": "dimfort.toggleCodeLens",
-        "title": "DimFort: Toggle Code Lens",
+        "title": "Toggle Code Lens",
         "category": "DimFort"
       },
       {
         "command": "dimfort.checkWorkspace",
-        "title": "DimFort: Check Whole Workspace",
+        "title": "Check Whole Workspace",
         "category": "DimFort"
       }
     ],
