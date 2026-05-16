@@ -118,12 +118,6 @@
           },
           "default": [],
           "description": "Extra module names treated as external (i.e. not resolved against the workspace; no U007 diagnostic when missing). Extends DimFort's built-in allowlist (Fortran intrinsics, mpi, netcdf, ioipsl, …). Restart the language server to apply."
-        },
-        "dimfort.backend": {
-          "type": "string",
-          "enum": ["asr", "ast"],
-          "default": "ast",
-          "description": "Checker backend. 'ast' (default) walks LFortran's parse tree only — fast, no `lfortran -c`, handles F77-idiom files like COMMON+PUBLIC that the semantic pass rejects. 'asr' falls back to the resolved semantic tree (original pipeline). Restart the language server to switch."
         }
       }
     },
