@@ -122,8 +122,8 @@
         "dimfort.backend": {
           "type": "string",
           "enum": ["asr", "ast"],
-          "default": "asr",
-          "description": "Checker backend. 'asr' (default) uses LFortran's resolved semantic tree — fast and complete on clean F90. 'ast' uses the parse tree only — handles F77-idiom files like COMMON+PUBLIC that ASR rejects. Restart the language server to switch."
+          "default": "ast",
+          "description": "Checker backend. 'ast' (default) walks LFortran's parse tree only — fast, no `lfortran -c`, handles F77-idiom files like COMMON+PUBLIC that the semantic pass rejects. 'asr' falls back to the resolved semantic tree (original pipeline). Restart the language server to switch."
         }
       }
     },
