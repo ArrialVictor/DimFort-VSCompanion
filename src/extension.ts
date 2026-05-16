@@ -30,7 +30,6 @@ export function activate(context: vscode.ExtensionContext): void {
     codeLensEnabled: config.get<boolean>("codeLens.enabled", true),
     maxWorksetSize: config.get<number>("maxWorksetSize", 40),
     externalModules: config.get<string[]>("externalModules", []),
-    backend: config.get<string>("backend", "asr"),
   };
 
   const clientOptions: LanguageClientOptions = {
