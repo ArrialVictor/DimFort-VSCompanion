@@ -1,0 +1,19 @@
+# Source kept for readability of the repo; the runtime client lives
+# in out/extension.js, so source isn't needed in the published VSIX.
+src/**
+tsconfig.json
+.gitignore
+.vscode/**
+
+# Branding generator (Python, only for repo maintainers).
+scripts/**
+icon_alt.png
+social_preview.png
+
+# Sourcemaps and bytecode caches.
+**/*.map
+**/__pycache__/**
+**/*.pyc
+
+# node_modules must stay in the VSIX — we don't bundle, so the
+# extension imports vscode-languageclient from there at runtime.
