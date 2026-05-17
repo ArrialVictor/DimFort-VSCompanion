@@ -13,7 +13,7 @@ VSCode renders them as squiggles and entries in the Problems panel.
    pip install -e "/path/to/DimFort[lsp]"
    ```
 
-   LFortran must also be installed (conda-forge).
+   Tree-sitter is the parser; no external Fortran compiler is needed.
 
 2. **Install the extension** in development mode:
 

@@ -281,7 +281,6 @@ def build_social(subtitle: str | None = None) -> Image.Image:
     wordmark = "DimFort"
     word_font = _load_clarendon(126)
     word_box = draw.textbbox((0, 0), wordmark, font=word_font)
-    word_w = word_box[2] - word_box[0]
     word_h = word_box[3] - word_box[1]
 
     sub_font = _load_font(48) if subtitle else None
@@ -321,7 +320,6 @@ def build_social(subtitle: str | None = None) -> Image.Image:
             fill=TEXT,
         )
 
-    _ = word_w  # placement is text-baseline-driven; width is informational
     return img
 
 
