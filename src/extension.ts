@@ -7,7 +7,12 @@ import {
 
 let client: LanguageClient | undefined;
 
-export function activate(context: vscode.ExtensionContext): void {
+// Build a fresh LanguageClient from the current VSCode settings. Called
+// at activation and every time a toggle command flips a setting — never
+// re-use a captured `clientOptions` reference, because `LanguageClient`
+// keeps the same `initializationOptions` across `restart()` calls, so a
+// setting change won't reach the server otherwise.
+function buildClient(): LanguageClient {
   const config = vscode.workspace.getConfiguration("dimfort");
   const executable = config.get<string>("executable", "dimfort");
 
@@ -19,9 +24,6 @@ export function activate(context: vscode.ExtensionContext): void {
     args: ["lsp"],
   };
 
-  // Per-feature toggles. Read once on startup; changes require a
-  // language-server restart (use the "DimFort: Restart Language Server"
-  // command after editing settings).
   const initializationOptions = {
     inlayHintsEnabled: config.get<boolean>("inlayHints.enabled", true),
     completionEnabled: config.get<boolean>("completion.enabled", true),
@@ -42,30 +44,47 @@ export function activate(context: vscode.ExtensionContext): void {
     initializationOptions,
   };
 
-  client = new LanguageClient(
+  return new LanguageClient(
     "dimfort",
     "DimFort",
     serverOptions,
-    clientOptions
+    clientOptions,
   );
+}
 
-  client.start();
+// Tear down the active client and replace it with a freshly-configured
+// one. Used by the explicit restart command and by every per-feature
+// toggle so the new VSCode setting reaches the LSP.
+async function rebuildClient(): Promise<void> {
+  if (client) {
+    try {
+      await client.stop();
+    } catch {
+      // Ignore: stop() can throw if the previous start failed half-way,
+      // which is fine — we're tearing it down anyway.
+    }
+  }
+  client = buildClient();
+  await client.start();
+}
+
+export function activate(context: vscode.ExtensionContext): void {
+  client = buildClient();
+  void client.start();
   context.subscriptions.push({
     dispose: () => {
       void client?.stop();
     },
   });
 
-  // Hand-rolled restart command: faster than "Developer: Reload
-  // Window" when you've just edited the Python server source.
+  // Hand-rolled restart command: faster than "Developer: Reload Window"
+  // when you've just edited the Python server source. Goes through
+  // rebuildClient so any setting change since the last start is picked
+  // up too.
   context.subscriptions.push(
     vscode.commands.registerCommand("dimfort.restartLanguageServer", async () => {
-      if (!client) {
-        vscode.window.showWarningMessage("DimFort: no language client to restart.");
-        return;
-      }
       try {
-        await client.restart();
+        await rebuildClient();
         vscode.window.setStatusBarMessage("DimFort: language server restarted", 2000);
       } catch (err) {
         vscode.window.showErrorMessage(`DimFort: restart failed — ${err}`);
@@ -98,21 +117,19 @@ export function activate(context: vscode.ExtensionContext): void {
   // the server's `@server.command` handler via workspace/executeCommand.
 
   // Per-feature toggles. Each one flips the corresponding setting and
-  // restarts the language server so the change takes effect. Visible
-  // from the Command Palette as "DimFort: Toggle …".
+  // *rebuilds* the language client so the new value reaches the LSP.
+  // Visible from the Command Palette as "DimFort: Toggle …".
   const registerToggle = (commandId: string, settingKey: string, label: string) => {
     context.subscriptions.push(
       vscode.commands.registerCommand(commandId, async () => {
         const cfg = vscode.workspace.getConfiguration("dimfort");
         const current = cfg.get<boolean>(settingKey, true);
         await cfg.update(settingKey, !current, vscode.ConfigurationTarget.Global);
-        if (client) {
-          try {
-            await client.restart();
-          } catch (err) {
-            vscode.window.showErrorMessage(`DimFort: restart failed — ${err}`);
-            return;
-          }
+        try {
+          await rebuildClient();
+        } catch (err) {
+          vscode.window.showErrorMessage(`DimFort: restart failed — ${err}`);
+          return;
         }
         vscode.window.setStatusBarMessage(
           `DimFort: ${label} ${!current ? "on" : "off"}`,
