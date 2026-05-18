@@ -136,7 +136,18 @@
           ".F08"
         ]
       }
-    ]
+    ],
+    "configurationDefaults": {
+      "[fortran]": {
+        "editor.inlayHints.maximumLength": 0
+      },
+      "[FortranFreeForm]": {
+        "editor.inlayHints.maximumLength": 0
+      },
+      "[fortran-modern]": {
+        "editor.inlayHints.maximumLength": 0
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
