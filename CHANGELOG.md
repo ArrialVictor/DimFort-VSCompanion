@@ -10,6 +10,26 @@ commands, packaging).
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-19
+
+First **Visual Studio Marketplace** publish. The 0.1.0 release on
+GitHub was packaged under publisher `dimfort` (a placeholder before
+the actual marketplace publisher was registered). Re-packaged
+under publisher `arrialvictor` — the extension is now
+`arrialvictor.dimfort-vscode` on the marketplace.
+
+Install path simplifies to:
+
+```
+ext install arrialvictor.dimfort-vscode
+```
+
+or, from the VSCode Extensions panel, search "DimFort".
+
+No code changes; pure packaging fix. The `.vsix` for direct
+install is still attached to this GitHub release for users on
+non-marketplace clients (Cursor without OpenVSX, etc.).
+
 ## [0.1.0] — 2026-05-19
 
 First public release. Install as `.vsix` from this release's
