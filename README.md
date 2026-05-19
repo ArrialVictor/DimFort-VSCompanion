@@ -1,5 +1,7 @@
 # DimFort — VSCode extension
 
+![preview](social_preview.png)
+
 Thin Language Server Protocol client. Spawns `dimfort lsp` and forwards
 your Fortran sources to it; the server publishes diagnostics back, and
 VSCode renders them as squiggles and entries in the Problems panel.
