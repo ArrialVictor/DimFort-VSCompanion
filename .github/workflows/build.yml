@@ -1,0 +1,46 @@
+name: build
+
+# Tag-gated for now (pre-public; private repos have limited CI
+# minutes). Once the repo is public, add a `pull_request:` trigger
+# and `push: branches: [main]` so every contribution runs through.
+#
+# This workflow compiles the TypeScript and packages the .vsix.
+# A failure here means the extension won't load, period — that's
+# the strongest signal we can get from a thin LSP client without
+# spinning up a VSCode test instance.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile TypeScript
+        run: npm run compile
+
+      - name: Package extension
+        # Surfaces packaging errors (manifest validation, missing
+        # files, etc.) that `npm run compile` alone can miss.
+        run: npx vsce package --allow-missing-repository --out dimfort-vscode.vsix
+
+      - name: Upload .vsix artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dimfort-vscode-vsix
+          path: dimfort-vscode.vsix
+          if-no-files-found: error
