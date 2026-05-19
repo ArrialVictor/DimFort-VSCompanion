@@ -10,6 +10,20 @@ commands, packaging).
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-05-19
+
+First public release. Install as `.vsix` from this release's
+assets:
+
+```bash
+curl -L -o dimfort-vscode.vsix \
+  https://github.com/ArrialVictor/DimFort-VSCompanion/releases/download/v0.1.0/dimfort-vscode.vsix
+code --install-extension dimfort-vscode.vsix
+```
+
+Requires DimFort itself installed and the `dimfort` command on
+PATH (`pipx install 'dimfort[lsp]'`).
+
 ### 2026-05-19
 
 - **Drop inlay-hint truncation in Fortran scopes**. VSCode truncates
