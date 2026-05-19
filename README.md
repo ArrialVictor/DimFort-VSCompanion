@@ -2,9 +2,11 @@
 
 ![preview](social_preview.png)
 
-Thin Language Server Protocol client. Spawns `dimfort lsp` and forwards
-your Fortran sources to it; the server publishes diagnostics back, and
-VSCode renders them as squiggles and entries in the Problems panel.
+VSCode client for [DimFort](https://github.com/ArrialVictor/DimFort) —
+the dimensional-homogeneity checker for Fortran. Thin Language Server
+Protocol client: spawns `dimfort lsp` and forwards your Fortran
+sources to it; the server publishes diagnostics back, and VSCode
+renders them as squiggles and entries in the Problems panel.
 
 ## Setup
 
