@@ -1,6 +1,6 @@
 # DimFort — VSCode extension
 
-![preview](social_preview.png)
+![preview](https://raw.githubusercontent.com/ArrialVictor/DimFort-VSCompanion/main/social_preview.png)
 
 VSCode client for [DimFort](https://github.com/ArrialVictor/DimFort) —
 the dimensional-homogeneity checker for Fortran. Thin Language Server
