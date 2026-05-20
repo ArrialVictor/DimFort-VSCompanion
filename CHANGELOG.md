@@ -10,6 +10,30 @@ commands, packaging).
 
 ## [Unreleased]
 
+### Added
+
+- **`dimfort.trace.enabled` setting** (default `false`) — turn on
+  the LSP server's full-unit-trace hover mode. When on, hovering
+  inside an assignment renders an ASCII tree of the RHS with
+  per-node units and unit-algebra rule IDs (`R3.1`, `R5.6`, …).
+  The header carries a status marker (`🟢 / 🔴 / 🟡 DimFort`).
+- **`DimFort: Toggle Full Unit Trace in Hover` command** — flips
+  the setting and rebuilds the language client so the new value
+  reaches the server. Visible from the Command Palette.
+- **`dimfort.extractToParameter` command** — handles the H010
+  D1.5 (implicit literal cast) quick-fix. Prompts via
+  `showInputBox` for the parameter name, validates against the
+  Fortran identifier grammar, then applies a two-edit refactor
+  (insert typed `REAL, PARAMETER :: <name> = <literal> !<
+  @unit{<unit>}` declaration at the end of the enclosing
+  routine's decl block, plus replace the literal at the use site).
+
+### Tooling
+
+- **Per-push CI**: `tsc` typecheck on every push to `main` and
+  every PR. The tag-gated `build.yml` still packages the `.vsix`
+  on releases.
+
 ## [0.1.1] — 2026-05-19
 
 First **Visual Studio Marketplace** publish. The 0.1.0 release on
