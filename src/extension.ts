@@ -31,7 +31,6 @@ function buildClient(): LanguageClient {
     gotoDefinitionEnabled: config.get<boolean>("gotoDefinition.enabled", true),
     codeLensEnabled: config.get<boolean>("codeLens.enabled", true),
     traceHoverEnabled: config.get<boolean>("trace.enabled", false),
-    semanticTokensEnabled: config.get<boolean>("semanticTokens.enabled", false),
     maxWorksetSize: config.get<number>("maxWorksetSize", 40),
     externalModules: config.get<string[]>("externalModules", []),
   };
@@ -196,7 +195,6 @@ export function activate(context: vscode.ExtensionContext): void {
   registerToggle("dimfort.toggleGotoDefinition", "gotoDefinition.enabled", "go-to-definition");
   registerToggle("dimfort.toggleCodeLens",       "codeLens.enabled",       "code lens");
   registerToggle("dimfort.toggleTrace",          "trace.enabled",          "full unit trace");
-  registerToggle("dimfort.toggleSemanticTokens", "semanticTokens.enabled", "unannotated-variable highlighting");
 }
 
 export function deactivate(): Thenable<void> | undefined {

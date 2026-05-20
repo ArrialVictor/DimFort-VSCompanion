@@ -80,19 +80,6 @@ Open any `.f90` file — DimFort lights up. Settings → search
   inferred signature (opt-in; off by default).
 - **Completion** inside `@unit{}` annotations, sourced from the
   active unit table.
-- **`DimFort: Toggle Unannotated-Variable Highlighting`** (experimental,
-  default off). Tags every identifier whose declaration lacks an
-  `@unit{}` annotation with the `variable.unannotated` semantic-token
-  modifier. No visual change unless your theme styles the modifier —
-  add the following to `settings.json` to see annotation coverage as
-  faded names:
-  ```json
-  "editor.semanticTokenColorCustomizations": {
-    "rules": {
-      "variable.unannotated": { "foreground": "#888888", "fontStyle": "italic" }
-    }
-  }
-  ```
 
 ## Configuration
 
