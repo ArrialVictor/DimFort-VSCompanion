@@ -30,6 +30,7 @@ function buildClient(): LanguageClient {
     codeActionsEnabled: config.get<boolean>("codeActions.enabled", true),
     gotoDefinitionEnabled: config.get<boolean>("gotoDefinition.enabled", true),
     codeLensEnabled: config.get<boolean>("codeLens.enabled", true),
+    traceHoverEnabled: config.get<boolean>("trace.enabled", false),
     maxWorksetSize: config.get<number>("maxWorksetSize", 40),
     externalModules: config.get<string[]>("externalModules", []),
   };
@@ -143,6 +144,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerToggle("dimfort.toggleCodeActions",    "codeActions.enabled",    "code actions");
   registerToggle("dimfort.toggleGotoDefinition", "gotoDefinition.enabled", "go-to-definition");
   registerToggle("dimfort.toggleCodeLens",       "codeLens.enabled",       "code lens");
+  registerToggle("dimfort.toggleTrace",          "trace.enabled",          "unit-algebra trace");
 }
 
 export function deactivate(): Thenable<void> | undefined {

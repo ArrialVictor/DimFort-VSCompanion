@@ -58,6 +58,11 @@
         "category": "DimFort"
       },
       {
+        "command": "dimfort.toggleTrace",
+        "title": "Toggle Unit-Algebra Trace in Hover",
+        "category": "DimFort"
+      },
+      {
         "command": "dimfort.checkWorkspace",
         "title": "Check Whole Workspace",
         "category": "DimFort"
@@ -105,6 +110,11 @@
           "type": "boolean",
           "default": false,
           "description": "Show a CodeLens above each function/subroutine definition with its inferred signature. Off by default — can be visually busy on dense files; turn on with the `DimFort: Toggle Code Lens` command."
+        },
+        "dimfort.trace.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "When hovering inside an assignment, append the unit-algebra rule-chain (R3.1, R5.1, …) that produced the RHS unit. Off by default — informative for debugging wrapper-arithmetic diagnostics (D1.2 / D1.3 / D1.6) but makes hovers taller. Toggle with the `DimFort: Toggle Unit-Algebra Trace in Hover` command."
         },
         "dimfort.maxWorksetSize": {
           "type": "integer",
