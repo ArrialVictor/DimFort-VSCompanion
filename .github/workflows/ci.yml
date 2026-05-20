@@ -1,0 +1,30 @@
+name: ci
+
+# Per-push compile + lint check. Build.yml runs on tag push for the
+# packaged .vsix; this one is the fast feedback loop so a TypeScript
+# regression doesn't sit on main unnoticed until the next tag.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Compile TypeScript
+        # tsc emits to ./out; failures here mean the extension would
+        # fail to load at runtime, so the compile step is the
+        # primary signal.
+        run: npm run compile
