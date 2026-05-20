@@ -194,7 +194,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerToggle("dimfort.toggleCodeActions",    "codeActions.enabled",    "code actions");
   registerToggle("dimfort.toggleGotoDefinition", "gotoDefinition.enabled", "go-to-definition");
   registerToggle("dimfort.toggleCodeLens",       "codeLens.enabled",       "code lens");
-  registerToggle("dimfort.toggleTrace",          "trace.enabled",          "unit-algebra trace");
+  registerToggle("dimfort.toggleTrace",          "trace.enabled",          "full unit trace");
 }
 
 export function deactivate(): Thenable<void> | undefined {

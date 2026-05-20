@@ -59,7 +59,7 @@
       },
       {
         "command": "dimfort.toggleTrace",
-        "title": "Toggle Unit-Algebra Trace in Hover",
+        "title": "Toggle Full Unit Trace in Hover",
         "category": "DimFort"
       },
       {
@@ -114,7 +114,7 @@
         "dimfort.trace.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "When hovering inside an assignment, append the unit-algebra rule-chain (R3.1, R5.1, …) that produced the RHS unit. Off by default — informative for debugging wrapper-arithmetic diagnostics (D1.2 / D1.3 / D1.6) but makes hovers taller. Toggle with the `DimFort: Toggle Unit-Algebra Trace in Hover` command."
+          "description": "When hovering inside an assignment, show the full unit-trace tree (every rule fire: R3.1, R5.1, …) that produced the RHS unit, instead of the compact hover. Off by default — informative for debugging wrapper-arithmetic diagnostics (D1.2 / D1.3 / D1.6) but makes hovers taller. Toggle with the `DimFort: Toggle Full Unit Trace in Hover` command."
         },
         "dimfort.maxWorksetSize": {
           "type": "integer",
