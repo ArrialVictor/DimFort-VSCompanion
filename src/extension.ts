@@ -109,6 +109,56 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  // Extract-to-PARAMETER refactor for the H010 D1.5 (implicit literal
+  // cast) diagnostic. Prompts the user for the parameter name via
+  // showInputBox so they can pick something meaningful, then applies
+  // the two-edit refactor (insert PARAMETER decl + replace literal).
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "dimfort.extractToParameter",
+      async (
+        uri: string,
+        rangeStart: { line: number; character: number },
+        rangeEnd: { line: number; character: number },
+        insertLine: number,
+        indent: string,
+        literalText: string,
+        targetUnit: string,
+        defaultName: string,
+      ) => {
+        const name = await vscode.window.showInputBox({
+          prompt: `Parameter name for literal ${literalText} (${targetUnit})`,
+          value: defaultName,
+          validateInput: (v) => {
+            if (!v) {
+              return "Name cannot be empty";
+            }
+            if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(v)) {
+              return "Use a Fortran identifier (letter then letters/digits/_)";
+            }
+            return undefined;
+          },
+        });
+        if (!name) {
+          return; // user cancelled
+        }
+        const target = vscode.Uri.parse(uri);
+        const declLine = `${indent}real, parameter :: ${name} = ${literalText}   !< @unit{${targetUnit}}\n`;
+        const edit = new vscode.WorkspaceEdit();
+        edit.insert(target, new vscode.Position(insertLine, 0), declLine);
+        edit.replace(
+          target,
+          new vscode.Range(
+            new vscode.Position(rangeStart.line, rangeStart.character),
+            new vscode.Position(rangeEnd.line, rangeEnd.character),
+          ),
+          name,
+        );
+        await vscode.workspace.applyEdit(edit);
+      },
+    ),
+  );
+
   // Workspace-wide check: the language client AUTOMATICALLY registers
   // `dimfort.checkWorkspace` (and every other command the server lists
   // in initialize's executeCommandProvider.commands), so we do NOT
