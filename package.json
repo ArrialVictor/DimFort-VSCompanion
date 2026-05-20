@@ -63,11 +63,6 @@
         "category": "DimFort"
       },
       {
-        "command": "dimfort.toggleSemanticTokens",
-        "title": "Toggle Unannotated-Variable Highlighting (experimental)",
-        "category": "DimFort"
-      },
-      {
         "command": "dimfort.checkWorkspace",
         "title": "Check Whole Workspace",
         "category": "DimFort"
@@ -120,11 +115,6 @@
           "type": "boolean",
           "default": false,
           "description": "When hovering inside an assignment, show the full unit-trace tree (every rule fire: R3.1, R5.1, …) that produced the RHS unit, instead of the compact hover. Off by default — informative for debugging wrapper-arithmetic diagnostics (D1.2 / D1.3 / D1.6) but makes hovers taller. Toggle with the `DimFort: Toggle Full Unit Trace in Hover` command."
-        },
-        "dimfort.semanticTokens.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Experimental — tag every identifier whose declaration carries no `@unit{}` annotation (and isn't covered by the INTEGER/LOGICAL/CHARACTER intrinsic default) with the `variable.unannotated` semantic-token modifier. Themes that style this modifier render those names distinctly (e.g. faded) so annotation coverage is visible at a glance. No visual change unless your theme has `editor.semanticTokenColorCustomizations` for `variable.unannotated`. Off by default. Toggle with the `DimFort: Toggle Unannotated-Variable Highlighting` command."
         },
         "dimfort.maxWorksetSize": {
           "type": "integer",
