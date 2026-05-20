@@ -54,6 +54,33 @@ code --install-extension dimfort-vscode.vsix
 Open any `.f90` file — DimFort lights up. Settings → search
 `dimfort` to see toggle commands.
 
+## Features beyond plain diagnostics
+
+- **Hover** shows each variable's annotated unit; on call
+  expressions (user-defined or Fortran intrinsics like `log`,
+  `exp`, `sqrt`, `sum`) it shows the call's resolved unit.
+- **`DimFort: Toggle Full Unit Trace in Hover`** — opt-in. When
+  on, hovers inside an assignment statement replace the compact
+  view with an ASCII tree of the RHS expression, every node
+  carrying its resolved unit and the unit-algebra rule that
+  produced it (`R3.1`, `R5.6`, …). Header reads
+  `🟢 / 🔴 / 🟡 DimFort` for OK / mismatch / unresolved. Useful
+  for understanding wrapper-arithmetic diagnostics
+  (D1.2 / D1.3 / D1.6).
+- **`Extract literal to a named PARAMETER` quick-fix** on H010
+  D1.5 warnings (the `1. + speed` regularisation pattern). Press
+  `Cmd+.` on the yellow squiggle, type a name in the input box,
+  and the refactor inserts a typed PARAMETER declaration and
+  rewrites the literal use site.
+- **`Add @unit{}` quick-fix** on undeclared symbols.
+- **Inlay hints** show ghost-text units inline next to each
+  variable reference (toggle with `DimFort: Toggle Inlay Hints`).
+- **Go-to-definition** on variables and procedure calls.
+- **Code lens** above each function/subroutine header with its
+  inferred signature (opt-in; off by default).
+- **Completion** inside `@unit{}` annotations, sourced from the
+  active unit table.
+
 ## Configuration
 
 Settings (under **DimFort** in the Settings UI):
@@ -65,8 +92,9 @@ Settings (under **DimFort** in the Settings UI):
   in **Output → DimFort**. Useful for debugging.
 - `dimfort.inlayHints.enabled`, `dimfort.completion.enabled`,
   `dimfort.codeActions.enabled`, `dimfort.gotoDefinition.enabled`,
-  `dimfort.codeLens.enabled` — per-feature toggles. The palette also
-  exposes them as `DimFort: Toggle …` commands.
+  `dimfort.codeLens.enabled`, `dimfort.trace.enabled` — per-feature
+  toggles. The palette also exposes them as `DimFort: Toggle …`
+  commands.
 - `dimfort.maxWorksetSize` — cap on the number of files in a single
   check pipeline (default 40). Restart the language server after
   changing.
