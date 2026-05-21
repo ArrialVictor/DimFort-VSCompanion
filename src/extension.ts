@@ -31,6 +31,9 @@ function buildClient(): LanguageClient {
     gotoDefinitionEnabled: config.get<boolean>("gotoDefinition.enabled", true),
     codeLensEnabled: config.get<boolean>("codeLens.enabled", true),
     traceHoverEnabled: config.get<boolean>("trace.enabled", false),
+    hoverFunctionCalls: config.get<string>("hover.functionCalls", "short"),
+    hoverSubroutineCalls: config.get<string>("hover.subroutineCalls", "short"),
+    hoverExpressions: config.get<string>("hover.expressions", "short"),
     maxWorksetSize: config.get<number>("maxWorksetSize", 40),
     externalModules: config.get<string[]>("externalModules", []),
   };
@@ -89,6 +92,21 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.setStatusBarMessage("DimFort: language server restarted", 2000);
       } catch (err) {
         vscode.window.showErrorMessage(`DimFort: restart failed — ${err}`);
+      }
+    }),
+  );
+
+  // Settings that ship as initializationOptions can only be re-read by
+  // restarting the server. Watch the `dimfort.*` namespace and reload
+  // transparently when any of them change — the user gets immediate
+  // feedback instead of having to run "Restart Language Server".
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(async (event) => {
+      if (!event.affectsConfiguration("dimfort")) return;
+      try {
+        await rebuildClient();
+      } catch (err) {
+        vscode.window.showErrorMessage(`DimFort: reload after settings change failed — ${err}`);
       }
     }),
   );
