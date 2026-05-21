@@ -2,7 +2,7 @@
   "name": "dimfort-vscode",
   "displayName": "DimFort",
   "description": "Dimensional homogeneity checker for Fortran (LSP client).",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "arrialvictor",
   "license": "MIT",
   "icon": "icon.png",
@@ -114,7 +114,28 @@
         "dimfort.trace.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "When hovering inside an assignment, show the full unit-trace tree (every rule fire: R3.1, R5.1, …) that produced the RHS unit, instead of the compact hover. Off by default — informative for debugging wrapper-arithmetic diagnostics (D1.2 / D1.3 / D1.6) but makes hovers taller. Toggle with the `DimFort: Toggle Full Unit Trace in Hover` command."
+          "description": "Legacy master switch: when on, upgrades all three `dimfort.hover.*` surfaces still set to `short` to `detailed`. Prefer the per-surface settings below. Toggle with the `DimFort: Toggle Full Unit Trace in Hover` command."
+        },
+        "dimfort.hover.functionCalls": {
+          "type": "string",
+          "enum": ["short", "detailed"],
+          "enumItemLabels": ["Short", "Detailed"],
+          "default": "short",
+          "description": "Hover layout when the cursor is on a function call's callee identifier. `short`: one row per arg pairing formal vs. actual unit. `detailed`: the same plus a sub-tree underneath any computed argument showing how its unit was derived."
+        },
+        "dimfort.hover.subroutineCalls": {
+          "type": "string",
+          "enum": ["short", "detailed"],
+          "enumItemLabels": ["Short", "Detailed"],
+          "default": "short",
+          "description": "Hover layout when the cursor is on a subroutine call's callee identifier. Same options as `dimfort.hover.functionCalls`."
+        },
+        "dimfort.hover.expressions": {
+          "type": "string",
+          "enum": ["short", "detailed"],
+          "enumItemLabels": ["Short", "Detailed"],
+          "default": "short",
+          "description": "Hover layout when the cursor is inside an expression — assignment LHS/RHS, call argument, IF/ELSEIF/WHERE condition, DO loop bound, or SELECT CASE selector. `short`: the bare `name : unit` hover. `detailed`: the full unit-algebra rule-chain tree."
         },
         "dimfort.maxWorksetSize": {
           "type": "integer",
