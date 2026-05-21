@@ -141,7 +141,7 @@
           "type": "integer",
           "default": 40,
           "minimum": 1,
-          "description": "Maximum number of files included in a single check pipeline. On large workspaces (e.g. LMDZ: 2435 files) the full transitive use-closure can be too deep to compile in memory; when it exceeds this cap, DimFort keeps the active file plus its nearest dependencies in topo order. Restart the language server to apply."
+          "description": "Maximum number of files included in a single check pipeline. On large workspaces (~2000+ files) the full transitive use-closure can be too deep to compile in memory; when it exceeds this cap, DimFort keeps the active file plus its nearest dependencies in topo order. Restart the language server to apply."
         },
         "dimfort.externalModules": {
           "type": "array",
