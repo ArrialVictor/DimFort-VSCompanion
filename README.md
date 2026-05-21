@@ -56,17 +56,32 @@ Open any `.f90` file — DimFort lights up. Settings → search
 
 ## Features beyond plain diagnostics
 
-- **Hover** shows each variable's annotated unit; on call
-  expressions (user-defined or Fortran intrinsics like `log`,
-  `exp`, `sqrt`, `sum`) it shows the call's resolved unit.
-- **`DimFort: Toggle Full Unit Trace in Hover`** — opt-in. When
-  on, hovers inside an assignment statement replace the compact
-  view with an ASCII tree of the RHS expression, every node
-  carrying its resolved unit and the unit-algebra rule that
-  produced it (`R3.1`, `R5.6`, …). Header reads
-  `🟢 / 🔴 / 🟡 DimFort` for OK / mismatch / unresolved. Useful
-  for understanding wrapper-arithmetic diagnostics
-  (D1.2 / D1.3 / D1.6).
+- **Per-surface hover** — three independent settings under
+  **DimFort: Hover** let you pick the level of detail per surface:
+  - **Function calls** / **Subroutine calls** — `Short`: a
+    formal-vs-actual pairing (one row per arg, 🟢/🟡/🔴 marker
+    showing whether the actual unit matches the formal contract).
+    `Detailed`: same plus a sub-tree under any computed actual
+    showing how its unit was derived.
+  - **Expressions** — `Short`: one-line homogeneity check on
+    assignments and relational expressions, bare `name : unit`
+    hover on identifiers, resolved unit on computed sub-expressions.
+    `Detailed`: the full unit-algebra tree (every node tagged with
+    its resolved unit, rule ID — `R3.1`, `R5.6`, …, and a per-row
+    🟢/🟡/🔴 marker that pinpoints where a violation fires or a
+    leaf is unannotated).
+  Header marker aggregates the worst row: 🔴 mismatch, 🟡 partial,
+  🟢 clean. The full layout spec lives in [DimFort's hover-ui.md](https://github.com/ArrialVictor/DimFort/blob/main/docs/hover-ui.md).
+
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-call-short_dark.png">
+    <img width="640" src="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-call-short_light.png" alt="Short call hover — formal-vs-actual pairing">
+  </picture>
+
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-expression-detailed-violation_dark.png">
+    <img width="640" src="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-expression-detailed-violation_light.png" alt="Detailed expression hover — homogeneity violation propagating up the tree">
+  </picture>
 - **`Extract literal to a named PARAMETER` quick-fix** on H010
   D1.5 warnings (the `1. + speed` regularisation pattern). Press
   `Cmd+.` on the yellow squiggle, type a name in the input box,
@@ -95,6 +110,10 @@ Settings (under **DimFort** in the Settings UI):
   `dimfort.codeLens.enabled`, `dimfort.trace.enabled` — per-feature
   toggles. The palette also exposes them as `DimFort: Toggle …`
   commands.
+- `dimfort.hover.functionCalls`, `dimfort.hover.subroutineCalls`,
+  `dimfort.hover.expressions` — `Short` or `Detailed` per surface
+  (see Features above). The server reloads automatically when any
+  `dimfort.*` setting changes; no manual restart needed.
 - `dimfort.maxWorksetSize` — cap on the number of files in a single
   check pipeline (default 40). Restart the language server after
   changing.
