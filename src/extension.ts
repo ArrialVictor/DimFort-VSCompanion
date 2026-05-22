@@ -24,19 +24,28 @@ function buildClient(): LanguageClient {
     args: ["lsp"],
   };
 
-  const initializationOptions = {
+  // Defaults here must match the package.json contributions defaults
+  // — they only kick in if the setting is completely absent, but
+  // keeping them aligned avoids drift surprises when contributions
+  // change.
+  const cacheDir = config.get<string>("cache.dir", "");
+  const initializationOptions: Record<string, unknown> = {
     inlayHintsEnabled: config.get<boolean>("inlayHints.enabled", true),
     completionEnabled: config.get<boolean>("completion.enabled", true),
     codeActionsEnabled: config.get<boolean>("codeActions.enabled", true),
     gotoDefinitionEnabled: config.get<boolean>("gotoDefinition.enabled", true),
-    codeLensEnabled: config.get<boolean>("codeLens.enabled", true),
+    codeLensEnabled: config.get<boolean>("codeLens.enabled", false),
     traceHoverEnabled: config.get<boolean>("trace.enabled", false),
     hoverFunctionCalls: config.get<string>("hover.functionCalls", "short"),
     hoverSubroutineCalls: config.get<string>("hover.subroutineCalls", "short"),
     hoverExpressions: config.get<string>("hover.expressions", "short"),
     maxWorksetSize: config.get<number>("maxWorksetSize", 40),
     externalModules: config.get<string[]>("externalModules", []),
+    cacheMode: config.get<string>("cache.mode", "off"),
   };
+  if (cacheDir) {
+    initializationOptions.cacheDir = cacheDir;
+  }
 
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
@@ -213,6 +222,28 @@ export function activate(context: vscode.ExtensionContext): void {
   registerToggle("dimfort.toggleGotoDefinition", "gotoDefinition.enabled", "go-to-definition");
   registerToggle("dimfort.toggleCodeLens",       "codeLens.enabled",       "code lens");
   registerToggle("dimfort.toggleTrace",          "trace.enabled",          "full unit trace");
+
+  // Cache toggle is enum-valued (off / read-only / read-write), not a
+  // boolean, so it needs its own command rather than reusing
+  // registerToggle. The palette toggle flips between off and
+  // read-write — the most useful binary distinction — while
+  // read-only is reachable through the settings UI for the rare
+  // case where a user wants to consult the cache without populating it.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.toggleCache", async () => {
+      const cfg = vscode.workspace.getConfiguration("dimfort");
+      const current = cfg.get<string>("cache.mode", "off");
+      const next = current === "off" ? "read-write" : "off";
+      await cfg.update("cache.mode", next, vscode.ConfigurationTarget.Global);
+      try {
+        await rebuildClient();
+      } catch (err) {
+        vscode.window.showErrorMessage(`DimFort: restart failed — ${err}`);
+        return;
+      }
+      vscode.window.setStatusBarMessage(`DimFort: cache ${next}`, 2000);
+    }),
+  );
 }
 
 export function deactivate(): Thenable<void> | undefined {

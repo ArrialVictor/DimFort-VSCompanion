@@ -2,7 +2,7 @@
   "name": "dimfort-vscode",
   "displayName": "DimFort",
   "description": "Dimensional homogeneity checker for Fortran (LSP client).",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "arrialvictor",
   "license": "MIT",
   "icon": "icon.png",
@@ -65,6 +65,11 @@
       {
         "command": "dimfort.checkWorkspace",
         "title": "Check Whole Workspace",
+        "category": "DimFort"
+      },
+      {
+        "command": "dimfort.toggleCache",
+        "title": "Toggle Content-Hash Cache",
         "category": "DimFort"
       }
     ],
@@ -150,6 +155,26 @@
           },
           "default": [],
           "description": "Extra module names treated as external (i.e. not resolved against the workspace; no U007 diagnostic when missing). Extends DimFort's built-in allowlist (Fortran intrinsics, mpi, netcdf, ioipsl, …). Restart the language server to apply."
+        },
+        "dimfort.cache.mode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "read-only",
+            "read-write"
+          ],
+          "enumItemLabels": [
+            "Off",
+            "Read-only",
+            "Read-write"
+          ],
+          "default": "off",
+          "description": "Content-hash cache for the workspace check. `off`: no caching (default). `read-only`: replay cached diagnostics but never write. `read-write`: replay and update the cache. On large workspaces (~2000 files), a warm cache drops total check time substantially (LMDZ-scale: ~33 s cold → ~20 s warm). See [DimFort's cache docs](https://github.com/ArrialVictor/DimFort/blob/main/docs/usage.md#content-hash-cache) for invalidation triggers."
+        },
+        "dimfort.cache.dir": {
+          "type": "string",
+          "default": "",
+          "description": "Optional override for the cache directory. Empty (default) means `.dimfort-cache/` under the first workspace folder."
         }
       }
     },
