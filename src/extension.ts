@@ -36,7 +36,6 @@ function buildClient(): LanguageClient {
     completionEnabled: config.get<boolean>("completion.enabled", true),
     codeActionsEnabled: config.get<boolean>("codeActions.enabled", true),
     gotoDefinitionEnabled: config.get<boolean>("gotoDefinition.enabled", true),
-    codeLensEnabled: config.get<boolean>("codeLens.enabled", false),
     traceHoverEnabled: config.get<boolean>("trace.enabled", true),
     hoverFunctionCalls: config.get<string>("hover.functionCalls", "short"),
     hoverSubroutineCalls: config.get<string>("hover.subroutineCalls", "short"),
@@ -260,7 +259,6 @@ export function activate(context: vscode.ExtensionContext): void {
   registerToggle("dimfort.toggleCompletion",     "completion.enabled",     "unit completion");
   registerToggle("dimfort.toggleCodeActions",    "codeActions.enabled",    "code actions");
   registerToggle("dimfort.toggleGotoDefinition", "gotoDefinition.enabled", "go-to-definition");
-  registerToggle("dimfort.toggleCodeLens",       "codeLens.enabled",       "code lens");
   registerToggle("dimfort.toggleTrace",          "trace.enabled",          "full unit trace");
 
   // Cache toggle is enum-valued (off / read-only / read-write), not a

@@ -53,11 +53,6 @@
         "category": "DimFort"
       },
       {
-        "command": "dimfort.toggleCodeLens",
-        "title": "Toggle Code Lens",
-        "category": "DimFort"
-      },
-      {
         "command": "dimfort.toggleTrace",
         "title": "Toggle Full Unit Trace in Hover",
         "category": "DimFort"
@@ -133,11 +128,6 @@
           "type": "boolean",
           "default": true,
           "description": "Enable Go to Definition on variables and function/subroutine calls."
-        },
-        "dimfort.codeLens.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show a CodeLens above each function/subroutine definition with its inferred signature. Off by default — can be visually busy on dense files; turn on with the `DimFort: Toggle Code Lens` command."
         },
         "dimfort.trace.enabled": {
           "type": "boolean",
