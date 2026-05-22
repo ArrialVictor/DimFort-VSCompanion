@@ -132,6 +132,31 @@ Settings (under **DimFort** in the Settings UI):
 - `dimfort.cache.dir` — optional override for the cache
   directory. Empty (default) means `.dimfort-cache/` under the
   first workspace folder.
+- `dimfort.panel.enabled` — reveal the side panel on activation
+  (default `true`). `dimfort.panel.debounceMs` tunes its
+  cursor-follow refresh.
+
+> **Default stance**: inlay hints default **off** (redundant beside
+> the panel/hover), detailed hover defaults **on**, and the cache
+> defaults to **read-write**. Adjust any of these in Settings.
+
+## Side panel
+
+The **DimFort** activity-bar icon opens a cursor-following side panel
+with two sections:
+
+- **Expression** — the unit-algebra tree for the expression under the
+  cursor: each node with its resolved unit, the rule that produced it,
+  and a 🟢 / 🟡 / 🔴 marker. The same content as the detailed hover, but
+  it stays put while you edit — handy for debugging a mismatch or
+  walking through code with someone.
+- **Scope** — the declarations of every enclosing scope, stacked
+  outermost-first and indented by nesting (a module's declarations,
+  then a contained subroutine's locals). Each variable is marked 🟢
+  (annotated) or 🟡 (unannotated), so annotation gaps stand out.
+
+Revealed on activation by default (`dimfort.panel.enabled`); the
+`DimFort: Show Side Panel` command brings it back if you've closed it.
 
 ## Develop locally
 

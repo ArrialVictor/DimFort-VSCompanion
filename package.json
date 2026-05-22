@@ -2,7 +2,7 @@
   "name": "dimfort-vscode",
   "displayName": "DimFort",
   "description": "Dimensional homogeneity checker for Fortran (LSP client).",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "arrialvictor",
   "license": "MIT",
   "icon": "icon.png",
@@ -71,8 +71,31 @@
         "command": "dimfort.toggleCache",
         "title": "Toggle Content-Hash Cache",
         "category": "DimFort"
+      },
+      {
+        "command": "dimfort.togglePanel",
+        "title": "Show Side Panel",
+        "category": "DimFort"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dimfort",
+          "title": "DimFort",
+          "icon": "icon.png"
+        }
+      ]
+    },
+    "views": {
+      "dimfort": [
+        {
+          "id": "dimfort.panel",
+          "name": "Units",
+          "type": "webview"
+        }
+      ]
+    },
     "configuration": {
       "title": "DimFort",
       "properties": {
@@ -93,8 +116,8 @@
         },
         "dimfort.inlayHints.enabled": {
           "type": "boolean",
-          "default": true,
-          "description": "Show inline ghost-text units next to each variable reference."
+          "default": false,
+          "description": "Show inline ghost-text units next to each variable reference. Off by default — redundant beside the DimFort side panel and detailed hover."
         },
         "dimfort.completion.enabled": {
           "type": "boolean",
@@ -118,8 +141,8 @@
         },
         "dimfort.trace.enabled": {
           "type": "boolean",
-          "default": false,
-          "description": "Legacy master switch: when on, upgrades all three `dimfort.hover.*` surfaces still set to `short` to `detailed`. Prefer the per-surface settings below. Toggle with the `DimFort: Toggle Full Unit Trace in Hover` command."
+          "default": true,
+          "description": "Master switch: when on (the default), upgrades all three `dimfort.hover.*` surfaces still set to `short` to `detailed`. Set to false (and leave the per-surface settings at `short`) for compact hovers. Toggle with the `DimFort: Toggle Full Unit Trace in Hover` command."
         },
         "dimfort.hover.functionCalls": {
           "type": "string",
@@ -168,13 +191,24 @@
             "Read-only",
             "Read-write"
           ],
-          "default": "off",
-          "description": "Content-hash cache for the workspace check. `off`: no caching (default). `read-only`: replay cached diagnostics but never write. `read-write`: replay and update the cache. On large workspaces (~2000 files), a warm cache drops total check time substantially (LMDZ-scale: ~33 s cold → ~20 s warm). See [DimFort's cache docs](https://github.com/ArrialVictor/DimFort/blob/main/docs/usage.md#content-hash-cache) for invalidation triggers."
+          "default": "read-write",
+          "description": "Content-hash cache for the workspace check. `read-write` (default): replay and update the cache. `read-only`: replay cached diagnostics but never write. `off`: no caching. On large workspaces (~2000 files), a warm cache drops total check time substantially (LMDZ-scale: ~33 s cold → ~20 s warm). See [DimFort's cache docs](https://github.com/ArrialVictor/DimFort/blob/main/docs/usage.md#content-hash-cache) for invalidation triggers."
         },
         "dimfort.cache.dir": {
           "type": "string",
           "default": "",
           "description": "Optional override for the cache directory. Empty (default) means `.dimfort-cache/` under the first workspace folder."
+        },
+        "dimfort.panel.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reveal the DimFort side panel (unit-algebra tree + scope declarations) on activation. The panel follows the cursor. Turn off to keep it hidden until you open it from the DimFort activity-bar icon."
+        },
+        "dimfort.panel.debounceMs": {
+          "type": "integer",
+          "default": 200,
+          "minimum": 0,
+          "description": "Debounce (milliseconds) for the side panel's cursor-follow refresh."
         }
       }
     },

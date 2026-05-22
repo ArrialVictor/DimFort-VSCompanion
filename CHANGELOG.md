@@ -10,6 +10,29 @@ commands, packaging).
 
 ## [Unreleased]
 
+## [0.1.4] — 2026-05-22
+
+### Added
+
+- **Side panel** — a webview view in a new DimFort activity-bar
+  container, fed by the `dimfort/panelInfo` LSP request and following
+  the cursor (debounced). Two sections:
+  - **Expression** — the unit-algebra tree for the expression under the
+    cursor, units and 🟢/🟡/🔴 markers aligned in columns.
+  - **Scope** — the declarations of every enclosing scope (subroutine /
+    function / module / program), stacked outermost-first and indented
+    by nesting, each variable marked 🟢 (annotated) / 🟡 (unannotated).
+  - `dimfort.panel.enabled` (default `true`) reveals it on activation;
+    `dimfort.panel.debounceMs` tunes the cursor-follow refresh.
+  - `DimFort: Show Side Panel` command focuses it.
+
+### Changed
+
+- **Default UX stance** matches the other companions: inlay hints
+  default **off** (redundant beside the panel/hover), detailed hover
+  (`dimfort.trace.enabled`) defaults **on**, and the content-hash
+  cache (`dimfort.cache.mode`) defaults to **read-write**.
+
 ## [0.1.3] — 2026-05-22
 
 ### Added

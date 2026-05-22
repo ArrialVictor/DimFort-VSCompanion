@@ -4,8 +4,10 @@ import {
   LanguageClientOptions,
   ServerOptions,
 } from "vscode-languageclient/node";
+import { DimFortPanelProvider } from "./panel";
 
 let client: LanguageClient | undefined;
+let panelProvider: DimFortPanelProvider | undefined;
 
 // Build a fresh LanguageClient from the current VSCode settings. Called
 // at activation and every time a toggle command flips a setting — never
@@ -30,18 +32,18 @@ function buildClient(): LanguageClient {
   // change.
   const cacheDir = config.get<string>("cache.dir", "");
   const initializationOptions: Record<string, unknown> = {
-    inlayHintsEnabled: config.get<boolean>("inlayHints.enabled", true),
+    inlayHintsEnabled: config.get<boolean>("inlayHints.enabled", false),
     completionEnabled: config.get<boolean>("completion.enabled", true),
     codeActionsEnabled: config.get<boolean>("codeActions.enabled", true),
     gotoDefinitionEnabled: config.get<boolean>("gotoDefinition.enabled", true),
     codeLensEnabled: config.get<boolean>("codeLens.enabled", false),
-    traceHoverEnabled: config.get<boolean>("trace.enabled", false),
+    traceHoverEnabled: config.get<boolean>("trace.enabled", true),
     hoverFunctionCalls: config.get<string>("hover.functionCalls", "short"),
     hoverSubroutineCalls: config.get<string>("hover.subroutineCalls", "short"),
     hoverExpressions: config.get<string>("hover.expressions", "short"),
     maxWorksetSize: config.get<number>("maxWorksetSize", 40),
     externalModules: config.get<string[]>("externalModules", []),
-    cacheMode: config.get<string>("cache.mode", "off"),
+    cacheMode: config.get<string>("cache.mode", "read-write"),
   };
   if (cacheDir) {
     initializationOptions.cacheDir = cacheDir;
@@ -78,6 +80,7 @@ async function rebuildClient(): Promise<void> {
     }
   }
   client = buildClient();
+  panelProvider?.setClient(client);
   await client.start();
 }
 
@@ -89,6 +92,43 @@ export function activate(context: vscode.ExtensionContext): void {
       void client?.stop();
     },
   });
+
+  // Side panel — a webview view fed by the dimfort/panelInfo request.
+  panelProvider = new DimFortPanelProvider(context.extensionUri);
+  panelProvider.setClient(client);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      DimFortPanelProvider.viewType,
+      panelProvider,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
+  // Cursor-follow: refresh the panel (debounced) as the selection moves
+  // or the active editor changes.
+  const debounceMs = vscode.workspace
+    .getConfiguration("dimfort")
+    .get<number>("panel.debounceMs", 200);
+  context.subscriptions.push(
+    vscode.window.onDidChangeTextEditorSelection(() =>
+      panelProvider?.scheduleUpdate(debounceMs),
+    ),
+    vscode.window.onDidChangeActiveTextEditor(() =>
+      panelProvider?.scheduleUpdate(0),
+    ),
+  );
+  // Toggle / focus command.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.togglePanel", () => {
+      void vscode.commands.executeCommand("dimfort.panel.focus");
+    }),
+  );
+  // Panel on by default: reveal the DimFort view container on activation
+  // unless the user opted out. Honour panel.enabled.
+  if (
+    vscode.workspace.getConfiguration("dimfort").get<boolean>("panel.enabled", true)
+  ) {
+    void vscode.commands.executeCommand("dimfort.panel.focus");
+  }
 
   // Hand-rolled restart command: faster than "Developer: Reload Window"
   // when you've just edited the Python server source. Goes through
