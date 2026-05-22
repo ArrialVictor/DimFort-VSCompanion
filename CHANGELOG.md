@@ -10,16 +10,43 @@ commands, packaging).
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-05-22
+
 ### Added
 
+- **`dimfort.cache.mode` setting** — content-hash cache mode for
+  the workspace check: `off` (default), `read-only`, or
+  `read-write`. With `read-write`, every file's check phase is
+  cached; warm re-runs replay cached diagnostics for unchanged
+  files. LMDZ-scale: ~33 s cold → ~20 s warm. Settings UI exposes
+  it under **DimFort: Cache: Mode**. Full invalidation triggers
+  documented at
+  [DimFort/docs/usage.md#content-hash-cache](https://github.com/ArrialVictor/DimFort/blob/main/docs/usage.md#content-hash-cache).
+- **`dimfort.cache.dir` setting** — optional override for the
+  cache directory. Empty (default) means `.dimfort-cache/` under
+  the first workspace folder.
+- **`DimFort: Toggle Content-Hash Cache` command** — palette
+  command that flips `cache.mode` between `off` and `read-write`
+  and rebuilds the language client.
+
+- **Per-surface hover settings** (`dimfort.hover.functionCalls`,
+  `dimfort.hover.subroutineCalls`, `dimfort.hover.expressions`)
+  — three independent `Short` / `Detailed` toggles. Call hovers
+  render a formal-vs-actual pairing per arg with `🟢 / 🟡 / 🔴`
+  markers; expression hovers render either a one-line homogeneity
+  check (Short) or the full unit-algebra tree (Detailed). The
+  legacy `dimfort.trace.enabled` still works as a master upgrade
+  switch from Short → Detailed.
+- **Live settings reload** — any change under the `dimfort.*`
+  namespace rebuilds the language client transparently. No
+  manual "Restart Language Server" needed.
+
 - **`dimfort.trace.enabled` setting** (default `false`) — turn on
-  the LSP server's full-unit-trace hover mode. When on, hovering
-  inside an assignment renders an ASCII tree of the RHS with
-  per-node units and unit-algebra rule IDs (`R3.1`, `R5.6`, …).
-  The header carries a status marker (`🟢 / 🔴 / 🟡 DimFort`).
-- **`DimFort: Toggle Full Unit Trace in Hover` command** — flips
-  the setting and rebuilds the language client so the new value
-  reaches the server. Visible from the Command Palette.
+  the LSP server's full-unit-trace hover mode. Hovering inside an
+  assignment renders an ASCII tree of the RHS with per-node units
+  and unit-algebra rule IDs (`R3.1`, `R5.6`, …). Header carries a
+  status marker (`🟢 / 🔴 / 🟡 DimFort`). Available as the
+  `DimFort: Toggle Full Unit Trace in Hover` palette command.
 - **`dimfort.extractToParameter` command** — handles the H010
   D1.5 (implicit literal cast) quick-fix. Prompts via
   `showInputBox` for the parameter name, validates against the
@@ -27,6 +54,14 @@ commands, packaging).
   (insert typed `REAL, PARAMETER :: <name> = <literal> !<
   @unit{<unit>}` declaration at the end of the enclosing
   routine's decl block, plus replace the literal at the use site).
+
+### Fixed
+
+- **`codeLensEnabled` default mismatch.** The setting was declared
+  with default `false` in `package.json` but defaulted to `true`
+  in `extension.ts` if absent. Harmless in practice (VSCode
+  always returns the declared default), but the two are now
+  aligned at `false`.
 
 ### Tooling
 

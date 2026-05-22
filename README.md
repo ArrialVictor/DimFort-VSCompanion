@@ -120,6 +120,18 @@ Settings (under **DimFort** in the Settings UI):
 - `dimfort.externalModules` — extra module names treated as
   external (no `U007` diagnostic when they're missing from the
   workspace). Extends the built-in allowlist.
+- `dimfort.cache.mode` — content-hash cache for the workspace
+  check: `off` (default), `read-only`, or `read-write`. With
+  `read-write`, warm re-runs replay cached diagnostics for files
+  whose source, includes, and dependencies haven't changed
+  (LMDZ-scale: ~33 s cold → ~20 s warm). Palette command
+  `DimFort: Toggle Content-Hash Cache` flips between `off` and
+  `read-write`. Invalidation triggers and the design are
+  documented in
+  [DimFort/docs/usage.md#content-hash-cache](https://github.com/ArrialVictor/DimFort/blob/main/docs/usage.md#content-hash-cache).
+- `dimfort.cache.dir` — optional override for the cache
+  directory. Empty (default) means `.dimfort-cache/` under the
+  first workspace folder.
 
 ## Develop locally
 
