@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <!-- Activity-bar icon source: [m²] — square brackets (the
+       "dimension of" operator) framing a base unit, echoing the
+       logo's [m·s⁻²]. Brackets sit flush to the canvas edges to leave
+       the middle for the glyph. Shipped as a rasterised transparent
+       PNG (media/dimfort-activity.png) so VSCode alpha-masks a
+       known-good shape; this SVG is the editable source. -->
+  <path fill="#000000" d="M0 3 H5 V5 H2 V19 H5 V21 H0 Z"/>
+  <path fill="#000000" d="M24 3 H19 V5 H22 V19 H19 V21 H24 Z"/>
+  <text x="12" y="17.5" text-anchor="middle" font-size="14"
+        font-family="Helvetica,Arial,sans-serif" font-weight="700"
+        fill="#000000">m<tspan font-size="9" dy="-5">2</tspan></text>
+</svg>

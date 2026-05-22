@@ -14,7 +14,7 @@ interface ScopeVar {
   name: string;
   unit: string | null;
   line: number;
-  kind: "annotated" | "unannotated";
+  kind: "annotated" | "unannotated" | "error";
 }
 interface ScopeSection {
   name: string;
@@ -213,7 +213,8 @@ function renderScope(sc, depth) {
   const table = document.createElement("table");
   for (const v of vars) {
     const tr = document.createElement("tr");
-    const mark = v.kind === "unannotated" ? "🟡" : "🟢";
+    const mark =
+      v.kind === "unannotated" ? "🟡" : v.kind === "error" ? "🔴" : "🟢";
     const cells = [
       ["line", String(v.line)],
       ["name", v.name],

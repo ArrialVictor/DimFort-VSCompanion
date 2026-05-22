@@ -10,6 +10,23 @@ commands, packaging).
 
 ## [Unreleased]
 
+## [0.1.5] — 2026-05-22
+
+### Changed
+
+- **Activity-bar icon** — a purpose-built `[m²]` glyph
+  (`media/dimfort-activity.png`): square brackets — the "dimension of"
+  operator — framing a base unit, echoing the logo's `[m·s⁻²]`. Masks
+  and tints cleanly in light and dark themes, replacing the washed-out
+  full-colour logo.
+- **Scope panel** — a third marker, 🔴, for a variable whose `@unit{}`
+  annotation is present but fails to parse, distinct from 🟢 (valid)
+  and 🟡 (no annotation).
+- **`dimfort.panel.enabled` now defaults to `false`** — the side panel
+  no longer opens automatically on activation; open it from the
+  activity-bar icon when you want it. Set the option to `true` to
+  restore auto-reveal.
+
 ## [0.1.4] — 2026-05-22
 
 ### Added
