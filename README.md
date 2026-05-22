@@ -91,8 +91,6 @@ Open any `.f90` file — DimFort lights up. Settings → search
 - **Inlay hints** show ghost-text units inline next to each
   variable reference (toggle with `DimFort: Toggle Inlay Hints`).
 - **Go-to-definition** on variables and procedure calls.
-- **Code lens** above each function/subroutine header with its
-  inferred signature (opt-in; off by default).
 - **Completion** inside `@unit{}` annotations, sourced from the
   active unit table.
 
@@ -107,9 +105,8 @@ Settings (under **DimFort** in the Settings UI):
   in **Output → DimFort**. Useful for debugging.
 - `dimfort.inlayHints.enabled`, `dimfort.completion.enabled`,
   `dimfort.codeActions.enabled`, `dimfort.gotoDefinition.enabled`,
-  `dimfort.codeLens.enabled`, `dimfort.trace.enabled` — per-feature
-  toggles. The palette also exposes them as `DimFort: Toggle …`
-  commands.
+  `dimfort.trace.enabled` — per-feature toggles. The palette also
+  exposes them as `DimFort: Toggle …` commands.
 - `dimfort.hover.functionCalls`, `dimfort.hover.subroutineCalls`,
   `dimfort.hover.expressions` — `Short` or `Detailed` per surface
   (see Features above). The server reloads automatically when any

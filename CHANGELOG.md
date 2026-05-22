@@ -22,6 +22,9 @@ commands, packaging).
 - **Scope panel** — a third marker, 🔴, for a variable whose `@unit{}`
   annotation is present but fails to parse, distinct from 🟢 (valid)
   and 🟡 (no annotation).
+- **Code lens removed** — the feature carried no real value; the
+  `dimfort.codeLens.enabled` setting and the `DimFort: Toggle Code Lens`
+  command are gone.
 - **`dimfort.panel.enabled` now defaults to `false`** — the side panel
   no longer opens automatically on activation; open it from the
   activity-bar icon when you want it. Set the option to `true` to
