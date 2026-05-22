@@ -2,7 +2,7 @@
   "name": "dimfort-vscode",
   "displayName": "DimFort",
   "description": "Dimensional homogeneity checker for Fortran (LSP client).",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "arrialvictor",
   "license": "MIT",
   "icon": "icon.png",
@@ -83,7 +83,7 @@
         {
           "id": "dimfort",
           "title": "DimFort",
-          "icon": "media/dimfort-activity.svg"
+          "icon": "media/dimfort-activity.png"
         }
       ]
     },
@@ -201,8 +201,8 @@
         },
         "dimfort.panel.enabled": {
           "type": "boolean",
-          "default": true,
-          "description": "Reveal the DimFort side panel (unit-algebra tree + scope declarations) on activation. The panel follows the cursor. Turn off to keep it hidden until you open it from the DimFort activity-bar icon."
+          "default": false,
+          "description": "Reveal the DimFort side panel (unit-algebra tree + scope declarations) on activation. The panel follows the cursor. Off by default — open it from the DimFort activity-bar icon when you want it; turn this on to have it revealed automatically."
         },
         "dimfort.panel.debounceMs": {
           "type": "integer",

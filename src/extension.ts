@@ -122,10 +122,10 @@ export function activate(context: vscode.ExtensionContext): void {
       void vscode.commands.executeCommand("dimfort.panel.focus");
     }),
   );
-  // Panel on by default: reveal the DimFort view container on activation
-  // unless the user opted out. Honour panel.enabled.
+  // Panel closed by default: only reveal the DimFort view container on
+  // activation when the user has opted in via panel.enabled.
   if (
-    vscode.workspace.getConfiguration("dimfort").get<boolean>("panel.enabled", true)
+    vscode.workspace.getConfiguration("dimfort").get<boolean>("panel.enabled", false)
   ) {
     void vscode.commands.executeCommand("dimfort.panel.focus");
   }
