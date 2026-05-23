@@ -10,6 +10,15 @@ commands, packaging).
 
 ## [Unreleased]
 
+### Changed
+
+- **Hover settings collapsed into one `dimfort.hover`** enum
+  (`disabled` / `short` / `detailed`, default `short`), replacing
+  `dimfort.trace.enabled` and the three `dimfort.hover.*` per-surface
+  settings. `DimFort: Cycle Hover Verbosity` replaces the trace toggle.
+  The side panel is unaffected — always detailed, governed only by
+  whether it is open.
+
 ## [0.1.5] — 2026-05-22
 
 ### Changed

@@ -53,8 +53,8 @@
         "category": "DimFort"
       },
       {
-        "command": "dimfort.toggleTrace",
-        "title": "Toggle Full Unit Trace in Hover",
+        "command": "dimfort.cycleHover",
+        "title": "Cycle Hover Verbosity (Disabled / Short / Detailed)",
         "category": "DimFort"
       },
       {
@@ -129,31 +129,17 @@
           "default": true,
           "description": "Enable Go to Definition on variables and function/subroutine calls."
         },
-        "dimfort.trace.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Master switch: when on (the default), upgrades all three `dimfort.hover.*` surfaces still set to `short` to `detailed`. Set to false (and leave the per-surface settings at `short`) for compact hovers. Toggle with the `DimFort: Toggle Full Unit Trace in Hover` command."
-        },
-        "dimfort.hover.functionCalls": {
+        "dimfort.hover": {
           "type": "string",
-          "enum": ["short", "detailed"],
-          "enumItemLabels": ["Short", "Detailed"],
+          "enum": ["disabled", "short", "detailed"],
+          "enumItemLabels": ["Disabled", "Short", "Detailed"],
           "default": "short",
-          "description": "Hover layout when the cursor is on a function call's callee identifier. `short`: one row per arg pairing formal vs. actual unit. `detailed`: the same plus a sub-tree underneath any computed argument showing how its unit was derived."
-        },
-        "dimfort.hover.subroutineCalls": {
-          "type": "string",
-          "enum": ["short", "detailed"],
-          "enumItemLabels": ["Short", "Detailed"],
-          "default": "short",
-          "description": "Hover layout when the cursor is on a subroutine call's callee identifier. Same options as `dimfort.hover.functionCalls`."
-        },
-        "dimfort.hover.expressions": {
-          "type": "string",
-          "enum": ["short", "detailed"],
-          "enumItemLabels": ["Short", "Detailed"],
-          "default": "short",
-          "description": "Hover layout when the cursor is inside an expression — assignment LHS/RHS, call argument, IF/ELSEIF/WHERE condition, DO loop bound, or SELECT CASE selector. `short`: the bare `name : unit` hover. `detailed`: the full unit-algebra rule-chain tree."
+          "enumDescriptions": [
+            "No hover at all — the side panel is the unit surface.",
+            "One-line `name : unit` summary.",
+            "Full unit-algebra rule-chain tree."
+          ],
+          "description": "Hover verbosity, applied to every hover surface. The side panel is unaffected — it is always detailed and governed only by whether it is open. Cycle with the `DimFort: Cycle Hover Verbosity` command."
         },
         "dimfort.maxWorksetSize": {
           "type": "integer",

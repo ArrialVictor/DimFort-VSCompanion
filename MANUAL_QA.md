@@ -56,8 +56,9 @@ sections below. Commands below are run from the Command Palette
 - [ ] In Settings (search "dimfort"), confirm the defaults:
       `inlayHints.enabled` off, `completion.enabled` on,
       `codeActions.enabled` on, `gotoDefinition.enabled` on,
-      `trace.enabled` on, `hover.*` = `short`, `cache.mode` = `read-write`.
-      (There is **no** `codeLens` setting — code lens was removed.)
+      `hover` = `short`, `cache.mode` = `read-write`.
+      (There is **no** `codeLens` setting and **no** `trace.enabled` /
+      `hover.*` per-surface settings — those were removed/collapsed.)
 
 ## Diagnostics
 
@@ -82,16 +83,18 @@ line 14, then undo (`Cmd/Ctrl+Z`):
 
 ## Hover
 
-Mouse over the symbol (or `Cmd/Ctrl+K Cmd/Ctrl+I`).
+Hover defaults to **`short`** in VSCode (the panel is closed by default,
+so the hover is the unit surface). Mouse over the symbol (or
+`Cmd/Ctrl+K Cmd/Ctrl+I`).
 
-- [ ] On **`c_sound`** → its unit, `c_sound : m/s`.
-- [ ] On the **call** `dynamic_pressure` (line 21) → the formal-vs-actual
-      pairing per argument (`v : m/s ◂ c_sound : m/s`).
-- [ ] **Trace toggle is observable** — hover the product `c_sound * t`
-      (line 18). With trace **on** (default) the hover breaks it down
-      across lines (each operand with its unit); run **DimFort: Toggle
-      Full Unit Trace in Hover**, hover again → it collapses to the single
-      line `c_sound * t : m`.
+- [ ] **Short (default)** — on **`c_sound`** → `c_sound : m/s`; on the
+      product `c_sound * t` (line 18) → the single line `c_sound * t : m`.
+- [ ] **Detailed** — run **DimFort: Cycle Hover Verbosity** once
+      (`short → detailed`). The same product hover now breaks down across
+      lines (each operand with its unit), and the call `dynamic_pressure`
+      (line 21) shows the formal-vs-actual pairing (`v : m/s ◂ c_sound : m/s`).
+- [ ] **Disabled** — cycle once more (`detailed → disabled`); hovering a
+      symbol shows nothing. Cycle once more to return to `short`.
 
 ## Inlay hints
 
