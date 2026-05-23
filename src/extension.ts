@@ -66,7 +66,19 @@ function buildClient(): LanguageClient {
 // Tear down the active client and replace it with a freshly-configured
 // one. Used by the explicit restart command and by every per-feature
 // toggle so the new VSCode setting reaches the LSP.
-async function rebuildClient(): Promise<void> {
+// Serialise restarts. If two callers race (e.g. a setting change fires
+// the onDidChangeConfiguration listener while a manual restart is still
+// in flight), overlapping stop/start cycles cross their stdio pipes and
+// a half-started server exits mid-handshake ("Server process exited with
+// code 0"). Chaining guarantees one rebuild finishes before the next.
+let rebuildChain: Promise<void> = Promise.resolve();
+
+function rebuildClient(): Promise<void> {
+  rebuildChain = rebuildChain.catch(() => undefined).then(doRebuildClient);
+  return rebuildChain;
+}
+
+async function doRebuildClient(): Promise<void> {
   if (client) {
     try {
       await client.stop();
@@ -238,13 +250,10 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.commands.registerCommand(commandId, async () => {
         const cfg = vscode.workspace.getConfiguration("dimfort");
         const current = cfg.get<boolean>(settingKey, true);
+        // Updating the setting triggers the onDidChangeConfiguration
+        // listener, which rebuilds the client — don't rebuild again here
+        // (that double-restart races and crashes the server).
         await cfg.update(settingKey, !current, vscode.ConfigurationTarget.Global);
-        try {
-          await rebuildClient();
-        } catch (err) {
-          vscode.window.showErrorMessage(`DimFort: restart failed — ${err}`);
-          return;
-        }
         vscode.window.setStatusBarMessage(
           `DimFort: ${label} ${!current ? "on" : "off"}`,
           2000,
@@ -268,13 +277,9 @@ export function activate(context: vscode.ExtensionContext): void {
       const cfg = vscode.workspace.getConfiguration("dimfort");
       const current = cfg.get<string>("cache.mode", "off");
       const next = current === "off" ? "read-write" : "off";
+      // The config-change listener rebuilds the client; don't also do it
+      // here (double restart races and crashes the server).
       await cfg.update("cache.mode", next, vscode.ConfigurationTarget.Global);
-      try {
-        await rebuildClient();
-      } catch (err) {
-        vscode.window.showErrorMessage(`DimFort: restart failed — ${err}`);
-        return;
-      }
       vscode.window.setStatusBarMessage(`DimFort: cache ${next}`, 2000);
     }),
   );
@@ -288,13 +293,9 @@ export function activate(context: vscode.ExtensionContext): void {
       const order = ["disabled", "short", "detailed"];
       const current = cfg.get<string>("hover", "short");
       const next = order[(order.indexOf(current) + 1) % order.length];
+      // The config-change listener rebuilds the client; don't also do it
+      // here (double restart races and crashes the server).
       await cfg.update("hover", next, vscode.ConfigurationTarget.Global);
-      try {
-        await rebuildClient();
-      } catch (err) {
-        vscode.window.showErrorMessage(`DimFort: restart failed — ${err}`);
-        return;
-      }
       vscode.window.setStatusBarMessage(`DimFort: hover ${next}`, 2000);
     }),
   );
