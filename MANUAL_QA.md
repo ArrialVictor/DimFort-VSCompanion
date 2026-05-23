@@ -37,7 +37,7 @@ contains
     d         = c_sound * t            ! OK:   m = (m/s)*s
     bogus     = c_sound * t            ! H001: kg = m  (mismatch)
     t_celsius = t - 273.15             ! H010: bare 273.15 literal
-    ref_pressure = dynamic_pressure(c_sound)
+    ref_pressure = dynamic_pressure(0.5 * c_sound)
   end subroutine checks
 end module qa_mod
 ```
@@ -92,7 +92,9 @@ so the hover is the unit surface). Mouse over the symbol (or
 - [ ] **Detailed** — run **DimFort: Cycle Hover Verbosity** once
       (`short → detailed`). The same product hover now breaks down across
       lines (each operand with its unit), and the call `dynamic_pressure`
-      (line 21) shows the formal-vs-actual pairing (`v : m/s ◂ c_sound : m/s`).
+      (line 21) gains a sub-tree under its computed argument
+      `0.5 * c_sound` (`0.5 : 1`, `c_sound : m/s`) — the difference from
+      Short, which shows only the `v : m/s ◂ 0.5 * c_sound : m/s` pairing.
 - [ ] **Disabled** — cycle once more (`detailed → disabled`); hovering a
       symbol shows nothing. Cycle once more to return to `short`.
 
@@ -141,8 +143,9 @@ below shows the data; column alignment is done in the webview, not ASCII.
 
 - [ ] **Function call with arguments** — cursor on the call name
       `dynamic_pressure` in line 21. Expression shows
-      `dynamic_pressure(c_sound) : kg/(m×s²)` 🟢 with the argument
-      `c_sound : m/s` 🟢 as a child.
+      `dynamic_pressure(0.5 * c_sound) : kg/(m×s²)` 🟢, with the computed
+      argument `0.5 * c_sound : m/s` 🟢 (R4.2) as a child, breaking down
+      into `0.5 : 1` 🟢 and `c_sound : m/s` 🟢.
 
 - [ ] **Stacked scopes** — with the cursor in line 10, the Scope section
       stacks `Module: qa_mod` (c_sound, ref_pressure) over
