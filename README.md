@@ -56,22 +56,26 @@ Open any `.f90` file — DimFort lights up. Settings → search
 
 ## Features beyond plain diagnostics
 
-- **Per-surface hover** — three independent settings under
-  **DimFort: Hover** let you pick the level of detail per surface:
-  - **Function calls** / **Subroutine calls** — `Short`: a
+- **Hover** — one setting, **DimFort: Hover** (`dimfort.hover`),
+  picks the level of detail and applies to every hover surface:
+  `disabled` (no hover — the side panel is the unit surface),
+  `short`, or `detailed`.
+  - On a **call** (function or subroutine) — `Short` is a
     formal-vs-actual pairing (one row per arg, 🟢/🟡/🔴 marker
     showing whether the actual unit matches the formal contract).
-    `Detailed`: same plus a sub-tree under any computed actual
-    showing how its unit was derived.
-  - **Expressions** — `Short`: one-line homogeneity check on
-    assignments and relational expressions, bare `name : unit`
-    hover on identifiers, resolved unit on computed sub-expressions.
-    `Detailed`: the full unit-algebra tree (every node tagged with
-    its resolved unit, rule ID — `R3.1`, `R5.6`, …, and a per-row
-    🟢/🟡/🔴 marker that pinpoints where a violation fires or a
-    leaf is unannotated).
-  Header marker aggregates the worst row: 🔴 mismatch, 🟡 partial,
-  🟢 clean. The full layout spec lives in [DimFort's hover-ui.md](https://github.com/ArrialVictor/DimFort/blob/main/docs/hover-ui.md).
+    `Detailed` adds a sub-tree under any computed actual showing
+    how its unit was derived.
+  - On an **expression** — `Short` is a one-line homogeneity check on
+    assignments and relational expressions, a bare `name : unit`
+    hover on identifiers, and the resolved unit on computed
+    sub-expressions. `Detailed` is the full unit-algebra tree (every
+    node tagged with its resolved unit, rule ID — `R3.1`, `R5.6`, … —
+    and a per-row 🟢/🟡/🔴 marker that pinpoints where a violation
+    fires or a leaf is unannotated).
+  The header marker aggregates the worst row: 🔴 mismatch, 🟡 partial,
+  🟢 clean. Cycle the level with **DimFort: Cycle Hover Verbosity**;
+  the side panel is unaffected (always detailed). The full layout
+  spec lives in [DimFort's hover-ui.md](https://github.com/ArrialVictor/DimFort/blob/main/docs/hover-ui.md).
 
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-call-short_dark.png">
@@ -130,12 +134,16 @@ Settings (under **DimFort** in the Settings UI):
   directory. Empty (default) means `.dimfort-cache/` under the
   first workspace folder.
 - `dimfort.panel.enabled` — reveal the side panel on activation
-  (default `true`). `dimfort.panel.debounceMs` tunes its
-  cursor-follow refresh.
+  (default `false` — open it from the **DimFort** activity-bar icon
+  when you want it; set this `true` to have it revealed
+  automatically). `dimfort.panel.debounceMs` tunes its cursor-follow
+  refresh.
 
-> **Default stance**: inlay hints default **off** (redundant beside
-> the panel/hover), detailed hover defaults **on**, and the cache
-> defaults to **read-write**. Adjust any of these in Settings.
+> **Default stance**: hover defaults to **short** and the side panel
+> is **off** (opened from the activity-bar icon) — one cursor-following
+> unit surface without piling them up. Inlay hints default **off**
+> (redundant beside the panel/hover) and the cache defaults to
+> **read-write**. Adjust any of these in Settings.
 
 ## Side panel
 
@@ -152,8 +160,19 @@ with two sections:
   then a contained subroutine's locals). Each variable is marked 🟢
   (annotated) or 🟡 (unannotated), so annotation gaps stand out.
 
-Revealed on activation by default (`dimfort.panel.enabled`); the
-`DimFort: Show Side Panel` command brings it back if you've closed it.
+Closed by default — click the **DimFort** activity-bar icon (or run
+`DimFort: Show Side Panel`) to open it. Set `dimfort.panel.enabled`
+to `true` to have it revealed automatically on activation.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/panel-vscode-hero_dark.png">
+  <img width="640" src="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/panel-vscode-hero_light.png" alt="DimFort side panel in VSCode — the unit-algebra tree for q = 0.5 * rho * v * v with the stacked module/function scope below">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/panel-vscode-mismatch_dark.png">
+  <img width="640" src="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/panel-vscode-mismatch_light.png" alt="DimFort side panel in VSCode — a kg ≠ m homogeneity violation, the assignment root marked red">
+</picture>
 
 ## Develop locally
 
