@@ -38,7 +38,13 @@ contains
     bogus     = c_sound * t            ! H001: kg = m  (mismatch)
     t_celsius = t - 273.15             ! H010: bare 273.15 literal
     ref_pressure = dynamic_pressure(0.5 * c_sound)
+    call scale_pressure(2.0 * ref_pressure)        ! subroutine call
   end subroutine checks
+
+  subroutine scale_pressure(p)
+    real, intent(in) :: p   !< @unit{Pa}
+    ref_pressure = p
+  end subroutine scale_pressure
 end module qa_mod
 ```
 
@@ -95,6 +101,11 @@ so the hover is the unit surface). Mouse over the symbol (or
       (line 21) gains a sub-tree under its computed argument
       `0.5 * c_sound` (`0.5 : 1`, `c_sound : m/s`) — the difference from
       Short, which shows only the `v : m/s ◂ 0.5 * c_sound : m/s` pairing.
+- [ ] **Subroutine call** — still in `detailed`, hover the call name
+      `scale_pressure` (line 22): same formal-vs-actual layout as a
+      function call, **but no return unit in the header** (subroutines
+      don't return) — `p : Pa ◂ 2.0 * ref_pressure : Pa` with the argument
+      sub-tree beneath.
 - [ ] **Disabled** — cycle once more (`detailed → disabled`); hovering a
       symbol shows nothing. Cycle once more to return to `short`.
 
@@ -146,6 +157,12 @@ below shows the data; column alignment is done in the webview, not ASCII.
       `dynamic_pressure(0.5 * c_sound) : kg/(m×s²)` 🟢, with the computed
       argument `0.5 * c_sound : m/s` 🟢 (R4.2) as a child, breaking down
       into `0.5 : 1` 🟢 and `c_sound : m/s` 🟢.
+
+- [ ] **Subroutine call** — cursor on the call name `scale_pressure` in
+      line 22. A subroutine has no return unit, so the root
+      `call scale_pressure(2.0 * ref_pressure)` carries none (🟡), but the
+      computed argument `2.0 * ref_pressure : kg/(m×s²)` 🟢 (R4.2) still
+      expands beneath it into `2.0 : 1` 🟢 and `ref_pressure : kg/(m×s²)` 🟢.
 
 - [ ] **Stacked scopes** — with the cursor in line 10, the Scope section
       stacks `Module: qa_mod` (c_sound, ref_pressure) over
