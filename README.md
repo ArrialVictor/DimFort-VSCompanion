@@ -104,13 +104,13 @@ Settings (under **DimFort** in the Settings UI):
 - `dimfort.trace.server` — set to `verbose` to see every LSP message
   in **Output → DimFort**. Useful for debugging.
 - `dimfort.inlayHints.enabled`, `dimfort.completion.enabled`,
-  `dimfort.codeActions.enabled`, `dimfort.gotoDefinition.enabled`,
-  `dimfort.trace.enabled` — per-feature toggles. The palette also
-  exposes them as `DimFort: Toggle …` commands.
-- `dimfort.hover.functionCalls`, `dimfort.hover.subroutineCalls`,
-  `dimfort.hover.expressions` — `Short` or `Detailed` per surface
-  (see Features above). The server reloads automatically when any
-  `dimfort.*` setting changes; no manual restart needed.
+  `dimfort.codeActions.enabled`, `dimfort.gotoDefinition.enabled` —
+  per-feature toggles. The palette also exposes them as
+  `DimFort: Toggle …` commands.
+- `dimfort.hover` — hover verbosity: `disabled` / `short` / `detailed`
+  (default `short`). Cycle with `DimFort: Cycle Hover Verbosity`. The
+  side panel is unaffected — it is always detailed. The server reloads
+  automatically when any `dimfort.*` setting changes.
 - `dimfort.maxWorksetSize` — cap on the number of files in a single
   check pipeline (default 40). Restart the language server after
   changing.

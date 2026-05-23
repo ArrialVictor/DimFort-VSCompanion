@@ -36,10 +36,7 @@ function buildClient(): LanguageClient {
     completionEnabled: config.get<boolean>("completion.enabled", true),
     codeActionsEnabled: config.get<boolean>("codeActions.enabled", true),
     gotoDefinitionEnabled: config.get<boolean>("gotoDefinition.enabled", true),
-    traceHoverEnabled: config.get<boolean>("trace.enabled", true),
-    hoverFunctionCalls: config.get<string>("hover.functionCalls", "short"),
-    hoverSubroutineCalls: config.get<string>("hover.subroutineCalls", "short"),
-    hoverExpressions: config.get<string>("hover.expressions", "short"),
+    hover: config.get<string>("hover", "short"),
     maxWorksetSize: config.get<number>("maxWorksetSize", 40),
     externalModules: config.get<string[]>("externalModules", []),
     cacheMode: config.get<string>("cache.mode", "read-write"),
@@ -259,7 +256,6 @@ export function activate(context: vscode.ExtensionContext): void {
   registerToggle("dimfort.toggleCompletion",     "completion.enabled",     "unit completion");
   registerToggle("dimfort.toggleCodeActions",    "codeActions.enabled",    "code actions");
   registerToggle("dimfort.toggleGotoDefinition", "gotoDefinition.enabled", "go-to-definition");
-  registerToggle("dimfort.toggleTrace",          "trace.enabled",          "full unit trace");
 
   // Cache toggle is enum-valued (off / read-only / read-write), not a
   // boolean, so it needs its own command rather than reusing
@@ -280,6 +276,26 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       vscode.window.setStatusBarMessage(`DimFort: cache ${next}`, 2000);
+    }),
+  );
+
+  // Hover verbosity is a tri-state (disabled / short / detailed), so it
+  // also needs its own command rather than registerToggle. Cycles in
+  // that order. The side panel is unaffected — it is always detailed.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.cycleHover", async () => {
+      const cfg = vscode.workspace.getConfiguration("dimfort");
+      const order = ["disabled", "short", "detailed"];
+      const current = cfg.get<string>("hover", "short");
+      const next = order[(order.indexOf(current) + 1) % order.length];
+      await cfg.update("hover", next, vscode.ConfigurationTarget.Global);
+      try {
+        await rebuildClient();
+      } catch (err) {
+        vscode.window.showErrorMessage(`DimFort: restart failed — ${err}`);
+        return;
+      }
+      vscode.window.setStatusBarMessage(`DimFort: hover ${next}`, 2000);
     }),
   );
 }
