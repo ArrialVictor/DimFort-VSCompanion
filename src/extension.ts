@@ -168,6 +168,24 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  // The server reads project config (`.dimfort.toml`: units file,
+  // [diagnostics] severities, [scale] enabled, …) only at initialize, so
+  // edits to it need a server restart to take effect. Watch the file and
+  // rebuild on change/create/delete — same transparent reload the
+  // `dimfort.*` settings get, so users don't have to run Restart manually.
+  const tomlWatcher = vscode.workspace.createFileSystemWatcher("**/.dimfort.toml");
+  const reloadOnToml = async () => {
+    try {
+      await rebuildClient();
+    } catch (err) {
+      vscode.window.showErrorMessage(`DimFort: reload after .dimfort.toml change failed — ${err}`);
+    }
+  };
+  tomlWatcher.onDidChange(reloadOnToml);
+  tomlWatcher.onDidCreate(reloadOnToml);
+  tomlWatcher.onDidDelete(reloadOnToml);
+  context.subscriptions.push(tomlWatcher);
+
   // Snippet inserter used by the "Add @unit{}" code action. Standard
   // LSP TextEdit can't position the cursor inside `{...}`, so the
   // server returns a Command instead and we call insertSnippet here.
