@@ -13,6 +13,7 @@ interface ExpressionNode {
 interface ScopeVar {
   name: string;
   unit: string | null;
+  unitNormalized: string | null;
   line: number;
   kind: "annotated" | "unannotated" | "error";
 }
@@ -215,10 +216,17 @@ function renderScope(sc, depth) {
     const tr = document.createElement("tr");
     const mark =
       v.kind === "unannotated" ? "🟡" : v.kind === "error" ? "🔴" : "🟢";
+    // Show the input unit as written; append the normalized base-SI form
+    // when it differs, so scale factors (hPa = 100×kg/(m·s²)) and derived
+    // expansions (Pa = kg/(m·s²)) are visible instead of hidden.
+    let unitText = v.unit ?? "(none)";
+    if (v.unitNormalized && v.unitNormalized !== v.unit) {
+      unitText = v.unit + " = " + v.unitNormalized;
+    }
     const cells = [
       ["line", String(v.line)],
       ["name", v.name],
-      ["unit", v.unit ?? "(none)"],
+      ["unit", unitText],
       ["mark", mark],
     ];
     for (const [cls, txt] of cells) {
