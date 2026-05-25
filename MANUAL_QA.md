@@ -184,6 +184,13 @@ below shows the data; column alignment is done in the webview, not ASCII.
       scale scene below, `phpa` reads `hPa` ⟶ `100×kg/(m×s²)`; base-SI
       vars (e.g. `play : Pa`) show only the one form.
 
+- [ ] **Diagnostics section** — cursor on line 19 (`bogus = c_sound * t`):
+      a **Diagnostics** section at the top of the panel shows
+      `🔴 H001: ...` (the message for the cursor line), so you needn't
+      hover or open Problems. On a clean line (e.g. 18) the section is
+      **absent** (not an empty header). With the scale scene, line
+      `t_k = t_c` shows `🟡 S002: Offset mismatch …`.
+
 - [ ] **Cursor-follow** — move between line 10 (function) and line 19
       (subroutine); the Scope section switches between `Function:
       dynamic_pressure` and `Subroutine: checks`.
