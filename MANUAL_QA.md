@@ -184,12 +184,30 @@ below shows the data; column alignment is done in the webview, not ASCII.
       scale scene below, `phpa` reads `hPa` ⟶ `100×kg/(m×s²)`; base-SI
       vars (e.g. `play : Pa`) show only the one form.
 
+- [ ] **Section order + folding** — sections are `EXPRESSION →
+      DIAGNOSTICS → ACTIONS → SCOPE`, each a collapsible `▾ HEADER`
+      (uppercase). Click a header to collapse; the collapsed/expanded
+      state **persists** as you move the cursor (and across panel
+      hide/show).
+
 - [ ] **Diagnostics section** — cursor on line 19 (`bogus = c_sound * t`):
-      a **Diagnostics** section at the top of the panel shows
-      `🔴 H001: ...` (the message for the cursor line), so you needn't
-      hover or open Problems. On a clean line (e.g. 18) the section is
-      **absent** (not an empty header). With the scale scene, line
-      `t_k = t_c` shows `🟡 S002: Offset mismatch …`.
+      a **Diagnostics** section shows `🔴 H001: ...` (the message for the
+      cursor line). On a clean line (e.g. 18) the section is **absent**.
+      With the scale scene, `t_k = t_c` shows `🟡 S002: Offset mismatch …`.
+
+- [ ] **Click to navigate** — clicking a **diagnostic** row jumps the
+      editor to that line; clicking a **scope-var** row (or its blue line
+      number) jumps to that variable's **declaration**.
+
+- [ ] **Actions** — cursor on `t_celsius` (line 17, unannotated): an
+      **Actions** section shows an `Add @unit{}` button; clicking it
+      applies the same edit as the lightbulb (inserts `!< @unit{}`). On
+      the `273.15` literal (line 20): an `Extract literal to PARAMETER`
+      button. The section is **absent** when no action applies at the cursor.
+
+- [ ] **Footer** — a flat `File: 🔴 N  🟡 M` bar is pinned to the
+      **bottom** of the panel (whole-file counts), even when the content
+      above is short.
 
 - [ ] **Cursor-follow** — move between line 10 (function) and line 19
       (subroutine); the Scope section switches between `Function:

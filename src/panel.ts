@@ -51,6 +51,10 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   private client?: LanguageClient;
   private debounceTimer?: ReturnType<typeof setTimeout>;
   private requestSeq = 0;
+  // Code actions available at the current cursor, kept so the panel's
+  // Actions buttons can apply them by index when clicked.
+  private actions: vscode.CodeAction[] = [];
+  private actionDoc?: vscode.TextDocument;
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -76,6 +80,8 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
           vscode.TextEditorRevealType.InCenterIfOutsideViewport,
         );
         void vscode.window.showTextDocument(editor.document, editor.viewColumn);
+      } else if (msg?.command === "action" && typeof msg.index === "number") {
+        void this.applyAction(msg.index);
       }
     });
     // Render whatever the cursor is on as soon as the view appears.
@@ -120,7 +126,49 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
     }
     // Drop stale responses if the cursor moved again meanwhile.
     if (seq !== this.requestSeq) return;
-    this.post({ kind: "data", payload: result });
+
+    // Code actions available at the cursor — so the Actions section shows
+    // exactly what the lightbulb would (Add @unit{} / extract-to-PARAMETER)
+    // and the buttons can apply them. Filter to DimFort's own.
+    let actions: vscode.CodeAction[] = [];
+    try {
+      const range = new vscode.Range(pos, pos);
+      const got = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+        "vscode.executeCodeActionProvider", editor.document.uri, range,
+      );
+      actions = (got || []).filter(
+        (a) =>
+          a &&
+          (a.command?.command?.startsWith("dimfort.") ||
+            /@?unit|PARAMETER/i.test(a.title)),
+      );
+    } catch {
+      actions = [];
+    }
+    if (seq !== this.requestSeq) return;
+    this.actions = actions;
+    this.actionDoc = editor.document;
+    this.post({
+      kind: "data",
+      payload: result,
+      actions: actions.map((a) => a.title),
+    });
+  }
+
+  /** Apply the code action the panel's button at ``index`` stands for. */
+  private async applyAction(index: number): Promise<void> {
+    const a = this.actions[index];
+    if (!a) return;
+    // Re-focus the document the action targets (the panel click stole focus).
+    if (this.actionDoc) {
+      await vscode.window.showTextDocument(this.actionDoc, { preserveFocus: false });
+    }
+    if (a.edit) await vscode.workspace.applyEdit(a.edit);
+    if (a.command) {
+      await vscode.commands.executeCommand(
+        a.command.command, ...(a.command.arguments ?? []),
+      );
+    }
   }
 
   private post(msg: unknown): void {
@@ -141,12 +189,20 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <style>
+  html, body { height: 100%; }
   body {
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: var(--vscode-editor-font-size, 13px);
     color: var(--vscode-foreground);
     padding: 8px;
+    box-sizing: border-box;
+    /* Flex column so the footer can be pushed to the panel's bottom edge
+       regardless of how little content is above it. */
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
   }
+  #root { display: flex; flex-direction: column; flex: 1 1 auto; }
   h2 {
     font-size: 1em;
     font-weight: 600;
@@ -177,14 +233,14 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .clickable:hover { text-decoration: underline; }
   tr.clickable:hover td { background: var(--vscode-list-hoverBackground); }
   td.line.clickable { color: var(--vscode-textLink-foreground); }
-  button.fake-action { margin: 0.15em 0.3em 0.15em 0; font-size: 0.9em;
-            padding: 0.15em 0.6em; cursor: not-allowed; opacity: 0.65;
+  button.panel-action { margin: 0.15em 0.3em 0.15em 0; font-size: 0.9em;
+            padding: 0.2em 0.7em; cursor: pointer;
             background: var(--vscode-button-secondaryBackground, transparent);
             color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
             border: 1px solid var(--vscode-panel-border); border-radius: 3px; }
-  .footer { position: sticky; bottom: 0; margin-top: 0.6em;
-            padding: 0.3em 0; border-top: 1px solid var(--vscode-panel-border);
-            background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  button.panel-action:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground)); }
+  .footer { margin-top: auto; padding: 0.4em 0 0.1em;
+            border-top: 1px solid var(--vscode-panel-border);
             color: var(--vscode-descriptionForeground); font-size: 0.9em; }
 </style>
 </head>
@@ -204,28 +260,38 @@ function revealLine(line) {
   if (line) vscodeApi.postMessage({ command: "reveal", line: line });
 }
 
-// A foldable section: <details open><summary>TITLE</summary> content </details>.
+// Fold state, persisted across the per-cursor-move re-renders (and across
+// panel hide/show + reload via vscode state). Default: open.
+const foldState = (vscodeApi.getState && vscodeApi.getState()?.fold) || {};
+function setFold(title, open) {
+  foldState[title] = open;
+  if (vscodeApi.setState) vscodeApi.setState({ fold: foldState });
+}
+
+// A foldable section: <details><summary>TITLE</summary> content </details>.
 function section(title, contentEl) {
   const d = document.createElement("details");
-  d.open = true;
+  d.open = foldState[title] !== false;  // default open
   const s = document.createElement("summary");
   s.textContent = title;
   d.appendChild(s);
   d.appendChild(contentEl);
+  d.addEventListener("toggle", () => setFold(title, d.open));
   return d;
 }
 
-// Placeholder action buttons — disabled, just to evaluate the look.
-function renderFakeActions() {
+// Action buttons for the code actions available at the cursor. Clicking
+// posts the action index back to the provider, which applies it.
+function renderActions(titles) {
   const wrap = document.createElement("div");
-  for (const label of ["Add @unit{}", "Extract literal to PARAMETER"]) {
+  titles.forEach((title, i) => {
     const b = document.createElement("button");
-    b.className = "fake-action";
-    b.disabled = true;
-    b.textContent = label;
-    b.title = "preview — not yet wired";
+    b.className = "panel-action";
+    b.textContent = title.replace(/^DimFort:\\s*/, "");
+    b.title = title;
+    b.addEventListener("click", () => vscodeApi.postMessage({ command: "action", index: i }));
     wrap.appendChild(b);
-  }
+  });
   return wrap;
 }
 
@@ -345,7 +411,7 @@ function renderDiagnostics(diags) {
   return wrap;
 }
 
-function render(payload) {
+function render(payload, actions) {
   root.innerHTML = "";
 
   // Order: Expression → Diagnostics → Actions → Scope. Volatile
@@ -369,8 +435,12 @@ function render(payload) {
     root.appendChild(section("Diagnostics", renderDiagnostics(diags)));
   }
 
-  // Actions — placeholder buttons (preview only, not wired yet).
-  root.appendChild(section("Actions (preview)", renderFakeActions()));
+  // Actions — code actions available at the cursor (Add @unit{} /
+  // extract-to-PARAMETER). Only shown when there's at least one.
+  const acts = actions || [];
+  if (acts.length) {
+    root.appendChild(section("Actions", renderActions(acts)));
+  }
 
   // Scope — stacked enclosing scopes, outermost-first.
   const scopes = (payload && payload.scopes) || [];
@@ -392,7 +462,7 @@ function render(payload) {
 window.addEventListener("message", (ev) => {
   const msg = ev.data;
   if (msg.kind === "data") {
-    render(msg.payload);
+    render(msg.payload, msg.actions);
   } else if (msg.kind === "empty") {
     root.innerHTML = "";
     const e = document.createElement("div");
