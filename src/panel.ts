@@ -22,9 +22,16 @@ interface ScopeSection {
   kind: string;
   vars: ScopeVar[];
 }
+interface PanelDiagnostic {
+  severity: "error" | "warning" | "info" | "hint";
+  code: string;
+  message: string;
+  line: number;
+}
 interface PanelInfo {
   expression: ExpressionNode | null;
   scopes: ScopeSection[];
+  diagnostics?: PanelDiagnostic[];
 }
 
 /**
@@ -137,6 +144,10 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   td.line { color: var(--vscode-descriptionForeground); text-align: right; }
   td.unit { color: var(--vscode-symbolIcon-unitForeground, var(--vscode-foreground)); }
   td.normalized { color: var(--vscode-descriptionForeground); }
+  .diag { white-space: normal; margin: 0.15em 0; line-height: 1.3; }
+  .diag-error { color: var(--vscode-editorError-foreground, var(--vscode-errorForeground)); }
+  .diag-warning { color: var(--vscode-editorWarning-foreground, var(--vscode-foreground)); }
+  .diag-info, .diag-hint { color: var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)); }
   .muted { color: var(--vscode-descriptionForeground); }
   .scope-head { font-weight: 600; margin-top: 0.6em; }
   hr { border: none; border-top: 1px solid var(--vscode-panel-border); margin: 0.7em 0; }
@@ -242,8 +253,32 @@ function renderScope(sc, depth) {
   return wrap;
 }
 
+function renderDiagnostics(diags) {
+  const wrap = document.createElement("div");
+  const head = document.createElement("h2");
+  head.textContent = "Diagnostics";
+  wrap.appendChild(head);
+  for (const d of diags) {
+    const row = document.createElement("div");
+    row.className = "diag diag-" + d.severity;
+    const glyph = d.severity === "error" ? "🔴"
+      : d.severity === "warning" ? "🟡" : "ℹ️";
+    row.textContent = glyph + " " + d.code + ": " + d.message;
+    wrap.appendChild(row);
+  }
+  return wrap;
+}
+
 function render(payload) {
   root.innerHTML = "";
+  // Diagnostics for the cursor line — first, so the "why" is visible
+  // without a hover / Problems trip. Omitted entirely when the line is
+  // clean, to keep the panel uncluttered.
+  const diags = (payload && payload.diagnostics) || [];
+  if (diags.length) {
+    root.appendChild(renderDiagnostics(diags));
+    root.appendChild(document.createElement("hr"));
+  }
   // Expression section.
   const exprHead = document.createElement("h2");
   exprHead.textContent = "Expression";
