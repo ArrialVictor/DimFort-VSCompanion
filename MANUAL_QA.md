@@ -170,8 +170,66 @@ below shows the data; column alignment is done in the webview, not ASCII.
       variable 🟢.
 
 - [ ] **Markers** — in `checks` (cursor in line 19), `t_celsius` shows 🟡
-      (unannotated); a `@unit{??}` in scope shows 🔴.
+      (unannotated); a `@unit{??}` in scope shows 🔴. Markers are
+      **diagnostic-driven** (see `DimFort/docs/design/markers.md`): a
+      circle reflects the squiggle that owns the node, so the panel and
+      Problems never disagree. Only the consistency family
+      (`H001`–`H004`, `S001`, `S002`) colours a circle — an `H010`
+      implicit-cast (e.g. line 20's `273.15`) keeps its squiggle but the
+      circle stays 🟢. Relational comparisons aren't an emission site, so
+      they show 🟡, not a red.
+
+- [ ] **Normalized-unit column** — a scope-var row shows the input unit
+      **and** its base-SI normalized form when they differ. With the
+      scale scene below, `phpa` reads `hPa` ⟶ `100×kg/(m×s²)`; base-SI
+      vars (e.g. `play : Pa`) show only the one form.
 
 - [ ] **Cursor-follow** — move between line 10 (function) and line 19
       (subroutine); the Scope section switches between `Function:
       dynamic_pressure` and `Subroutine: checks`.
+
+## Scale layer (S001 / S002) — opt-in
+
+Scale checking is **off by default**; dimension-only must stay
+byte-identical. Turn it on with a workspace `.dimfort.toml`:
+
+```toml
+[scale]
+enabled = true
+```
+
+Save this `scale_qa.f90` in that folder:
+
+```fortran
+module scale_qa
+  real :: play   !< @unit{Pa}
+  real :: phpa   !< @unit{hPa}
+  real :: t_k    !< @unit{K}
+  real :: t_c    !< @unit{degC}
+contains
+  subroutine s()
+    phpa = play        ! S001: hPa vs Pa (×100 multiplicative scale)
+    t_k  = t_c         ! S002: K vs degC (affine offset, missing +273.15)
+    t_k  = t_c + t_c   ! S002: adding two absolute temperatures
+  end subroutine s
+end module scale_qa
+```
+
+- [ ] **Off by default** — with **no** `.dimfort.toml` (or `enabled =
+      false`), the file is **completely clean** — no S001/S002.
+- [ ] **On** — with `[scale] enabled = true`, **yellow** squiggles:
+      `phpa = play` → **S001**, `t_k = t_c` and `t_k = t_c + t_c` →
+      **S002**. The panel/hover **circles match** (🟡 on those lines).
+- [ ] **Severity override** — add `[diagnostics]` with `S002 = "error"`,
+      save (no manual restart — see below); the S002 squiggles **and**
+      circles go **red**.
+- [ ] **Typed conversion silences it** — `phpa = play / PA_PER_HPA` with
+      `real, parameter :: PA_PER_HPA = 100. !< @unit{Pa/hPa}` is clean.
+
+## Config reload & cache
+
+- [ ] **`.dimfort.toml` auto-reload** — edit the toml (e.g. flip
+      `[scale] enabled` or change a `[diagnostics]` severity) and save;
+      diagnostics update **without** running *DimFort: Restart* manually.
+- [ ] **Clear cache** — run **DimFort: Clear Content-Hash Cache**; the
+      status bar confirms and the server restarts (diagnostics repopulate).
