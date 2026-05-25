@@ -72,11 +72,17 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
       if (msg?.command === "reveal" && typeof msg.line === "number") {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
-        const line = Math.max(0, msg.line - 1);
-        const pos = new vscode.Position(line, 0);
-        editor.selection = new vscode.Selection(pos, pos);
+        // 1-based wire coords → 0-based editor coords. Default column 0
+        // (scope-var rows send line only); diagnostics send the exact
+        // span, so select start→end rather than just placing the cursor.
+        const startCol = typeof msg.column === "number" ? Math.max(0, msg.column - 1) : 0;
+        const start = new vscode.Position(Math.max(0, msg.line - 1), startCol);
+        const end = (typeof msg.endLine === "number" && typeof msg.endColumn === "number")
+          ? new vscode.Position(Math.max(0, msg.endLine - 1), Math.max(0, msg.endColumn - 1))
+          : start;
+        editor.selection = new vscode.Selection(start, end);
         editor.revealRange(
-          new vscode.Range(pos, pos),
+          new vscode.Range(start, end),
           vscode.TextEditorRevealType.InCenterIfOutsideViewport,
         );
         void vscode.window.showTextDocument(editor.document, editor.viewColumn);
@@ -255,9 +261,15 @@ function esc(s) {
   return String(s).replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
 }
 
-// Jump the editor's cursor to a 1-based line in the active file.
-function revealLine(line) {
-  if (line) vscodeApi.postMessage({ command: "reveal", line: line });
+// Jump the editor's cursor to a 1-based (line[, column[, end]]) location
+// in the active file; an end selects the span (used for diagnostics).
+function revealLine(line, column, endLine, endColumn) {
+  if (line) {
+    vscodeApi.postMessage({
+      command: "reveal", line: line, column: column,
+      endLine: endLine, endColumn: endColumn,
+    });
+  }
 }
 
 // Fold state, persisted across the per-cursor-move re-renders (and across
@@ -404,8 +416,8 @@ function renderDiagnostics(diags) {
     const glyph = d.severity === "error" ? "🔴"
       : d.severity === "warning" ? "🟡" : "ℹ️";
     row.textContent = glyph + " " + d.code + ": " + d.message;
-    row.title = "Go to line " + d.line;
-    row.addEventListener("click", () => revealLine(d.line));
+    row.title = "Go to the diagnostic";
+    row.addEventListener("click", () => revealLine(d.line, d.column, d.endLine, d.endColumn));
     wrap.appendChild(row);
   }
   return wrap;
