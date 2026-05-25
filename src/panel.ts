@@ -136,6 +136,7 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   td { padding: 0 0.6em 0 0; vertical-align: top; }
   td.line { color: var(--vscode-descriptionForeground); text-align: right; }
   td.unit { color: var(--vscode-symbolIcon-unitForeground, var(--vscode-foreground)); }
+  td.normalized { color: var(--vscode-descriptionForeground); }
   .muted { color: var(--vscode-descriptionForeground); }
   .scope-head { font-weight: 600; margin-top: 0.6em; }
   hr { border: none; border-top: 1px solid var(--vscode-panel-border); margin: 0.7em 0; }
@@ -216,17 +217,17 @@ function renderScope(sc, depth) {
     const tr = document.createElement("tr");
     const mark =
       v.kind === "unannotated" ? "🟡" : v.kind === "error" ? "🔴" : "🟢";
-    // Show the input unit as written; append the normalized base-SI form
-    // when it differs, so scale factors (hPa = 100×kg/(m·s²)) and derived
-    // expansions (Pa = kg/(m·s²)) are visible instead of hidden.
-    let unitText = v.unit ?? "(none)";
-    if (v.unitNormalized && v.unitNormalized !== v.unit) {
-      unitText = v.unit + " = " + v.unitNormalized;
-    }
+    // Input unit as written in its own column; the normalized base-SI form
+    // in a second, table-aligned column — only when it differs, so scale
+    // factors (hPa → 100×kg/(m·s²)) and derived expansions (Pa →
+    // kg/(m·s²)) are visible without cluttering base-SI rows (m → m).
+    const normText =
+      v.unitNormalized && v.unitNormalized !== v.unit ? v.unitNormalized : "";
     const cells = [
       ["line", String(v.line)],
       ["name", v.name],
-      ["unit", unitText],
+      ["unit", v.unit ?? "(none)"],
+      ["normalized", normText],
       ["mark", mark],
     ];
     for (const [cls, txt] of cells) {
