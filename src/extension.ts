@@ -153,6 +153,39 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  // Clear the on-disk content-hash cache, then restart so diagnostics
+  // repopulate. The dir mirrors the server's resolution: the
+  // `dimfort.cache.dir` setting if set, else `.dimfort-cache/` under the
+  // first workspace folder (cache_store.default_cache_dir).
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.clearCache", async () => {
+      const cfgDir = vscode.workspace.getConfiguration("dimfort").get<string>("cache.dir", "");
+      const folder = vscode.workspace.workspaceFolders?.[0];
+      if (!cfgDir && !folder) {
+        vscode.window.showWarningMessage("DimFort: no workspace folder — nothing to clear.");
+        return;
+      }
+      const cacheUri = cfgDir
+        ? vscode.Uri.file(cfgDir)
+        : vscode.Uri.joinPath(folder!.uri, ".dimfort-cache");
+      try {
+        await vscode.workspace.fs.delete(cacheUri, { recursive: true, useTrash: false });
+      } catch (err) {
+        // FileNotFound is fine — nothing cached yet. Re-throw anything else.
+        if (!(err instanceof vscode.FileSystemError && err.code === "FileNotFound")) {
+          vscode.window.showErrorMessage(`DimFort: clear cache failed — ${err}`);
+          return;
+        }
+      }
+      try {
+        await rebuildClient();
+        vscode.window.setStatusBarMessage("DimFort: cache cleared", 2000);
+      } catch (err) {
+        vscode.window.showErrorMessage(`DimFort: restart after clear failed — ${err}`);
+      }
+    }),
+  );
+
   // Settings that ship as initializationOptions can only be re-read by
   // restarting the server. Watch the `dimfort.*` namespace and reload
   // transparently when any of them change — the user gets immediate

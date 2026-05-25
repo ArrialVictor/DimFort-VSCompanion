@@ -68,6 +68,11 @@
         "category": "DimFort"
       },
       {
+        "command": "dimfort.clearCache",
+        "title": "Clear Content-Hash Cache",
+        "category": "DimFort"
+      },
+      {
         "command": "dimfort.togglePanel",
         "title": "Show Side Panel",
         "category": "DimFort"
