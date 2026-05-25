@@ -32,6 +32,7 @@ interface PanelInfo {
   expression: ExpressionNode | null;
   scopes: ScopeSection[];
   diagnostics?: PanelDiagnostic[];
+  fileDiagnosticCounts?: { error: number; warning: number };
 }
 
 /**
@@ -61,6 +62,22 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
     this.view = view;
     view.webview.options = { enableScripts: true };
     view.webview.html = this.html(view.webview);
+    // Click-to-navigate: a row in the panel posts {command:"reveal", line}
+    // → move the active editor's cursor to that 1-based line and reveal it.
+    view.webview.onDidReceiveMessage((msg) => {
+      if (msg?.command === "reveal" && typeof msg.line === "number") {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+        const line = Math.max(0, msg.line - 1);
+        const pos = new vscode.Position(line, 0);
+        editor.selection = new vscode.Selection(pos, pos);
+        editor.revealRange(
+          new vscode.Range(pos, pos),
+          vscode.TextEditorRevealType.InCenterIfOutsideViewport,
+        );
+        void vscode.window.showTextDocument(editor.document, editor.viewColumn);
+      }
+    });
     // Render whatever the cursor is on as soon as the view appears.
     this.scheduleUpdate(0);
     view.onDidChangeVisibility(() => {
@@ -152,6 +169,23 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .scope-head { font-weight: 600; margin-top: 0.6em; }
   hr { border: none; border-top: 1px solid var(--vscode-panel-border); margin: 0.7em 0; }
   .empty { color: var(--vscode-descriptionForeground); font-style: italic; }
+  details { margin: 0.2em 0 0.5em; }
+  summary { cursor: pointer; font-weight: 600; text-transform: uppercase;
+            font-size: 0.85em; letter-spacing: 0.04em;
+            color: var(--vscode-descriptionForeground); margin-bottom: 0.3em; }
+  .clickable { cursor: pointer; }
+  .clickable:hover { text-decoration: underline; }
+  tr.clickable:hover td { background: var(--vscode-list-hoverBackground); }
+  td.line.clickable { color: var(--vscode-textLink-foreground); }
+  button.fake-action { margin: 0.15em 0.3em 0.15em 0; font-size: 0.9em;
+            padding: 0.15em 0.6em; cursor: not-allowed; opacity: 0.65;
+            background: var(--vscode-button-secondaryBackground, transparent);
+            color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+            border: 1px solid var(--vscode-panel-border); border-radius: 3px; }
+  .footer { position: sticky; bottom: 0; margin-top: 0.6em;
+            padding: 0.3em 0; border-top: 1px solid var(--vscode-panel-border);
+            background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+            color: var(--vscode-descriptionForeground); font-size: 0.9em; }
 </style>
 </head>
 <body>
@@ -159,9 +193,48 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
 <script nonce="${nonce}">
 const MARK = { ok: "🟢", warn: "🟡", error: "🔴" };
 const root = document.getElementById("root");
+const vscodeApi = acquireVsCodeApi();
 
 function esc(s) {
   return String(s).replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
+}
+
+// Jump the editor's cursor to a 1-based line in the active file.
+function revealLine(line) {
+  if (line) vscodeApi.postMessage({ command: "reveal", line: line });
+}
+
+// A foldable section: <details open><summary>TITLE</summary> content </details>.
+function section(title, contentEl) {
+  const d = document.createElement("details");
+  d.open = true;
+  const s = document.createElement("summary");
+  s.textContent = title;
+  d.appendChild(s);
+  d.appendChild(contentEl);
+  return d;
+}
+
+// Placeholder action buttons — disabled, just to evaluate the look.
+function renderFakeActions() {
+  const wrap = document.createElement("div");
+  for (const label of ["Add @unit{}", "Extract literal to PARAMETER"]) {
+    const b = document.createElement("button");
+    b.className = "fake-action";
+    b.disabled = true;
+    b.textContent = label;
+    b.title = "preview — not yet wired";
+    wrap.appendChild(b);
+  }
+  return wrap;
+}
+
+// Flat footer: whole-file diagnostic counts.
+function renderFooter(counts) {
+  const f = document.createElement("div");
+  f.className = "footer";
+  f.textContent = "File: 🔴 " + (counts.error || 0) + "   🟡 " + (counts.warning || 0);
+  return f;
 }
 
 // Flatten the expression tree into rows with tree-drawing prefixes,
@@ -226,6 +299,10 @@ function renderScope(sc, depth) {
   const table = document.createElement("table");
   for (const v of vars) {
     const tr = document.createElement("tr");
+    // Click the row → jump to the variable's declaration line.
+    tr.className = "clickable";
+    tr.title = "Go to declaration (line " + v.line + ")";
+    tr.addEventListener("click", () => revealLine(v.line));
     const mark =
       v.kind === "unannotated" ? "🟡" : v.kind === "error" ? "🔴" : "🟢";
     // Input unit as written in its own column; the normalized base-SI form
@@ -243,7 +320,7 @@ function renderScope(sc, depth) {
     ];
     for (const [cls, txt] of cells) {
       const td = document.createElement("td");
-      td.className = cls;
+      td.className = cls === "line" ? "line clickable" : cls;
       td.textContent = txt;
       tr.appendChild(td);
     }
@@ -255,15 +332,14 @@ function renderScope(sc, depth) {
 
 function renderDiagnostics(diags) {
   const wrap = document.createElement("div");
-  const head = document.createElement("h2");
-  head.textContent = "Diagnostics";
-  wrap.appendChild(head);
   for (const d of diags) {
     const row = document.createElement("div");
-    row.className = "diag diag-" + d.severity;
+    row.className = "diag clickable diag-" + d.severity;
     const glyph = d.severity === "error" ? "🔴"
       : d.severity === "warning" ? "🟡" : "ℹ️";
     row.textContent = glyph + " " + d.code + ": " + d.message;
+    row.title = "Go to line " + d.line;
+    row.addEventListener("click", () => revealLine(d.line));
     wrap.appendChild(row);
   }
   return wrap;
@@ -271,37 +347,46 @@ function renderDiagnostics(diags) {
 
 function render(payload) {
   root.innerHTML = "";
-  // Diagnostics for the cursor line — first, so the "why" is visible
-  // without a hover / Problems trip. Omitted entirely when the line is
-  // clean, to keep the panel uncluttered.
+
+  // Order: Expression → Diagnostics → Actions → Scope. Volatile
+  // (cursor-following) sections near the top, stable Scope lower; the
+  // file-wide footer pins the bottom. Each section folds (<details>).
+
+  // Expression.
+  let exprContent;
+  if (payload && payload.expression) {
+    exprContent = renderExpression(payload.expression);
+  } else {
+    exprContent = document.createElement("div");
+    exprContent.className = "empty";
+    exprContent.textContent = "(no expression at cursor)";
+  }
+  root.appendChild(section("Expression", exprContent));
+
+  // Diagnostics for the cursor line — only when the line has any.
   const diags = (payload && payload.diagnostics) || [];
   if (diags.length) {
-    root.appendChild(renderDiagnostics(diags));
-    root.appendChild(document.createElement("hr"));
+    root.appendChild(section("Diagnostics", renderDiagnostics(diags)));
   }
-  // Expression section.
-  const exprHead = document.createElement("h2");
-  exprHead.textContent = "Expression";
-  root.appendChild(exprHead);
-  if (payload && payload.expression) {
-    root.appendChild(renderExpression(payload.expression));
-  } else {
-    const e = document.createElement("div");
-    e.className = "empty";
-    e.textContent = "(no expression at cursor)";
-    root.appendChild(e);
-  }
-  root.appendChild(document.createElement("hr"));
-  // Scope sections, stacked outermost-first.
+
+  // Actions — placeholder buttons (preview only, not wired yet).
+  root.appendChild(section("Actions (preview)", renderFakeActions()));
+
+  // Scope — stacked enclosing scopes, outermost-first.
   const scopes = (payload && payload.scopes) || [];
+  const scopeContent = document.createElement("div");
   if (scopes.length === 0) {
     const e = document.createElement("div");
     e.className = "empty";
-    e.textContent = "Scope: (file level)";
-    root.appendChild(e);
+    e.textContent = "(file level)";
+    scopeContent.appendChild(e);
   } else {
-    scopes.forEach((sc, i) => root.appendChild(renderScope(sc, i)));
+    scopes.forEach((sc, i) => scopeContent.appendChild(renderScope(sc, i)));
   }
+  root.appendChild(section("Scope", scopeContent));
+
+  // Flat footer: whole-file diagnostic counts.
+  root.appendChild(renderFooter((payload && payload.fileDiagnosticCounts) || {}));
 }
 
 window.addEventListener("message", (ev) => {
