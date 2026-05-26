@@ -122,7 +122,7 @@ Settings (under **DimFort** in the Settings UI):
   external (no `U007` diagnostic when they're missing from the
   workspace). Extends the built-in allowlist.
 - `dimfort.cache.mode` — content-hash cache for the workspace
-  check: `off` (default), `read-only`, or `read-write`. With
+  check: `read-write` (default), `read-only`, or `off`. With
   `read-write`, warm re-runs replay cached diagnostics for files
   whose source, includes, and dependencies haven't changed
   (LMDZ-scale: ~33 s cold → ~20 s warm). Palette command
@@ -134,35 +134,42 @@ Settings (under **DimFort** in the Settings UI):
   directory. Empty (default) means `.dimfort-cache/` under the
   first workspace folder.
 - `dimfort.panel.enabled` — reveal the side panel on activation
-  (default `false` — open it from the **DimFort** activity-bar icon
-  when you want it; set this `true` to have it revealed
-  automatically). `dimfort.panel.debounceMs` tunes its cursor-follow
-  refresh.
+  (default `true` — set this `false` to keep it closed and open it
+  yourself from the **DimFort** activity-bar icon).
+  `dimfort.panel.debounceMs` tunes its cursor-follow refresh.
 
-> **Default stance**: hover defaults to **short** and the side panel
-> is **off** (opened from the activity-bar icon) — one cursor-following
-> unit surface without piling them up. Inlay hints default **off**
-> (redundant beside the panel/hover) and the cache defaults to
+> **Default stance**: the side panel is **on** and hover defaults to
+> **short** — both cursor-following unit surfaces. Inlay hints default
+> **off** (redundant beside the panel/hover) and the cache defaults to
 > **read-write**. Adjust any of these in Settings.
 
 ## Side panel
 
-The **DimFort** activity-bar icon opens a cursor-following side panel
-with two sections:
+A cursor-following side panel (open by default; the **DimFort**
+activity-bar icon toggles it) with five sections:
 
 - **Expression** — the unit-algebra tree for the expression under the
   cursor: each node with its resolved unit, the rule that produced it,
   and a 🟢 / 🟡 / 🔴 marker. The same content as the detailed hover, but
   it stays put while you edit — handy for debugging a mismatch or
   walking through code with someone.
+- **Diagnostics** — the DimFort diagnostics on the cursor's line (click
+  to jump to one).
+- **Interactions** — for the symbol under the cursor, every site that
+  reads or writes it across the workset, grouped **Declaration / Write /
+  Read / Undetermined read** with the unit each implies, plus any `X001`
+  conflicting-claims finding. Rows navigate cross-file.
+- **Actions** — the code actions available at the cursor (Add `@unit{}`
+  / extract-to-PARAMETER), as buttons.
 - **Scope** — the declarations of every enclosing scope, stacked
   outermost-first and indented by nesting (a module's declarations,
   then a contained subroutine's locals). Each variable is marked 🟢
-  (annotated) or 🟡 (unannotated), so annotation gaps stand out.
+  (annotated), 🟡 (unannotated), or 🔴 (unparseable annotation), so
+  annotation gaps stand out.
 
-Closed by default — click the **DimFort** activity-bar icon (or run
-`DimFort: Show Side Panel`) to open it. Set `dimfort.panel.enabled`
-to `true` to have it revealed automatically on activation.
+On by default — set `dimfort.panel.enabled` to `false` to keep it
+closed, then open it from the **DimFort** activity-bar icon (or run
+`DimFort: Show Side Panel`).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/panel-vscode-hero_dark.png">

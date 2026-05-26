@@ -57,12 +57,12 @@ sections below. Commands below are run from the Command Palette
 
 - [ ] No `[unit]` inlay ghost text anywhere — `dimfort.inlayHints.enabled`
       is `false` by default.
-- [ ] No panel is shown until you open it (see below) — VSCode opens it
-      from the activity-bar icon, not automatically.
+- [ ] The side panel **is shown automatically** on activation (open by
+      default; toggle from the activity-bar icon).
 - [ ] In Settings (search "dimfort"), confirm the defaults:
       `inlayHints.enabled` off, `completion.enabled` on,
       `codeActions.enabled` on, `gotoDefinition.enabled` on,
-      `hover` = `short`, `cache.mode` = `read-write`.
+      `hover` = `short`, `cache.mode` = `read-write`, `panel.enabled` on.
       (There is **no** `codeLens` setting and **no** `trace.enabled` /
       `hover.*` per-surface settings — those were removed/collapsed.)
 
@@ -89,8 +89,8 @@ line 14, then undo (`Cmd/Ctrl+Z`):
 
 ## Hover
 
-Hover defaults to **`short`** in VSCode (the panel is closed by default,
-so the hover is the unit surface). Mouse over the symbol (or
+Hover defaults to **`short`** in VSCode (a one-line unit surface
+alongside the open side panel). Mouse over the symbol (or
 `Cmd/Ctrl+K Cmd/Ctrl+I`).
 
 - [ ] **Short (default)** — on **`c_sound`** → `c_sound : m/s`; on the
