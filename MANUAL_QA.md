@@ -272,14 +272,21 @@ subroutine unparsed_qa(press, vel)
   real, intent(out) :: vel     !< @unit{m/s}
   vel = press        ! H001 (red): m/s vs Pa
   vel = * / +        ! P001 (blue): unparseable line
+  vel = 0.0          ! a valid trailing statement (see note)
 end subroutine unparsed_qa
 ```
+
+> The trailing `vel = 0.0` matters: if an unparseable line is the **last**
+> statement before `end`, tree-sitter can't find the routine boundary and wraps
+> the **whole** routine in an error region — which empties the Scope panel. A
+> valid statement after the bad line keeps the routine parseable. (Tracked as a
+> known panel-robustness gap.)
 
 - [ ] **Blue squiggle** — `vel = * / +` gets a **blue (info)** underline;
       hovering it / the Problems panel shows **`P001` … "could not parse
       this region — DimFort makes no unit guarantee here"** at *Information*
       severity. With the cursor on that line, the panel's **Diagnostics**
-      section lists the P001.
+      section lists the P001 with a **🔵** glyph (matching 🔴 error / 🟡 warning).
 - [ ] **Distinct from a real error** — `vel = press` carries a **red**
       `H001` on the line above, so blue (FYI) and red (violation) are
       visibly different.

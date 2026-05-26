@@ -549,8 +549,11 @@ function renderDiagnostics(diags) {
   for (const d of diags) {
     const row = document.createElement("div");
     row.className = "diag clickable diag-" + d.severity;
+    // Info/hint use the blue circle so the whole severity family is the same
+    // coloured-circle vocabulary (🔴 error / 🟡 warning / 🔵 info) — reusable
+    // for any future informational diagnostic, not just P001.
     const glyph = d.severity === "error" ? "🔴"
-      : d.severity === "warning" ? "🟡" : "ℹ️";
+      : d.severity === "warning" ? "🟡" : "🔵";
     row.textContent = glyph + " " + d.code + ": " + d.message;
     row.title = "Go to the diagnostic";
     row.addEventListener("click", () => revealLine(d.line, d.column, d.endLine, d.endColumn));

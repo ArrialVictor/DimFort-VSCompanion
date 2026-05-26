@@ -17,6 +17,12 @@ commands, packaging).
   client-side (no server round-trip); the query persists across cursor-move
   re-renders. Handy in long routines with many declarations.
 
+### Changed
+
+- Panel **Diagnostics** glyph for info/hint severities is now **🔵** (was ℹ️),
+  so the severity family is one coloured-circle vocabulary: 🔴 error / 🟡
+  warning / 🔵 info (e.g. the new `P001` "unparsed region" marker).
+
 - **Interactions panel section** (driven by the server's `dimfort/interactions`
   request): for the symbol under the cursor, every site that reads or writes it
   across the workset — grouped **Declaration / Write / Read / Undetermined
