@@ -169,6 +169,13 @@ below shows the data; column alignment is done in the webview, not ASCII.
       `Function: dynamic_pressure` (v, q, rho), indented by nesting, every
       variable 🟢.
 
+- [ ] **Scope filter** — type `v` in the Scope section's search box: only
+      variables whose name/unit contains `v` remain (e.g. `v`), scopes with
+      no match disappear. Type a unit like `Pa`: rows with that unit show.
+      Clear the box → all variables return. The query survives moving the
+      cursor (the box keeps its text). Typing a nonsense string shows
+      "(no variables match …)".
+
 - [ ] **Markers** — in `checks` (cursor in line 19), `t_celsius` shows 🟡
       (unannotated); a `@unit{??}` in scope shows 🔴. Markers are
       **diagnostic-driven** (see `DimFort/docs/design/markers.md`): a
