@@ -169,6 +169,13 @@ below shows the data; column alignment is done in the webview, not ASCII.
       `Function: dynamic_pressure` (v, q, rho), indented by nesting, every
       variable 🟢.
 
+- [ ] **Scope filter** — type `v` in the Scope section's search box: only
+      variables whose name/unit contains `v` remain (e.g. `v`), scopes with
+      no match disappear. Type a unit like `Pa`: rows with that unit show.
+      Clear the box → all variables return. The query survives moving the
+      cursor (the box keeps its text). Typing a nonsense string shows
+      "(no variables match …)".
+
 - [ ] **Markers** — in `checks` (cursor in line 19), `t_celsius` shows 🟡
       (unannotated); a `@unit{??}` in scope shows 🔴. Markers are
       **diagnostic-driven** (see `DimFort/docs/design/markers.md`): a
@@ -250,6 +257,46 @@ end module scale_qa
       circles go **red**.
 - [ ] **Typed conversion silences it** — `phpa = play / PA_PER_HPA` with
       `real, parameter :: PA_PER_HPA = 100. !< @unit{Pa/hPa}` is clean.
+
+## Unparsed regions (P001)
+
+`P001` marks lines tree-sitter couldn't parse — DimFort makes no unit
+guarantee there. It's an **info** diagnostic, so it renders as a faint
+**blue** squiggle, distinct from real (red) violations. Save this
+`unparsed_qa.f90` and open it:
+
+```fortran
+subroutine unparsed_qa(press, vel)
+  implicit none
+  real, intent(in)  :: press   !< @unit{Pa}
+  real, intent(out) :: vel     !< @unit{m/s}
+  vel = press        ! H001 (red): m/s vs Pa
+  vel = * / +        ! P001 (blue): unparseable line
+  vel = 0.0          ! a valid trailing statement (see note)
+end subroutine unparsed_qa
+```
+
+> The trailing `vel = 0.0` matters: if an unparseable line is the **last**
+> statement before `end`, tree-sitter can't find the routine boundary and wraps
+> the **whole** routine in an error region — which empties the Scope panel. A
+> valid statement after the bad line keeps the routine parseable. (Tracked as a
+> known panel-robustness gap.)
+
+- [ ] **Blue squiggle** — `vel = * / +` gets a **blue (info)** underline;
+      hovering it / the Problems panel shows **`P001` … "could not parse
+      this region — DimFort makes no unit guarantee here"** at *Information*
+      severity. With the cursor on that line, the panel's **Diagnostics**
+      section lists the P001 with a **🔵** glyph (matching 🔴 error / 🟡 warning).
+- [ ] **Distinct from a real error** — `vel = press` carries a **red**
+      `H001` on the line above, so blue (FYI) and red (violation) are
+      visibly different.
+- [ ] **Localized, not the whole routine** — only the `vel = * / +` line is
+      underlined; the rest of the subroutine is not blue.
+- [ ] **Doesn't mask real checks** — the `H001` still fires; P001 only marks
+      what it *couldn't* read, it doesn't suppress checking elsewhere.
+- [ ] **Suppressible** — add a workspace `.dimfort.toml` with
+      `[diagnostics]` `P001 = "off"`, save; the blue squiggle disappears
+      (no manual restart), the red `H001` stays.
 
 ## Config reload & cache
 
