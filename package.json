@@ -182,8 +182,8 @@
         },
         "dimfort.panel.enabled": {
           "type": "boolean",
-          "default": false,
-          "description": "Reveal the DimFort side panel (unit-algebra tree + scope declarations) on activation. The panel follows the cursor. Off by default — open it from the DimFort activity-bar icon when you want it; turn this on to have it revealed automatically."
+          "default": true,
+          "description": "Reveal the DimFort side panel (cursor-following: Expression / Diagnostics / Interactions / Actions / Scope) on activation. On by default; set to false to keep it closed and open it manually from the DimFort activity-bar icon."
         },
         "dimfort.panel.debounceMs": {
           "type": "integer",

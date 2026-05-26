@@ -10,8 +10,21 @@ commands, packaging).
 
 ## [Unreleased]
 
+### Added
+
+- **Interactions panel section** (driven by the server's `dimfort/interactions`
+  request): for the symbol under the cursor, every site that reads or writes it
+  across the workset — grouped **Declaration / Write / Read / Undetermined
+  read**, each with the unit it implies — plus the `X001` conflicting-claims
+  finding. Rows navigate cross-file.
+- **Diagnostics and Actions panel sections** alongside Expression and Scope; all
+  sections are now always present (placeholder when empty).
+
 ### Changed
 
+- **Side panel now open by default** (`dimfort.panel.enabled` defaults to
+  `true`) — unified with the Nvim/Emacs companions for a consistent out-of-box
+  surface.
 - **Hover settings collapsed into one `dimfort.hover`** enum
   (`disabled` / `short` / `detailed`, default `short`), replacing
   `dimfort.trace.enabled` and the three `dimfort.hover.*` per-surface
