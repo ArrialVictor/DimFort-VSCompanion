@@ -280,7 +280,7 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .diag-error { color: var(--vscode-editorError-foreground, var(--vscode-errorForeground)); }
   .diag-warning { color: var(--vscode-editorWarning-foreground, var(--vscode-foreground)); }
   .diag-info, .diag-hint { color: var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)); }
-  .muted { color: var(--vscode-descriptionForeground); }
+  .muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   .scope-head { font-weight: 600; margin-top: 0.6em; }
   hr { border: none; border-top: 1px solid var(--vscode-panel-border); margin: 0.7em 0; }
   .empty { color: var(--vscode-descriptionForeground); font-style: italic; }
@@ -301,6 +301,16 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .footer { margin-top: auto; padding: 0.4em 0 0.1em;
             border-top: 1px solid var(--vscode-panel-border);
             color: var(--vscode-descriptionForeground); font-size: 0.9em; }
+  .section-body { padding-left: 0.8em; }
+  .group-label { color: var(--vscode-descriptionForeground); font-weight: 600;
+            margin: 0.5em 0 0.15em; }
+  .group-body { padding-left: 1.2em; }
+  .site { margin: 0.1em 0 0.35em; }
+  .site.clickable:hover { background: var(--vscode-list-hoverBackground); }
+  .site-loc { color: var(--vscode-textLink-foreground); }
+  .site-unit { color: var(--vscode-symbolIcon-unitForeground, var(--vscode-foreground));
+            margin-left: 0.7em; }
+  .site-snip { opacity: 0.7; white-space: normal; }
 </style>
 </head>
 <body>
@@ -338,12 +348,16 @@ function baseName(p) {
   return i >= 0 ? s.slice(i + 1) : s;
 }
 
-// Fold state, persisted across the per-cursor-move re-renders (and across
-// panel hide/show + reload via vscode state). Default: open.
-const foldState = (vscodeApi.getState && vscodeApi.getState()?.fold) || {};
+// Persisted webview state (across per-cursor-move re-renders, panel
+// hide/show, and reload). Merge-patch so fold + active-tab coexist.
+function getState() { return (vscodeApi.getState && vscodeApi.getState()) || {}; }
+function patchState(p) { if (vscodeApi.setState) vscodeApi.setState({ ...getState(), ...p }); }
+
+// Fold state. Default: open.
+const foldState = getState().fold || {};
 function setFold(title, open) {
   foldState[title] = open;
-  if (vscodeApi.setState) vscodeApi.setState({ fold: foldState });
+  patchState({ fold: foldState });
 }
 
 // A foldable section: <details><summary>TITLE</summary> content </details>.
@@ -353,7 +367,10 @@ function section(title, contentEl) {
   const s = document.createElement("summary");
   s.textContent = title;
   d.appendChild(s);
-  d.appendChild(contentEl);
+  const body = document.createElement("div");
+  body.className = "section-body";
+  body.appendChild(contentEl);
+  d.appendChild(body);
   d.addEventListener("toggle", () => setFold(title, d.open));
   return d;
 }
@@ -362,6 +379,13 @@ function section(title, contentEl) {
 // posts the action index back to the provider, which applies it.
 function renderActions(titles) {
   const wrap = document.createElement("div");
+  if (!titles.length) {
+    const e = document.createElement("div");
+    e.className = "muted";
+    e.textContent = "(none)";
+    wrap.appendChild(e);
+    return wrap;
+  }
   titles.forEach((title, i) => {
     const b = document.createElement("button");
     b.className = "panel-action";
@@ -476,6 +500,13 @@ function renderScope(sc, depth) {
 
 function renderDiagnostics(diags) {
   const wrap = document.createElement("div");
+  if (!diags.length) {
+    const e = document.createElement("div");
+    e.className = "muted";
+    e.textContent = "(none)";
+    wrap.appendChild(e);
+    return wrap;
+  }
   for (const d of diags) {
     const row = document.createElement("div");
     row.className = "diag clickable diag-" + d.severity;
@@ -493,17 +524,26 @@ function renderDiagnostics(diags) {
 // constraint each places on its unit, and any X001 conflict. Mirrors the
 // 'dimfort interactions' CLI. Rows navigate cross-file.
 const KIND_LABEL = {
-  declares: "declared",
-  contributes: "writes (contributes)",
-  requires: "reads (requires)",
-  uses: "reads (no constraint)",
+  declares: "Declaration",
+  contributes: "Write",
+  requires: "Read",
+  uses: "Unconstrained read",
 };
 function renderInteractions(rep) {
   const wrap = document.createElement("div");
 
+  // No symbol at the cursor → placeholder (the section stays present).
+  if (!rep || !rep.points || !rep.points.length) {
+    const e = document.createElement("div");
+    e.className = "muted";
+    e.textContent = "(none)";
+    wrap.appendChild(e);
+    return wrap;
+  }
+
   const title = document.createElement("div");
   title.className = "scope-head";
-  title.textContent = (rep.hasConflict ? "🔴 " : "") + rep.symbol;
+  title.textContent = rep.symbol;
   wrap.appendChild(title);
 
   // Conflicts first — the headline.
@@ -516,36 +556,52 @@ function renderInteractions(rep) {
     wrap.appendChild(row);
   }
 
-  // Then the grouped sites.
+  // All four groups, always present (empty ones show "(none)") so the
+  // structure is stable as the cursor moves. Italic labels set the
+  // delimiters apart from the site rows.
   for (const kind of ["declares", "contributes", "requires", "uses"]) {
-    const pts = (rep.points || []).filter((p) => p.kind === kind);
-    if (!pts.length) continue;
+    const pts = rep.points.filter((p) => p.kind === kind);
     const head = document.createElement("div");
-    head.className = "muted";
-    head.style.marginTop = "0.4em";
-    head.textContent = KIND_LABEL[kind] + ":";
+    head.className = "group-label";
+    head.textContent = KIND_LABEL[kind];
     wrap.appendChild(head);
-    const table = document.createElement("table");
-    for (const p of pts) {
-      const tr = document.createElement("tr");
-      tr.className = "clickable";
-      tr.title = "Go to " + baseName(p.file) + ":" + p.line
-        + (p.scope ? " [" + p.scope + "]" : "");
-      tr.addEventListener("click", () => revealAt(p.file, p.line, p.column));
-      const cells = [
-        ["line", baseName(p.file) + ":" + p.line],
-        ["unit", p.unit],
-        ["name", p.snippet],
-      ];
-      for (const [cls, txt] of cells) {
-        const td = document.createElement("td");
-        td.className = cls === "line" ? "line clickable" : cls;
-        td.textContent = txt;
-        tr.appendChild(td);
-      }
-      table.appendChild(tr);
+    const body = document.createElement("div");
+    body.className = "group-body";
+    if (!pts.length) {
+      const none = document.createElement("div");
+      none.className = "muted";
+      none.textContent = "(none)";
+      body.appendChild(none);
+      wrap.appendChild(body);
+      continue;
     }
-    wrap.appendChild(table);
+    for (const p of pts) {
+      // Two lines per site: (location  unit) then the dimmed statement.
+      const site = document.createElement("div");
+      site.className = "site clickable";
+      site.title = "Go to " + baseName(p.file) + ":" + p.line
+        + (p.scope ? " [" + p.scope + "]" : "");
+      site.addEventListener("click", () => revealAt(p.file, p.line, p.column));
+
+      const head = document.createElement("div");
+      const loc = document.createElement("span");
+      loc.className = "site-loc";
+      loc.textContent = baseName(p.file) + ":" + p.line;
+      const unit = document.createElement("span");
+      unit.className = "site-unit";
+      unit.textContent = p.unit;
+      head.appendChild(loc);
+      head.appendChild(unit);
+      site.appendChild(head);
+
+      const snip = document.createElement("div");
+      snip.className = "site-snip";
+      snip.textContent = p.snippet;
+      site.appendChild(snip);
+
+      body.appendChild(site);
+    }
+    wrap.appendChild(body);
   }
   return wrap;
 }
@@ -553,9 +609,9 @@ function renderInteractions(rep) {
 function render(payload, actions, interactions) {
   root.innerHTML = "";
 
-  // Order: Expression → Diagnostics → Actions → Scope. Volatile
-  // (cursor-following) sections near the top, stable Scope lower; the
-  // file-wide footer pins the bottom. Each section folds (<details>).
+  // Order: Expression → Diagnostics → Interactions → Actions → Scope.
+  // Volatile (cursor-following) sections near the top, stable Scope lower;
+  // the file-wide footer pins the bottom. Each section folds (<details>).
 
   // Expression.
   let exprContent;
@@ -563,36 +619,32 @@ function render(payload, actions, interactions) {
     exprContent = renderExpression(payload.expression);
   } else {
     exprContent = document.createElement("div");
-    exprContent.className = "empty";
-    exprContent.textContent = "(no expression at cursor)";
+    exprContent.className = "muted";
+    exprContent.textContent = "(none)";
   }
   root.appendChild(section("Expression", exprContent));
 
-  // Diagnostics for the cursor line — only when the line has any.
+  // Diagnostics for the cursor line — always present (placeholder when
+  // the line is clean) so the section doesn't pop in/out.
   const diags = (payload && payload.diagnostics) || [];
-  if (diags.length) {
-    root.appendChild(section("Diagnostics", renderDiagnostics(diags)));
-  }
+  root.appendChild(section("Diagnostics", renderDiagnostics(diags)));
 
   // Interactions — cross-site unit constraints for the symbol at the cursor.
-  // Only when the cursor is on a symbol that's read/written somewhere.
-  if (interactions && interactions.points && interactions.points.length) {
-    root.appendChild(section("Interactions", renderInteractions(interactions)));
-  }
+  // Always present (so it doesn't pop in/out as the cursor moves); shows a
+  // placeholder when the cursor isn't on a symbol with cross-site uses.
+  root.appendChild(section("Interactions", renderInteractions(interactions)));
 
   // Actions — code actions available at the cursor (Add @unit{} /
-  // extract-to-PARAMETER). Only shown when there's at least one.
+  // extract-to-PARAMETER). Always present (placeholder when none).
   const acts = actions || [];
-  if (acts.length) {
-    root.appendChild(section("Actions", renderActions(acts)));
-  }
+  root.appendChild(section("Actions", renderActions(acts)));
 
   // Scope — stacked enclosing scopes, outermost-first.
   const scopes = (payload && payload.scopes) || [];
   const scopeContent = document.createElement("div");
   if (scopes.length === 0) {
     const e = document.createElement("div");
-    e.className = "empty";
+    e.className = "muted";
     e.textContent = "(file level)";
     scopeContent.appendChild(e);
   } else {
