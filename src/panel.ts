@@ -527,7 +527,7 @@ const KIND_LABEL = {
   declares: "Declaration",
   contributes: "Write",
   requires: "Read",
-  uses: "Unconstrained read",
+  uses: "Undetermined read",
 };
 function renderInteractions(rep) {
   const wrap = document.createElement("div");
@@ -587,11 +587,15 @@ function renderInteractions(rep) {
       const loc = document.createElement("span");
       loc.className = "site-loc";
       loc.textContent = baseName(p.file) + ":" + p.line;
-      const unit = document.createElement("span");
-      unit.className = "site-unit";
-      unit.textContent = p.unit;
       head.appendChild(loc);
-      head.appendChild(unit);
+      // The Undetermined group has no derived unit by definition — the group
+      // label already says so, so don't repeat a "?" on every row.
+      if (kind !== "uses") {
+        const unit = document.createElement("span");
+        unit.className = "site-unit";
+        unit.textContent = p.unit;
+        head.appendChild(unit);
+      }
       site.appendChild(head);
 
       const snip = document.createElement("div");
