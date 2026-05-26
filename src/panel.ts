@@ -35,6 +35,33 @@ interface PanelInfo {
   fileDiagnosticCounts?: { error: number; warning: number };
 }
 
+// Wire-format mirror of the server's dimfort/interactions response.
+// See DimFort/docs/design/interaction-points.md.
+interface InteractionPoint {
+  file: string;
+  line: number;
+  column: number;
+  scope: string | null;
+  kind: "declares" | "contributes" | "requires" | "uses";
+  unit: string; // rendered unit, or "?" when unknown
+  snippet: string;
+}
+interface InteractionConflict {
+  code: string;
+  message: string;
+  file: string;
+  line: number;
+  column: number;
+  site: InteractionPoint;
+  reference: InteractionPoint;
+}
+interface InteractionsReport {
+  symbol: string;
+  points: InteractionPoint[];
+  conflicts: InteractionConflict[];
+  hasConflict: boolean;
+}
+
 /**
  * WebviewView provider for the DimFort side panel. Mirrors the Neovim
  * panel: an expression-tree section and stacked enclosing-scope
@@ -68,9 +95,20 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
     view.webview.html = this.html(view.webview);
     // Click-to-navigate: a row in the panel posts {command:"reveal", line}
     // → move the active editor's cursor to that 1-based line and reveal it.
-    view.webview.onDidReceiveMessage((msg) => {
+    view.webview.onDidReceiveMessage(async (msg) => {
       if (msg?.command === "reveal" && typeof msg.line === "number") {
-        const editor = vscode.window.activeTextEditor;
+        // An interactions row may target a *different* file than the active
+        // editor (a symbol's uses span files) — open it first when ``file``
+        // is given. Other rows omit it and act on the active editor.
+        let editor = vscode.window.activeTextEditor;
+        if (typeof msg.file === "string" && msg.file) {
+          try {
+            const doc = await vscode.workspace.openTextDocument(msg.file);
+            editor = await vscode.window.showTextDocument(doc);
+          } catch {
+            // Fall back to the active editor if the path can't be opened.
+          }
+        }
         if (!editor) return;
         // 1-based wire coords → 0-based editor coords. Default column 0
         // (scope-var rows send line only); diagnostics send the exact
@@ -133,6 +171,20 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
     // Drop stale responses if the cursor moved again meanwhile.
     if (seq !== this.requestSeq) return;
 
+    // Cross-site interactions for the symbol under the cursor. Same params
+    // (the server resolves the identifier at the position). Best-effort:
+    // a failure just omits the section.
+    let interactions: InteractionsReport | null = null;
+    try {
+      interactions = await this.client.sendRequest<InteractionsReport | null>(
+        "dimfort/interactions",
+        params,
+      );
+    } catch {
+      interactions = null;
+    }
+    if (seq !== this.requestSeq) return;
+
     // Code actions available at the cursor — so the Actions section shows
     // exactly what the lightbulb would (Add @unit{} / extract-to-PARAMETER)
     // and the buttons can apply them. Filter to DimFort's own.
@@ -158,6 +210,7 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
       kind: "data",
       payload: result,
       actions: actions.map((a) => a.title),
+      interactions,
     });
   }
 
@@ -270,6 +323,19 @@ function revealLine(line, column, endLine, endColumn) {
       endLine: endLine, endColumn: endColumn,
     });
   }
+}
+
+// Like revealLine but for a possibly-different file (interactions span files).
+function revealAt(file, line, column) {
+  if (line) {
+    vscodeApi.postMessage({ command: "reveal", file: file, line: line, column: column });
+  }
+}
+
+function baseName(p) {
+  const s = String(p);
+  const i = Math.max(s.lastIndexOf("/"), s.lastIndexOf("\\\\"));
+  return i >= 0 ? s.slice(i + 1) : s;
 }
 
 // Fold state, persisted across the per-cursor-move re-renders (and across
@@ -423,7 +489,68 @@ function renderDiagnostics(diags) {
   return wrap;
 }
 
-function render(payload, actions) {
+// Interactions: the symbol under the cursor, its use-sites grouped by the
+// constraint each places on its unit, and any X001 conflict. Mirrors the
+// 'dimfort interactions' CLI. Rows navigate cross-file.
+const KIND_LABEL = {
+  declares: "declared",
+  contributes: "writes (contributes)",
+  requires: "reads (requires)",
+  uses: "reads (no constraint)",
+};
+function renderInteractions(rep) {
+  const wrap = document.createElement("div");
+
+  const title = document.createElement("div");
+  title.className = "scope-head";
+  title.textContent = (rep.hasConflict ? "🔴 " : "") + rep.symbol;
+  wrap.appendChild(title);
+
+  // Conflicts first — the headline.
+  for (const c of rep.conflicts || []) {
+    const row = document.createElement("div");
+    row.className = "diag clickable diag-error";
+    row.textContent = "🔴 " + c.code + ": " + c.message;
+    row.title = "Go to " + baseName(c.file) + ":" + c.line;
+    row.addEventListener("click", () => revealAt(c.file, c.line, c.column));
+    wrap.appendChild(row);
+  }
+
+  // Then the grouped sites.
+  for (const kind of ["declares", "contributes", "requires", "uses"]) {
+    const pts = (rep.points || []).filter((p) => p.kind === kind);
+    if (!pts.length) continue;
+    const head = document.createElement("div");
+    head.className = "muted";
+    head.style.marginTop = "0.4em";
+    head.textContent = KIND_LABEL[kind] + ":";
+    wrap.appendChild(head);
+    const table = document.createElement("table");
+    for (const p of pts) {
+      const tr = document.createElement("tr");
+      tr.className = "clickable";
+      tr.title = "Go to " + baseName(p.file) + ":" + p.line
+        + (p.scope ? " [" + p.scope + "]" : "");
+      tr.addEventListener("click", () => revealAt(p.file, p.line, p.column));
+      const cells = [
+        ["line", baseName(p.file) + ":" + p.line],
+        ["unit", p.unit],
+        ["name", p.snippet],
+      ];
+      for (const [cls, txt] of cells) {
+        const td = document.createElement("td");
+        td.className = cls === "line" ? "line clickable" : cls;
+        td.textContent = txt;
+        tr.appendChild(td);
+      }
+      table.appendChild(tr);
+    }
+    wrap.appendChild(table);
+  }
+  return wrap;
+}
+
+function render(payload, actions, interactions) {
   root.innerHTML = "";
 
   // Order: Expression → Diagnostics → Actions → Scope. Volatile
@@ -445,6 +572,12 @@ function render(payload, actions) {
   const diags = (payload && payload.diagnostics) || [];
   if (diags.length) {
     root.appendChild(section("Diagnostics", renderDiagnostics(diags)));
+  }
+
+  // Interactions — cross-site unit constraints for the symbol at the cursor.
+  // Only when the cursor is on a symbol that's read/written somewhere.
+  if (interactions && interactions.points && interactions.points.length) {
+    root.appendChild(section("Interactions", renderInteractions(interactions)));
   }
 
   // Actions — code actions available at the cursor (Add @unit{} /
@@ -474,7 +607,7 @@ function render(payload, actions) {
 window.addEventListener("message", (ev) => {
   const msg = ev.data;
   if (msg.kind === "data") {
-    render(msg.payload, msg.actions);
+    render(msg.payload, msg.actions, msg.interactions);
   } else if (msg.kind === "empty") {
     root.innerHTML = "";
     const e = document.createElement("div");
