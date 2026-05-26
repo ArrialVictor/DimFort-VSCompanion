@@ -35,6 +35,33 @@ interface PanelInfo {
   fileDiagnosticCounts?: { error: number; warning: number };
 }
 
+// Wire-format mirror of the server's dimfort/interactions response.
+// See DimFort/docs/design/interaction-points.md.
+interface InteractionPoint {
+  file: string;
+  line: number;
+  column: number;
+  scope: string | null;
+  kind: "declares" | "contributes" | "requires" | "uses";
+  unit: string; // rendered unit, or "?" when unknown
+  snippet: string;
+}
+interface InteractionConflict {
+  code: string;
+  message: string;
+  file: string;
+  line: number;
+  column: number;
+  site: InteractionPoint;
+  reference: InteractionPoint;
+}
+interface InteractionsReport {
+  symbol: string;
+  points: InteractionPoint[];
+  conflicts: InteractionConflict[];
+  hasConflict: boolean;
+}
+
 /**
  * WebviewView provider for the DimFort side panel. Mirrors the Neovim
  * panel: an expression-tree section and stacked enclosing-scope
@@ -68,9 +95,20 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
     view.webview.html = this.html(view.webview);
     // Click-to-navigate: a row in the panel posts {command:"reveal", line}
     // → move the active editor's cursor to that 1-based line and reveal it.
-    view.webview.onDidReceiveMessage((msg) => {
+    view.webview.onDidReceiveMessage(async (msg) => {
       if (msg?.command === "reveal" && typeof msg.line === "number") {
-        const editor = vscode.window.activeTextEditor;
+        // An interactions row may target a *different* file than the active
+        // editor (a symbol's uses span files) — open it first when ``file``
+        // is given. Other rows omit it and act on the active editor.
+        let editor = vscode.window.activeTextEditor;
+        if (typeof msg.file === "string" && msg.file) {
+          try {
+            const doc = await vscode.workspace.openTextDocument(msg.file);
+            editor = await vscode.window.showTextDocument(doc);
+          } catch {
+            // Fall back to the active editor if the path can't be opened.
+          }
+        }
         if (!editor) return;
         // 1-based wire coords → 0-based editor coords. Default column 0
         // (scope-var rows send line only); diagnostics send the exact
@@ -133,6 +171,20 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
     // Drop stale responses if the cursor moved again meanwhile.
     if (seq !== this.requestSeq) return;
 
+    // Cross-site interactions for the symbol under the cursor. Same params
+    // (the server resolves the identifier at the position). Best-effort:
+    // a failure just omits the section.
+    let interactions: InteractionsReport | null = null;
+    try {
+      interactions = await this.client.sendRequest<InteractionsReport | null>(
+        "dimfort/interactions",
+        params,
+      );
+    } catch {
+      interactions = null;
+    }
+    if (seq !== this.requestSeq) return;
+
     // Code actions available at the cursor — so the Actions section shows
     // exactly what the lightbulb would (Add @unit{} / extract-to-PARAMETER)
     // and the buttons can apply them. Filter to DimFort's own.
@@ -158,6 +210,7 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
       kind: "data",
       payload: result,
       actions: actions.map((a) => a.title),
+      interactions,
     });
   }
 
@@ -227,7 +280,7 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .diag-error { color: var(--vscode-editorError-foreground, var(--vscode-errorForeground)); }
   .diag-warning { color: var(--vscode-editorWarning-foreground, var(--vscode-foreground)); }
   .diag-info, .diag-hint { color: var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)); }
-  .muted { color: var(--vscode-descriptionForeground); }
+  .muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   .scope-head { font-weight: 600; margin-top: 0.6em; }
   hr { border: none; border-top: 1px solid var(--vscode-panel-border); margin: 0.7em 0; }
   .empty { color: var(--vscode-descriptionForeground); font-style: italic; }
@@ -248,6 +301,16 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .footer { margin-top: auto; padding: 0.4em 0 0.1em;
             border-top: 1px solid var(--vscode-panel-border);
             color: var(--vscode-descriptionForeground); font-size: 0.9em; }
+  .section-body { padding-left: 0.8em; }
+  .group-label { color: var(--vscode-descriptionForeground); font-weight: 600;
+            margin: 0.5em 0 0.15em; }
+  .group-body { padding-left: 1.2em; }
+  .site { margin: 0.1em 0 0.35em; }
+  .site.clickable:hover { background: var(--vscode-list-hoverBackground); }
+  .site-loc { color: var(--vscode-textLink-foreground); }
+  .site-unit { color: var(--vscode-symbolIcon-unitForeground, var(--vscode-foreground));
+            margin-left: 0.7em; }
+  .site-snip { opacity: 0.7; white-space: normal; }
 </style>
 </head>
 <body>
@@ -272,12 +335,29 @@ function revealLine(line, column, endLine, endColumn) {
   }
 }
 
-// Fold state, persisted across the per-cursor-move re-renders (and across
-// panel hide/show + reload via vscode state). Default: open.
-const foldState = (vscodeApi.getState && vscodeApi.getState()?.fold) || {};
+// Like revealLine but for a possibly-different file (interactions span files).
+function revealAt(file, line, column) {
+  if (line) {
+    vscodeApi.postMessage({ command: "reveal", file: file, line: line, column: column });
+  }
+}
+
+function baseName(p) {
+  const s = String(p);
+  const i = Math.max(s.lastIndexOf("/"), s.lastIndexOf("\\\\"));
+  return i >= 0 ? s.slice(i + 1) : s;
+}
+
+// Persisted webview state (across per-cursor-move re-renders, panel
+// hide/show, and reload). Merge-patch so fold + active-tab coexist.
+function getState() { return (vscodeApi.getState && vscodeApi.getState()) || {}; }
+function patchState(p) { if (vscodeApi.setState) vscodeApi.setState({ ...getState(), ...p }); }
+
+// Fold state. Default: open.
+const foldState = getState().fold || {};
 function setFold(title, open) {
   foldState[title] = open;
-  if (vscodeApi.setState) vscodeApi.setState({ fold: foldState });
+  patchState({ fold: foldState });
 }
 
 // A foldable section: <details><summary>TITLE</summary> content </details>.
@@ -287,7 +367,10 @@ function section(title, contentEl) {
   const s = document.createElement("summary");
   s.textContent = title;
   d.appendChild(s);
-  d.appendChild(contentEl);
+  const body = document.createElement("div");
+  body.className = "section-body";
+  body.appendChild(contentEl);
+  d.appendChild(body);
   d.addEventListener("toggle", () => setFold(title, d.open));
   return d;
 }
@@ -296,6 +379,13 @@ function section(title, contentEl) {
 // posts the action index back to the provider, which applies it.
 function renderActions(titles) {
   const wrap = document.createElement("div");
+  if (!titles.length) {
+    const e = document.createElement("div");
+    e.className = "muted";
+    e.textContent = "(none)";
+    wrap.appendChild(e);
+    return wrap;
+  }
   titles.forEach((title, i) => {
     const b = document.createElement("button");
     b.className = "panel-action";
@@ -410,6 +500,13 @@ function renderScope(sc, depth) {
 
 function renderDiagnostics(diags) {
   const wrap = document.createElement("div");
+  if (!diags.length) {
+    const e = document.createElement("div");
+    e.className = "muted";
+    e.textContent = "(none)";
+    wrap.appendChild(e);
+    return wrap;
+  }
   for (const d of diags) {
     const row = document.createElement("div");
     row.className = "diag clickable diag-" + d.severity;
@@ -423,12 +520,102 @@ function renderDiagnostics(diags) {
   return wrap;
 }
 
-function render(payload, actions) {
+// Interactions: the symbol under the cursor, its use-sites grouped by the
+// constraint each places on its unit, and any X001 conflict. Mirrors the
+// 'dimfort interactions' CLI. Rows navigate cross-file.
+const KIND_LABEL = {
+  declares: "Declaration",
+  contributes: "Write",
+  requires: "Read",
+  uses: "Undetermined read",
+};
+function renderInteractions(rep) {
+  const wrap = document.createElement("div");
+
+  // No symbol at the cursor → placeholder (the section stays present).
+  if (!rep || !rep.points || !rep.points.length) {
+    const e = document.createElement("div");
+    e.className = "muted";
+    e.textContent = "(none)";
+    wrap.appendChild(e);
+    return wrap;
+  }
+
+  const title = document.createElement("div");
+  title.className = "scope-head";
+  title.textContent = rep.symbol;
+  wrap.appendChild(title);
+
+  // Conflicts first — the headline.
+  for (const c of rep.conflicts || []) {
+    const row = document.createElement("div");
+    row.className = "diag clickable diag-error";
+    row.textContent = "🔴 " + c.code + ": " + c.message;
+    row.title = "Go to " + baseName(c.file) + ":" + c.line;
+    row.addEventListener("click", () => revealAt(c.file, c.line, c.column));
+    wrap.appendChild(row);
+  }
+
+  // All four groups, always present (empty ones show "(none)") so the
+  // structure is stable as the cursor moves. Italic labels set the
+  // delimiters apart from the site rows.
+  for (const kind of ["declares", "contributes", "requires", "uses"]) {
+    const pts = rep.points.filter((p) => p.kind === kind);
+    const head = document.createElement("div");
+    head.className = "group-label";
+    head.textContent = KIND_LABEL[kind];
+    wrap.appendChild(head);
+    const body = document.createElement("div");
+    body.className = "group-body";
+    if (!pts.length) {
+      const none = document.createElement("div");
+      none.className = "muted";
+      none.textContent = "(none)";
+      body.appendChild(none);
+      wrap.appendChild(body);
+      continue;
+    }
+    for (const p of pts) {
+      // Two lines per site: (location  unit) then the dimmed statement.
+      const site = document.createElement("div");
+      site.className = "site clickable";
+      site.title = "Go to " + baseName(p.file) + ":" + p.line
+        + (p.scope ? " [" + p.scope + "]" : "");
+      site.addEventListener("click", () => revealAt(p.file, p.line, p.column));
+
+      const head = document.createElement("div");
+      const loc = document.createElement("span");
+      loc.className = "site-loc";
+      loc.textContent = baseName(p.file) + ":" + p.line;
+      head.appendChild(loc);
+      // The Undetermined group has no derived unit by definition — the group
+      // label already says so, so don't repeat a "?" on every row.
+      if (kind !== "uses") {
+        const unit = document.createElement("span");
+        unit.className = "site-unit";
+        unit.textContent = p.unit;
+        head.appendChild(unit);
+      }
+      site.appendChild(head);
+
+      const snip = document.createElement("div");
+      snip.className = "site-snip";
+      snip.textContent = p.snippet;
+      site.appendChild(snip);
+
+      body.appendChild(site);
+    }
+    wrap.appendChild(body);
+  }
+  return wrap;
+}
+
+function render(payload, actions, interactions) {
   root.innerHTML = "";
 
-  // Order: Expression → Diagnostics → Actions → Scope. Volatile
-  // (cursor-following) sections near the top, stable Scope lower; the
-  // file-wide footer pins the bottom. Each section folds (<details>).
+  // Order: Expression → Diagnostics → Interactions → Actions → Scope.
+  // Volatile (cursor-following) sections near the top, stable Scope lower;
+  // the file-wide footer pins the bottom. Each section folds (<details>).
 
   // Expression.
   let exprContent;
@@ -436,30 +623,32 @@ function render(payload, actions) {
     exprContent = renderExpression(payload.expression);
   } else {
     exprContent = document.createElement("div");
-    exprContent.className = "empty";
-    exprContent.textContent = "(no expression at cursor)";
+    exprContent.className = "muted";
+    exprContent.textContent = "(none)";
   }
   root.appendChild(section("Expression", exprContent));
 
-  // Diagnostics for the cursor line — only when the line has any.
+  // Diagnostics for the cursor line — always present (placeholder when
+  // the line is clean) so the section doesn't pop in/out.
   const diags = (payload && payload.diagnostics) || [];
-  if (diags.length) {
-    root.appendChild(section("Diagnostics", renderDiagnostics(diags)));
-  }
+  root.appendChild(section("Diagnostics", renderDiagnostics(diags)));
+
+  // Interactions — cross-site unit constraints for the symbol at the cursor.
+  // Always present (so it doesn't pop in/out as the cursor moves); shows a
+  // placeholder when the cursor isn't on a symbol with cross-site uses.
+  root.appendChild(section("Interactions", renderInteractions(interactions)));
 
   // Actions — code actions available at the cursor (Add @unit{} /
-  // extract-to-PARAMETER). Only shown when there's at least one.
+  // extract-to-PARAMETER). Always present (placeholder when none).
   const acts = actions || [];
-  if (acts.length) {
-    root.appendChild(section("Actions", renderActions(acts)));
-  }
+  root.appendChild(section("Actions", renderActions(acts)));
 
   // Scope — stacked enclosing scopes, outermost-first.
   const scopes = (payload && payload.scopes) || [];
   const scopeContent = document.createElement("div");
   if (scopes.length === 0) {
     const e = document.createElement("div");
-    e.className = "empty";
+    e.className = "muted";
     e.textContent = "(file level)";
     scopeContent.appendChild(e);
   } else {
@@ -474,7 +663,7 @@ function render(payload, actions) {
 window.addEventListener("message", (ev) => {
   const msg = ev.data;
   if (msg.kind === "data") {
-    render(msg.payload, msg.actions);
+    render(msg.payload, msg.actions, msg.interactions);
   } else if (msg.kind === "empty") {
     root.innerHTML = "";
     const e = document.createElement("div");
