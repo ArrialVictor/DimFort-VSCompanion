@@ -282,6 +282,13 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .diag-info, .diag-hint { color: var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)); }
   .muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   .scope-head { font-weight: 600; margin-top: 0.6em; }
+  .scope-filter { width: 100%; box-sizing: border-box; margin: 0.1em 0 0.5em;
+            padding: 0.25em 0.45em; font-family: inherit; font-size: 0.95em;
+            color: var(--vscode-input-foreground, var(--vscode-foreground));
+            background: var(--vscode-input-background, transparent);
+            border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+            border-radius: 3px; }
+  .scope-filter::placeholder { color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground)); }
   hr { border: none; border-top: 1px solid var(--vscode-panel-border); margin: 0.7em 0; }
   .empty { color: var(--vscode-descriptionForeground); font-style: italic; }
   details { margin: 0.2em 0 0.5em; }
@@ -498,6 +505,38 @@ function renderScope(sc, depth) {
   return wrap;
 }
 
+// Client-side Scope filter. currentScopes holds the latest payload's
+// scopes so re-filtering on keystroke needs no round-trip to the server;
+// the query persists (getState) across the per-cursor-move re-renders.
+let currentScopes = [];
+let scopeFilterValue = getState().scopeFilter || "";
+
+// Populate the container with the scope sections, keeping only variables
+// whose name or unit matches the active filter (case-insensitive). Scopes
+// with no surviving variables are hidden while a filter is active.
+function renderScopeList(container) {
+  container.innerHTML = "";
+  const q = scopeFilterValue.trim().toLowerCase();
+  let shown = 0;
+  currentScopes.forEach((sc, i) => {
+    const all = sc.vars || [];
+    const vars = q
+      ? all.filter((v) =>
+          v.name.toLowerCase().includes(q) ||
+          (v.unit && v.unit.toLowerCase().includes(q)))
+      : all;
+    if (q && vars.length === 0) { return; }  // hide non-matching scopes
+    shown += vars.length;
+    container.appendChild(renderScope({ ...sc, vars: vars }, i));
+  });
+  if (q && shown === 0) {
+    const e = document.createElement("div");
+    e.className = "muted";
+    e.textContent = '(no variables match "' + scopeFilterValue + '")';
+    container.appendChild(e);
+  }
+}
+
 function renderDiagnostics(diags) {
   const wrap = document.createElement("div");
   if (!diags.length) {
@@ -643,8 +682,10 @@ function render(payload, actions, interactions) {
   const acts = actions || [];
   root.appendChild(section("Actions", renderActions(acts)));
 
-  // Scope — stacked enclosing scopes, outermost-first.
+  // Scope — stacked enclosing scopes, outermost-first, with a client-side
+  // name/unit filter (handy in long routines with many declarations).
   const scopes = (payload && payload.scopes) || [];
+  currentScopes = scopes;
   const scopeContent = document.createElement("div");
   if (scopes.length === 0) {
     const e = document.createElement("div");
@@ -652,7 +693,20 @@ function render(payload, actions, interactions) {
     e.textContent = "(file level)";
     scopeContent.appendChild(e);
   } else {
-    scopes.forEach((sc, i) => scopeContent.appendChild(renderScope(sc, i)));
+    const filter = document.createElement("input");
+    filter.type = "search";
+    filter.className = "scope-filter";
+    filter.placeholder = "Filter variables by name or unit…";
+    filter.value = scopeFilterValue;
+    const list = document.createElement("div");
+    filter.addEventListener("input", () => {
+      scopeFilterValue = filter.value;
+      patchState({ scopeFilter: scopeFilterValue });
+      renderScopeList(list);
+    });
+    scopeContent.appendChild(filter);
+    scopeContent.appendChild(list);
+    renderScopeList(list);
   }
   root.appendChild(section("Scope", scopeContent));
 

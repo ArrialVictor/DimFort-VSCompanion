@@ -12,6 +12,11 @@ commands, packaging).
 
 ### Added
 
+- **Scope filter** — a search box at the top of the panel's **Scope** section
+  filters the listed variables by name or unit (case-insensitive). Purely
+  client-side (no server round-trip); the query persists across cursor-move
+  re-renders. Handy in long routines with many declarations.
+
 - **Interactions panel section** (driven by the server's `dimfort/interactions`
   request): for the symbol under the cursor, every site that reads or writes it
   across the workset — grouped **Declaration / Write / Read / Undetermined
