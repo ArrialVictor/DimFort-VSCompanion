@@ -133,6 +133,11 @@ Settings (under **DimFort** in the Settings UI):
 - `dimfort.cache.dir` — optional override for the cache
   directory. Empty (default) means `.dimfort-cache/` under the
   first workspace folder.
+- `dimfort.scale.mode` — opt-in scale/magnitude checking (`S001`
+  multiplicative, `S002` affine-offset): `auto` (default — defer to
+  the project `.dimfort.toml` `[scale] enabled`), `on`, or `off`.
+  `on`/`off` override the toml for the editor session. Cycle with
+  `DimFort: Cycle Scale Checking`.
 - `dimfort.panel.enabled` — reveal the side panel on activation
   (default `true` — set this `false` to keep it closed and open it
   yourself from the **DimFort** activity-bar icon).
