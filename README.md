@@ -175,7 +175,7 @@ activity-bar icon toggles it) with six sections:
   (usable here but declared elsewhere), grouped by source module under a
   `from <module>` header (functions read as `name(argunits)`, showing their argument + return
   units, e.g. `force(kg)`). Rows navigate cross-file to where the imported symbol — and
-  its `@unit{}` — is declared. The Scope filter narrows this section too.
+  its `@unit{}` — is declared. Has its own name/unit/module filter box.
 
 On by default — set `dimfort.panel.enabled` to `false` to keep it
 closed, then open it from the **DimFort** activity-bar icon (or run
