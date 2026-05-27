@@ -171,10 +171,11 @@ activity-bar icon toggles it) with six sections:
   then a contained subroutine's locals). Each variable is marked 🟢
   (annotated), 🟡 (unannotated), or 🔴 (unparseable annotation), so
   annotation gaps stand out.
-- **Imports** — variables a `use` clause brings into scope (usable here
-  but declared elsewhere), grouped by source module, each with its unit.
-  Rows navigate cross-file to where the imported variable — and its
-  `@unit{}` — is declared.
+- **Imports** — variables and procedures a `use` clause brings into scope
+  (usable here but declared elsewhere), grouped by source module under a
+  `from <module>` header (functions show their return unit and read as
+  `name()`). Rows navigate cross-file to where the imported symbol — and
+  its `@unit{}` — is declared. The Scope filter narrows this section too.
 
 On by default — set `dimfort.panel.enabled` to `false` to keep it
 closed, then open it from the **DimFort** activity-bar icon (or run

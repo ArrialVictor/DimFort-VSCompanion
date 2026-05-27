@@ -516,17 +516,29 @@ function renderScope(sc, depth) {
   return wrap;
 }
 
-// Imports: variables brought into scope by 'use' clauses, grouped by
-// source module. Each row navigates (cross-file) to the imported
-// variable's declaration — where its @unit{} lives.
-function renderImports(imports) {
-  const wrap = document.createElement("div");
-  if (!imports || !imports.length) {
+// Imports: variables + procedures a 'use' clause brings into scope,
+// grouped by source module. Each row navigates (cross-file) to where the
+// imported symbol — and its @unit{} — is declared. currentImports holds
+// the latest payload's imports so the shared filter re-renders without a
+// server round-trip (same as the Scope section).
+let currentImports = [];
+function renderImportsList(container) {
+  container.innerHTML = "";
+  const q = scopeFilterValue.trim().toLowerCase();
+  const imports = q
+    ? currentImports.filter((im) =>
+        im.name.toLowerCase().includes(q) ||
+        (im.unit && im.unit.toLowerCase().includes(q)) ||
+        (im.module && im.module.toLowerCase().includes(q)))
+    : currentImports;
+  if (!imports.length) {
     const e = document.createElement("div");
     e.className = "muted";
-    e.textContent = "(none)";
-    wrap.appendChild(e);
-    return wrap;
+    e.textContent = q && currentImports.length
+      ? '(no imports match "' + scopeFilterValue + '")'
+      : "(none)";
+    container.appendChild(e);
+    return;
   }
   const byModule = {};
   for (const im of imports) {
@@ -535,9 +547,12 @@ function renderImports(imports) {
   for (const mod of Object.keys(byModule)) {
     const head = document.createElement("div");
     head.className = "scope-head";
-    head.textContent = "use " + mod;
-    wrap.appendChild(head);
+    head.textContent = "from " + mod;
+    container.appendChild(head);
+    // Indent the module's items under its header so the grouping reads
+    // as a tree (the "tabulation" of the module's content).
     const table = document.createElement("table");
+    table.style.marginLeft = "14px";
     for (const im of byModule[mod]) {
       const tr = document.createElement("tr");
       tr.className = "clickable";
@@ -549,8 +564,9 @@ function renderImports(imports) {
       const mark = im.kind === "unannotated" ? "🟡" : "🟢";
       const normText =
         im.unitNormalized && im.unitNormalized !== im.unit ? im.unitNormalized : "";
+      // A callable (imported function/subroutine) reads as name().
       const cells = [
-        ["name", im.name],
+        ["name", im.callable ? im.name + "()" : im.name],
         ["unit", im.unit ?? "(none)"],
         ["normalized", normText],
         ["mark", mark],
@@ -563,9 +579,8 @@ function renderImports(imports) {
       }
       table.appendChild(tr);
     }
-    wrap.appendChild(table);
+    container.appendChild(table);
   }
-  return wrap;
 }
 
 // Client-side Scope filter. currentScopes holds the latest payload's
@@ -748,8 +763,14 @@ function render(payload, actions, interactions) {
   const acts = actions || [];
   root.appendChild(section("Actions", renderActions(acts)));
 
+  // Imports list element — built here so the Scope filter (below) can
+  // re-render it too: one query narrows both "what's usable here" views.
+  currentImports = (payload && payload.imports) || [];
+  const importsList = document.createElement("div");
+  renderImportsList(importsList);
+
   // Scope — stacked enclosing scopes, outermost-first, with a client-side
-  // name/unit filter (handy in long routines with many declarations).
+  // name/unit filter that narrows BOTH Scope and Imports.
   const scopes = (payload && payload.scopes) || [];
   currentScopes = scopes;
   const scopeContent = document.createElement("div");
@@ -762,13 +783,14 @@ function render(payload, actions, interactions) {
     const filter = document.createElement("input");
     filter.type = "search";
     filter.className = "scope-filter";
-    filter.placeholder = "Filter variables by name or unit…";
+    filter.placeholder = "Filter scope & imports by name or unit…";
     filter.value = scopeFilterValue;
     const list = document.createElement("div");
     filter.addEventListener("input", () => {
       scopeFilterValue = filter.value;
       patchState({ scopeFilter: scopeFilterValue });
       renderScopeList(list);
+      renderImportsList(importsList);  // shared filter
     });
     scopeContent.appendChild(filter);
     scopeContent.appendChild(list);
@@ -776,10 +798,10 @@ function render(payload, actions, interactions) {
   }
   root.appendChild(section("Scope", scopeContent));
 
-  // Imports — variables a 'use' clause brings into scope, grouped by
-  // source module. Sits below Scope (both answer "what's usable here").
-  const imports = (payload && payload.imports) || [];
-  root.appendChild(section("Imports", renderImports(imports)));
+  // Imports — variables + procedures a 'use' clause brings into scope,
+  // grouped by source module. Sits below Scope (both answer "what's
+  // usable here") and shares its filter.
+  root.appendChild(section("Imports", importsList));
 
   // Flat footer: whole-file diagnostic counts.
   root.appendChild(renderFooter((payload && payload.fileDiagnosticCounts) || {}));
