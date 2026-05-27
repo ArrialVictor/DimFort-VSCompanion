@@ -571,7 +571,7 @@ function renderImportsList(container) {
       const unitText = im.unit
         ?? (im.callable && im.kind === "annotated" ? "—" : "(none)");
       const cells = [
-        ["name", im.callable ? im.name + "()" : im.name],
+        ["name", im.callable ? im.name + (im.signature ?? "()") : im.name],
         ["unit", unitText],
         ["normalized", normText],
         ["mark", mark],

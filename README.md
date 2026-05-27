@@ -173,8 +173,8 @@ activity-bar icon toggles it) with six sections:
   annotation gaps stand out.
 - **Imports** — variables and procedures a `use` clause brings into scope
   (usable here but declared elsewhere), grouped by source module under a
-  `from <module>` header (functions show their return unit and read as
-  `name()`). Rows navigate cross-file to where the imported symbol — and
+  `from <module>` header (functions read as `name(argunits)`, showing their argument + return
+  units, e.g. `force(kg)`). Rows navigate cross-file to where the imported symbol — and
   its `@unit{}` — is declared. The Scope filter narrows this section too.
 
 On by default — set `dimfort.panel.enabled` to `false` to keep it
