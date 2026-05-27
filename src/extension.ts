@@ -44,6 +44,15 @@ function buildClient(): LanguageClient {
   if (cacheDir) {
     initializationOptions.cacheDir = cacheDir;
   }
+  // Scale checking is tri-state: "auto" defers to the project's
+  // `.dimfort.toml` (omit the option so the server's config wins);
+  // "on"/"off" forward an explicit boolean that overrides the toml.
+  const scaleMode = config.get<string>("scale.mode", "auto");
+  if (scaleMode === "on") {
+    initializationOptions.scaleMode = true;
+  } else if (scaleMode === "off") {
+    initializationOptions.scaleMode = false;
+  }
 
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
@@ -130,10 +139,11 @@ export function activate(context: vscode.ExtensionContext): void {
       void vscode.commands.executeCommand("dimfort.panel.focus");
     }),
   );
-  // Panel closed by default: only reveal the DimFort view container on
-  // activation when the user has opted in via panel.enabled.
+  // Panel shown by default (package.json `panel.enabled` defaults to
+  // true): reveal the DimFort view container on activation unless the
+  // user opted out.
   if (
-    vscode.workspace.getConfiguration("dimfort").get<boolean>("panel.enabled", false)
+    vscode.workspace.getConfiguration("dimfort").get<boolean>("panel.enabled", true)
   ) {
     void vscode.commands.executeCommand("dimfort.panel.focus");
   }
@@ -231,6 +241,10 @@ export function activate(context: vscode.ExtensionContext): void {
         const editor = await vscode.window.showTextDocument(doc, { preserveFocus: false });
         const pos = new vscode.Position(line, character);
         await editor.insertSnippet(new vscode.SnippetString(snippet), pos);
+        // The snippet leaves the cursor between the `@unit{}` braces; pop
+        // the unit-name completion immediately so the user doesn't have to
+        // press Ctrl+Space (the server already offers completions there).
+        await vscode.commands.executeCommand("editor.action.triggerSuggest");
       },
     ),
   );
@@ -348,6 +362,20 @@ export function activate(context: vscode.ExtensionContext): void {
       // here (double restart races and crashes the server).
       await cfg.update("hover", next, vscode.ConfigurationTarget.Global);
       vscode.window.setStatusBarMessage(`DimFort: hover ${next}`, 2000);
+    }),
+  );
+
+  // Scale checking is tri-state (auto / on / off), like hover. "auto"
+  // defers to the project .dimfort.toml; "on"/"off" override it. Cycles
+  // in that order; the config-change listener rebuilds the client.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.cycleScale", async () => {
+      const cfg = vscode.workspace.getConfiguration("dimfort");
+      const order = ["auto", "on", "off"];
+      const current = cfg.get<string>("scale.mode", "auto");
+      const next = order[(order.indexOf(current) + 1) % order.length];
+      await cfg.update("scale.mode", next, vscode.ConfigurationTarget.Global);
+      vscode.window.setStatusBarMessage(`DimFort: scale checking ${next}`, 2000);
     }),
   );
 }
