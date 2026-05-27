@@ -334,10 +334,16 @@ first) and open it:
 module phys_constants
   real :: play   !< @unit{Pa}
   real :: grav   !< @unit{m/s^2}
+contains
+  function gravity_at(h) result(g)
+    real, intent(in) :: h   !< @unit{m}
+    real             :: g   !< @unit{m/s^2}
+    g = grav
+  end function gravity_at
 end module phys_constants
 
 module solver
-  use phys_constants, only: play
+  use phys_constants, only: play, gravity_at
   real :: local_p   !< @unit{Pa}
 contains
   subroutine step()
@@ -346,16 +352,21 @@ contains
 end module solver
 ```
 
-- [ ] **Lists the import** — cursor on `local_p = play` (inside `step`):
-      the **Imports** section shows a `use phys_constants` header with one
-      row, `play` → `Pa` ⟶ `kg/(m×s²)`, marked 🟢.
-- [ ] **Cross-file navigation** — clicking the `play` row moves the editor
-      to `play`'s declaration in `phys_constants` (line 2). (Here it's the
-      same file; in a real project it opens the defining module's file.)
+- [ ] **Lists vars + procedures** — cursor on `local_p = play` (inside
+      `step`): the **Imports** section shows a `from phys_constants` header
+      (its items indented beneath it) with two rows — `play` → `Pa` ⟶
+      `kg/(m×s²)` 🟢, and `gravity_at()` → `m/s²` 🟢 (the `()` marks it as
+      a callable procedure, showing its return unit).
+- [ ] **Cross-file navigation** — clicking the `play` row jumps to its
+      declaration (line 2); clicking `gravity_at()` jumps to the function
+      definition (line 5). (Same file here; another file in a real project.)
 - [ ] **Scoped + shadowed** — `grav` is **not** listed (the `only:` list
       excludes it). If you add `real :: play !< @unit{Pa}` as a local in
       `step`, `play` drops from Imports (the local shadows it, and it shows
       under Scope instead).
+- [ ] **Shared filter** — type `play` in the Scope section's filter box:
+      the Imports section narrows too (only `play` remains; `gravity_at()`
+      drops). Clear it → both return.
 - [ ] **Empty case** — cursor in `phys_constants` (which imports nothing):
       the Imports section shows `(none)`.
 
