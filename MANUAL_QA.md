@@ -355,17 +355,17 @@ end module solver
 - [ ] **Lists vars + procedures** — cursor on `local_p = play` (inside
       `step`): the **Imports** section shows a `from phys_constants` header
       (its items indented beneath it) with two rows — `play` → `Pa` ⟶
-      `kg/(m×s²)` 🟢, and `gravity_at()` → `m/s²` 🟢 (the `()` marks it as
-      a callable procedure, showing its return unit).
+      `kg/(m×s²)` 🟢, and `gravity_at(m)` → `m/s²` 🟢 (callable: its `(m)` argument unit
+      in the parens, its `m/s²` return unit in the unit column).
 - [ ] **Cross-file navigation** — clicking the `play` row jumps to its
-      declaration (line 2); clicking `gravity_at()` jumps to the function
+      declaration (line 2); clicking `gravity_at(m)` jumps to the function
       definition (line 5). (Same file here; another file in a real project.)
 - [ ] **Scoped + shadowed** — `grav` is **not** listed (the `only:` list
       excludes it). If you add `real :: play !< @unit{Pa}` as a local in
       `step`, `play` drops from Imports (the local shadows it, and it shows
       under Scope instead).
 - [ ] **Shared filter** — type `play` in the Scope section's filter box:
-      the Imports section narrows too (only `play` remains; `gravity_at()`
+      the Imports section narrows too (only `play` remains; `gravity_at(m)`
       drops). Clear it → both return.
 - [ ] **Empty case** — cursor in `phys_constants` (which imports nothing):
       the Imports section shows `(none)`.

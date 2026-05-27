@@ -16,8 +16,8 @@ commands, packaging).
   brings into the cursor's scope (usable there but not declared in an
   enclosing scope, so the Scope tables don't cover them). Grouped by
   source module under a `from <module>` header, each row shows the
-  imported name + its unit (a function shows its return unit; callables
-  read as `name()`) and navigates **cross-file** to where it (and its
+  imported name + its unit (a function shows its arguments' and return
+  units; callables read as `name(argunits)`, e.g. `force(kg)`) and navigates **cross-file** to where it (and its
   `@unit{}`) is declared. Scoped like Fortran visibility — module-level
   `use` shows for any cursor in the module, routine-level only in that
   routine; a local declaration shadows the import. The Scope section's
