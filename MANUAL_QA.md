@@ -119,8 +119,9 @@ alongside the open side panel). Mouse over the symbol (or
 Click the lightbulb (`Cmd/Ctrl+.`) with the cursor on the relevant line.
 
 - [ ] On `t_celsius` (line 17) → **"add `@unit{}`"**. Applying inserts
-      `!< @unit{}` and leaves the cursor **between the braces** (VSCode
-      expands the `$0` snippet tab-stop natively).
+      `!< @unit{}`, leaves the cursor **between the braces** (VSCode
+      expands the `$0` snippet tab-stop natively), and the **unit-name
+      completion list pops up automatically** (no manual Ctrl+Space).
 - [ ] On the `273.15` (line 20) → **"extract literal to PARAMETER"**.
       Applying prompts for a name, then inserts a typed `real, parameter`
       declaration and replaces the `273.15`.
@@ -133,10 +134,11 @@ Click the lightbulb (`Cmd/Ctrl+.`) with the cursor on the relevant line.
 
 ## Side panel
 
-The panel is **closed by default**. Open it from the **`[m²]` activity-bar
-icon** (left dock) or via **DimFort: Show Side Panel**. It follows the
-cursor (≈200 ms debounce). It renders as a styled webview — the content
-below shows the data; column alignment is done in the webview, not ASCII.
+The panel is **shown by default** on activation (`dimfort.panel.enabled`,
+on by default). Toggle it from the **`[m²]` activity-bar icon** (left
+dock) or via **DimFort: Show Side Panel**. It follows the cursor
+(≈200 ms debounce). It renders as a styled webview — the content below
+shows the data; column alignment is done in the webview, not ASCII.
 
 - [ ] **Activity-bar icon** — the `[m²]` ruler-of-units glyph is visible
       in the left activity bar; clicking it reveals the **Units** panel.
@@ -192,19 +194,30 @@ below shows the data; column alignment is done in the webview, not ASCII.
       vars (e.g. `play : Pa`) show only the one form.
 
 - [ ] **Section order + folding** — sections are `EXPRESSION →
-      DIAGNOSTICS → ACTIONS → SCOPE`, each a collapsible `▾ HEADER`
-      (uppercase). Click a header to collapse; the collapsed/expanded
-      state **persists** as you move the cursor (and across panel
-      hide/show).
+      DIAGNOSTICS → INTERACTIONS → ACTIONS → SCOPE`, each a collapsible
+      `▾ HEADER` (uppercase). Click a header to collapse; the
+      collapsed/expanded state **persists** as you move the cursor (and
+      across panel hide/show).
 
 - [ ] **Diagnostics section** — cursor on line 19 (`bogus = c_sound * t`):
       a **Diagnostics** section shows `🔴 H001: ...` (the message for the
-      cursor line). On a clean line (e.g. 18) the section is **absent**.
-      With the scale scene, `t_k = t_c` shows `🟡 S002: Offset mismatch …`.
+      cursor line). On a clean line (e.g. 18) the section shows `(none)`.
+      (Using the `scale_qa.f90` scene below with `[scale] enabled`, the
+      cursor on `t_k = t_c` shows `🟡 S002: …` here too.)
+
+- [ ] **Interactions section** — cursor on a `c_sound` use (line 18). The
+      **Interactions** section shows the symbol `c_sound`, then the
+      **Declaration** group (line 2) and **Read** group (its use sites),
+      each row a `file:line` + unit with the source snippet beneath.
+      Because `c_sound` is read as `m/s` at lines 18/21 but as `kg/s` at
+      line 19 (`bogus` is `kg`), a **🔴 X001** conflict row sits at the
+      top. On a symbol with no cross-site uses the section shows `(none)`.
 
 - [ ] **Click to navigate** — clicking a **diagnostic** row jumps the
       editor to that line; clicking a **scope-var** row (or its blue line
-      number) jumps to that variable's **declaration**.
+      number) jumps to that variable's **declaration**; clicking an
+      **interaction-site** row jumps to that site (another file when the
+      use is cross-file).
 
 - [ ] **Actions** — cursor on `t_celsius` (line 17, unannotated): an
       **Actions** section shows an `Add @unit{}` button; clicking it
@@ -257,6 +270,12 @@ end module scale_qa
       circles go **red**.
 - [ ] **Typed conversion silences it** — `phpa = play / PA_PER_HPA` with
       `real, parameter :: PA_PER_HPA = 100. !< @unit{Pa/hPa}` is clean.
+- [ ] **Editor toggle** (no `.dimfort.toml` needed) — set
+      `dimfort.scale.mode` to `on` (or run **DimFort: Cycle Scale
+      Checking** until the status bar shows `scale checking on`): the
+      S001/S002 squiggles appear. Set it back to `auto` → scale follows the
+      toml again (clean when no toml). `off` forces it off even if the toml
+      enables it.
 
 ## Unparsed regions (P001)
 

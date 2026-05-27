@@ -76,6 +76,11 @@
         "command": "dimfort.togglePanel",
         "title": "Show Side Panel",
         "category": "DimFort"
+      },
+      {
+        "command": "dimfort.cycleScale",
+        "title": "Cycle Scale Checking (Auto / On / Off)",
+        "category": "DimFort"
       }
     ],
     "viewsContainers": {
@@ -145,6 +150,18 @@
             "Full unit-algebra rule-chain tree."
           ],
           "description": "Hover verbosity, applied to every hover surface. The side panel is unaffected — it is always detailed and governed only by whether it is open. Cycle with the `DimFort: Cycle Hover Verbosity` command."
+        },
+        "dimfort.scale.mode": {
+          "type": "string",
+          "enum": ["auto", "on", "off"],
+          "enumItemLabels": ["Auto (.dimfort.toml)", "On", "Off"],
+          "default": "auto",
+          "enumDescriptions": [
+            "Defer to the project's `.dimfort.toml` `[scale] enabled` (off if absent).",
+            "Force scale checking on (S001/S002), overriding `.dimfort.toml`.",
+            "Force scale checking off, overriding `.dimfort.toml`."
+          ],
+          "description": "Opt-in scale/magnitude checking (S001 multiplicative, S002 affine-offset). `auto` (default) leaves it to the project `.dimfort.toml`; `on`/`off` override it. Cycle with the `DimFort: Cycle Scale Checking` command."
         },
         "dimfort.maxWorksetSize": {
           "type": "integer",
