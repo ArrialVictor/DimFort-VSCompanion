@@ -564,10 +564,15 @@ function renderImportsList(container) {
       const mark = im.kind === "unannotated" ? "🟡" : "🟢";
       const normText =
         im.unitNormalized && im.unitNormalized !== im.unit ? im.unitNormalized : "";
-      // A callable (imported function/subroutine) reads as name().
+      // A callable (imported function/subroutine) reads as name(). A
+      // subroutine has no return value (callable + no unit + not flagged
+      // as a missing annotation) → show "—", not "(none)", which would
+      // wrongly imply an un-annotated declaration.
+      const unitText = im.unit
+        ?? (im.callable && im.kind === "annotated" ? "—" : "(none)");
       const cells = [
         ["name", im.callable ? im.name + "()" : im.name],
-        ["unit", im.unit ?? "(none)"],
+        ["unit", unitText],
         ["normalized", normText],
         ["mark", mark],
       ];
