@@ -22,6 +22,16 @@ interface ScopeSection {
   kind: string;
   vars: ScopeVar[];
 }
+interface ImportVar {
+  name: string;
+  unit: string | null;
+  unitNormalized: string | null;
+  module: string;
+  kind: "annotated" | "unannotated";
+  file?: string; // source-declaration file (cross-file); absent = this file
+  line: number;
+  column: number;
+}
 interface PanelDiagnostic {
   severity: "error" | "warning" | "info" | "hint";
   code: string;
@@ -31,6 +41,7 @@ interface PanelDiagnostic {
 interface PanelInfo {
   expression: ExpressionNode | null;
   scopes: ScopeSection[];
+  imports?: ImportVar[];
   diagnostics?: PanelDiagnostic[];
   fileDiagnosticCounts?: { error: number; warning: number };
 }
@@ -505,6 +516,58 @@ function renderScope(sc, depth) {
   return wrap;
 }
 
+// Imports: variables brought into scope by 'use' clauses, grouped by
+// source module. Each row navigates (cross-file) to the imported
+// variable's declaration — where its @unit{} lives.
+function renderImports(imports) {
+  const wrap = document.createElement("div");
+  if (!imports || !imports.length) {
+    const e = document.createElement("div");
+    e.className = "muted";
+    e.textContent = "(none)";
+    wrap.appendChild(e);
+    return wrap;
+  }
+  const byModule = {};
+  for (const im of imports) {
+    (byModule[im.module] = byModule[im.module] || []).push(im);
+  }
+  for (const mod of Object.keys(byModule)) {
+    const head = document.createElement("div");
+    head.className = "scope-head";
+    head.textContent = "use " + mod;
+    wrap.appendChild(head);
+    const table = document.createElement("table");
+    for (const im of byModule[mod]) {
+      const tr = document.createElement("tr");
+      tr.className = "clickable";
+      tr.title = "Go to declaration"
+        + (im.file ? " (" + baseName(im.file) + ":" + im.line + ")" : "");
+      tr.addEventListener("click", () =>
+        im.file ? revealAt(im.file, im.line, im.column)
+                : revealLine(im.line, im.column));
+      const mark = im.kind === "unannotated" ? "🟡" : "🟢";
+      const normText =
+        im.unitNormalized && im.unitNormalized !== im.unit ? im.unitNormalized : "";
+      const cells = [
+        ["name", im.name],
+        ["unit", im.unit ?? "(none)"],
+        ["normalized", normText],
+        ["mark", mark],
+      ];
+      for (const [cls, txt] of cells) {
+        const td = document.createElement("td");
+        td.className = cls;
+        td.textContent = txt;
+        tr.appendChild(td);
+      }
+      table.appendChild(tr);
+    }
+    wrap.appendChild(table);
+  }
+  return wrap;
+}
+
 // Client-side Scope filter. currentScopes holds the latest payload's
 // scopes so re-filtering on keystroke needs no round-trip to the server;
 // the query persists (getState) across the per-cursor-move re-renders.
@@ -712,6 +775,11 @@ function render(payload, actions, interactions) {
     renderScopeList(list);
   }
   root.appendChild(section("Scope", scopeContent));
+
+  // Imports — variables a 'use' clause brings into scope, grouped by
+  // source module. Sits below Scope (both answer "what's usable here").
+  const imports = (payload && payload.imports) || [];
+  root.appendChild(section("Imports", renderImports(imports)));
 
   // Flat footer: whole-file diagnostic counts.
   root.appendChild(renderFooter((payload && payload.fileDiagnosticCounts) || {}));
