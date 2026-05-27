@@ -364,9 +364,10 @@ end module solver
       excludes it). If you add `real :: play !< @unit{Pa}` as a local in
       `step`, `play` drops from Imports (the local shadows it, and it shows
       under Scope instead).
-- [ ] **Shared filter** — type `play` in the Scope section's filter box:
-      the Imports section narrows too (only `play` remains; `gravity_at(m)`
-      drops). Clear it → both return.
+- [ ] **Imports filter** — the Imports section has its **own** search
+      box (separate from Scope's). Type `gravity` in it → only
+      `gravity_at(m)` remains; type `play` → only `play`. Clear it → both
+      return. The Scope filter does **not** affect Imports (and vice versa).
 - [ ] **Empty case** — cursor in `phys_constants` (which imports nothing):
       the Imports section shows `(none)`.
 

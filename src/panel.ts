@@ -522,9 +522,10 @@ function renderScope(sc, depth) {
 // the latest payload's imports so the shared filter re-renders without a
 // server round-trip (same as the Scope section).
 let currentImports = [];
+let importsFilterValue = getState().importsFilter || "";
 function renderImportsList(container) {
   container.innerHTML = "";
-  const q = scopeFilterValue.trim().toLowerCase();
+  const q = importsFilterValue.trim().toLowerCase();
   const imports = q
     ? currentImports.filter((im) =>
         im.name.toLowerCase().includes(q) ||
@@ -535,7 +536,7 @@ function renderImportsList(container) {
     const e = document.createElement("div");
     e.className = "muted";
     e.textContent = q && currentImports.length
-      ? '(no imports match "' + scopeFilterValue + '")'
+      ? '(no imports match "' + importsFilterValue + '")'
       : "(none)";
     container.appendChild(e);
     return;
@@ -768,14 +769,8 @@ function render(payload, actions, interactions) {
   const acts = actions || [];
   root.appendChild(section("Actions", renderActions(acts)));
 
-  // Imports list element — built here so the Scope filter (below) can
-  // re-render it too: one query narrows both "what's usable here" views.
-  currentImports = (payload && payload.imports) || [];
-  const importsList = document.createElement("div");
-  renderImportsList(importsList);
-
   // Scope — stacked enclosing scopes, outermost-first, with a client-side
-  // name/unit filter that narrows BOTH Scope and Imports.
+  // name/unit filter.
   const scopes = (payload && payload.scopes) || [];
   currentScopes = scopes;
   const scopeContent = document.createElement("div");
@@ -788,14 +783,13 @@ function render(payload, actions, interactions) {
     const filter = document.createElement("input");
     filter.type = "search";
     filter.className = "scope-filter";
-    filter.placeholder = "Filter scope & imports by name or unit…";
+    filter.placeholder = "Filter variables by name or unit…";
     filter.value = scopeFilterValue;
     const list = document.createElement("div");
     filter.addEventListener("input", () => {
       scopeFilterValue = filter.value;
       patchState({ scopeFilter: scopeFilterValue });
       renderScopeList(list);
-      renderImportsList(importsList);  // shared filter
     });
     scopeContent.appendChild(filter);
     scopeContent.appendChild(list);
@@ -805,8 +799,26 @@ function render(payload, actions, interactions) {
 
   // Imports — variables + procedures a 'use' clause brings into scope,
   // grouped by source module. Sits below Scope (both answer "what's
-  // usable here") and shares its filter.
-  root.appendChild(section("Imports", importsList));
+  // usable here"); has its own name/unit/module filter, mirroring Scope.
+  currentImports = (payload && payload.imports) || [];
+  const importsContent = document.createElement("div");
+  const importsList = document.createElement("div");
+  if (currentImports.length) {
+    const ifilter = document.createElement("input");
+    ifilter.type = "search";
+    ifilter.className = "scope-filter";
+    ifilter.placeholder = "Filter imports by name, unit, or module…";
+    ifilter.value = importsFilterValue;
+    ifilter.addEventListener("input", () => {
+      importsFilterValue = ifilter.value;
+      patchState({ importsFilter: importsFilterValue });
+      renderImportsList(importsList);
+    });
+    importsContent.appendChild(ifilter);
+  }
+  importsContent.appendChild(importsList);
+  renderImportsList(importsList);
+  root.appendChild(section("Imports", importsContent));
 
   // Flat footer: whole-file diagnostic counts.
   root.appendChild(renderFooter((payload && payload.fileDiagnosticCounts) || {}));

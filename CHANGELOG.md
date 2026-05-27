@@ -20,8 +20,8 @@ commands, packaging).
   units; callables read as `name(argunits)`, e.g. `force(kg)`) and navigates **cross-file** to where it (and its
   `@unit{}`) is declared. Scoped like Fortran visibility — module-level
   `use` shows for any cursor in the module, routine-level only in that
-  routine; a local declaration shadows the import. The Scope section's
-  name/unit filter narrows Imports too. Driven by the server's new
+  routine; a local declaration shadows the import. The section has its
+  own name/unit/module filter box. Driven by the server's new
   `panelInfo.imports` field.
 - **Scope filter** — a search box at the top of the panel's **Scope** section
   filters the listed variables by name or unit (case-insensitive). Purely
