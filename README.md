@@ -151,7 +151,7 @@ Settings (under **DimFort** in the Settings UI):
 ## Side panel
 
 A cursor-following side panel (open by default; the **DimFort**
-activity-bar icon toggles it) with five sections:
+activity-bar icon toggles it) with six sections:
 
 - **Expression** — the unit-algebra tree for the expression under the
   cursor: each node with its resolved unit, the rule that produced it,
@@ -171,6 +171,10 @@ activity-bar icon toggles it) with five sections:
   then a contained subroutine's locals). Each variable is marked 🟢
   (annotated), 🟡 (unannotated), or 🔴 (unparseable annotation), so
   annotation gaps stand out.
+- **Imports** — variables a `use` clause brings into scope (usable here
+  but declared elsewhere), grouped by source module, each with its unit.
+  Rows navigate cross-file to where the imported variable — and its
+  `@unit{}` — is declared.
 
 On by default — set `dimfort.panel.enabled` to `false` to keep it
 closed, then open it from the **DimFort** activity-bar icon (or run

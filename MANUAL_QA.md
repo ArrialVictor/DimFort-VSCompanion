@@ -194,8 +194,8 @@ shows the data; column alignment is done in the webview, not ASCII.
       vars (e.g. `play : Pa`) show only the one form.
 
 - [ ] **Section order + folding** — sections are `EXPRESSION →
-      DIAGNOSTICS → INTERACTIONS → ACTIONS → SCOPE`, each a collapsible
-      `▾ HEADER` (uppercase). Click a header to collapse; the
+      DIAGNOSTICS → INTERACTIONS → ACTIONS → SCOPE → IMPORTS`, each a
+      collapsible `▾ HEADER` (uppercase). Click a header to collapse; the
       collapsed/expanded state **persists** as you move the cursor (and
       across panel hide/show).
 
@@ -224,6 +224,14 @@ shows the data; column alignment is done in the webview, not ASCII.
       applies the same edit as the lightbulb (inserts `!< @unit{}`). On
       the `273.15` literal (line 20): an `Extract literal to PARAMETER`
       button. The section is **absent** when no action applies at the cursor.
+
+- [ ] **Imports section** — needs the `imports_qa.f90` scene below. With
+      the cursor inside `solver`'s `step` routine, the **Imports** section
+      lists `play` (from `use phys_constants`) under a `use phys_constants`
+      header, with its unit `kg/(m×s²)` and a 🟢 marker. Clicking the row
+      **jumps cross-file** to `play`'s declaration in `phys_constants`.
+      A name not imported (or shadowed by a local declaration) does not
+      appear. On a routine that imports nothing, the section shows `(none)`.
 
 - [ ] **Footer** — a flat `File: 🔴 N  🟡 M` bar is pinned to the
       **bottom** of the panel (whole-file counts), even when the content
@@ -316,6 +324,40 @@ end subroutine unparsed_qa
 - [ ] **Suppressible** — add a workspace `.dimfort.toml` with
       `[diagnostics]` `P001 = "off"`, save; the blue squiggle disappears
       (no manual restart), the red `H001` stays.
+
+## Imports section
+
+Save this `imports_qa.f90` (one file, two modules — the second `use`s the
+first) and open it:
+
+```fortran
+module phys_constants
+  real :: play   !< @unit{Pa}
+  real :: grav   !< @unit{m/s^2}
+end module phys_constants
+
+module solver
+  use phys_constants, only: play
+  real :: local_p   !< @unit{Pa}
+contains
+  subroutine step()
+    local_p = play
+  end subroutine step
+end module solver
+```
+
+- [ ] **Lists the import** — cursor on `local_p = play` (inside `step`):
+      the **Imports** section shows a `use phys_constants` header with one
+      row, `play` → `Pa` ⟶ `kg/(m×s²)`, marked 🟢.
+- [ ] **Cross-file navigation** — clicking the `play` row moves the editor
+      to `play`'s declaration in `phys_constants` (line 2). (Here it's the
+      same file; in a real project it opens the defining module's file.)
+- [ ] **Scoped + shadowed** — `grav` is **not** listed (the `only:` list
+      excludes it). If you add `real :: play !< @unit{Pa}` as a local in
+      `step`, `play` drops from Imports (the local shadows it, and it shows
+      under Scope instead).
+- [ ] **Empty case** — cursor in `phys_constants` (which imports nothing):
+      the Imports section shows `(none)`.
 
 ## Config reload & cache
 
