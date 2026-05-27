@@ -16,6 +16,16 @@ commands, packaging).
   filters the listed variables by name or unit (case-insensitive). Purely
   client-side (no server round-trip); the query persists across cursor-move
   re-renders. Handy in long routines with many declarations.
+- **Scale-checking toggle** — a new `dimfort.scale.mode` setting
+  (`auto` / `on` / `off`, default `auto`) and a **DimFort: Cycle Scale
+  Checking** command. `auto` defers to the project's `.dimfort.toml`
+  `[scale] enabled`; `on`/`off` force the magnitude layer (S001/S002) for
+  the editor session, overriding the toml — so scale can be flipped without
+  editing a config file.
+- **Unit completion auto-pops after "Add @unit{}"** — the quick-fix snippet
+  leaves the cursor between the braces and now triggers the suggestion list
+  immediately (`editor.action.triggerSuggest`), so unit names appear without
+  a manual Ctrl+Space.
 
 ### Changed
 
