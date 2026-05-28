@@ -10,6 +10,17 @@ commands, packaging).
 
 ## [Unreleased]
 
+### Polish: render `assumed` marker (🔵) + `(assumed: <reason>)` tail
+
+Tracks the new server-side `ExpressionNode.marker = "assumed"` value
+and `ExpressionNode.assumed: string | null` field. When the server
+flags a row as accepted via `@unit_assume{<unit> : <reason>}`, the
+panel paints 🔵 and appends `(assumed: <reason>)` to the row tail
+(same column as `(expected …)`; both can coexist). Pre-0.2.1
+companions would fall through to their default marker glyph if
+they happened to receive `"assumed"`; this update makes the
+positive signal visible. See DimFort design/markers.md §4.6.
+
 ### Polish: dim `?` and `-` glyphs across every panel section
 
 Absence-of-information glyphs (`?` for unknown, `-` for
