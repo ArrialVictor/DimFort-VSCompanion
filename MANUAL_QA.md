@@ -37,6 +37,8 @@ contains
     real :: ln_p       !< @unit{LOG(Pa)}
     real :: rt_e2      !< @unit{m/s}
     real :: abs_t      !< @unit{s}
+    real :: log_combo  !< @unit{LOG(Pa^2)}
+    real :: recovered  !< @unit{Pa}
     real :: t_celsius                  ! no annotation -> U005
     d         = c_sound * t            ! OK:   m = (m·s⁻¹)*s
     bogus     = c_sound * t            ! H001: kg = m  (mismatch)
@@ -46,6 +48,10 @@ contains
     ln_p      = log(ref_pressure)            ! intrinsic: LOG-wrap (Pa → LOG(Pa))
     rt_e2     = sqrt(c_sound * c_sound)      ! intrinsic: sqrt halves (m²/s² → m/s)
     abs_t     = abs(t)                       ! intrinsic: preserves (s → s)
+    log_combo = log(ref_pressure) + log(ref_pressure)
+                                             ! LOG/EXP algebra: homomorphism
+                                             !   LOG(Pa) + LOG(Pa) → LOG(Pa²)
+    recovered = exp(log(ref_pressure))       ! cancellation: exp(log(p)) → p
     ref_pressure = dynamic_pressure(0.5 * c_sound)
     call scale_pressure(2.0 * ref_pressure)        ! subroutine call
   end subroutine checks
@@ -81,11 +87,11 @@ Errors are red squiggles, warnings are orange/yellow squiggles; all also
 list in the **Problems** panel (`Cmd/Ctrl+Shift+M`). On a fresh open,
 confirm exactly:
 
-- [ ] **Line 21** — `t_celsius` (no annotation) → **U005 warning**.
-- [ ] **Line 23** — `bogus = c_sound * t` → **H001 error** `kg ≠ m`.
-- [ ] **Line 24** — `t_celsius = t - 273.15` → **H010 warning** on the
+- [ ] **Line 23** — `t_celsius` (no annotation) → **U005 warning**.
+- [ ] **Line 25** — `bogus = c_sound * t` → **H001 error** `kg ≠ m`.
+- [ ] **Line 26** — `t_celsius = t - 273.15` → **H010 warning** on the
       `273.15` literal (suggests extracting it to a named PARAMETER).
-- [ ] Lines 22, 25, 27, 28, 29, and 30 are **clean** — no diagnostic.
+- [ ] Lines 24, 27, 29, 30, 31, 32, 33, and 34 are **clean** — no diagnostic.
 
 **Interactive — U002 (unparseable annotation):** change line 14's
 `!< @unit{s}` to `!< @unit{??}` and save. Confirm **two** diagnostics on
@@ -103,10 +109,10 @@ alongside the open side panel). Mouse over the symbol (or
 `Cmd/Ctrl+K Cmd/Ctrl+I`).
 
 - [ ] **Short (default)** — on **`c_sound`** → single row `c_sound : m·s⁻¹`;
-      on the product `c_sound * t` (line 22) → the tree shape used by
+      on the product `c_sound * t` (line 24) → the tree shape used by
       every short hover: root `c_sound * t : m  🟢` + immediate operand
       rows `├── c_sound : m·s⁻¹  🟢` and `└── t : s  🟢`.
-- [ ] **Binary operators** — on **line 25** (the `combo = …` assignment),
+- [ ] **Binary operators** — on **line 27** (the `combo = …` assignment),
       hover each of `+`, `-`, `*`, `/`, `**` in turn. Each renders the
       same tree shape (root sub-expression + immediate operand rows);
       every row is 🟢; the topmost `**` shows `c_sound**2 : m²·s⁻²` over
@@ -114,32 +120,45 @@ alongside the open side panel). Mouse over the symbol (or
 - [ ] **Detailed** — run **DimFort: Cycle Hover Verbosity** once
       (`short → detailed`). For bare-identifier operands like
       `c_sound * t` the layout is unchanged from short (nothing to
-      expand). For the call `dynamic_pressure` (line 30), Detailed adds
+      expand). For the call `dynamic_pressure` (line 34), Detailed adds
       a sub-tree under its **computed argument row** (`0.5 * c_sound :
       m·s⁻¹ 🟢` with `0.5 : 1`, `c_sound : m·s⁻¹` indented beneath);
       Short shows root + the argument row only. Both modes share the
       side panel's Expression-tree layout — root reads
       `dynamic_pressure(0.5 * c_sound) : kg·m⁻¹·s⁻² 🟢`.
 - [ ] **Subroutine call** — still in `detailed`, hover the call name
-      `scale_pressure` (line 31): same tree layout as a function call,
+      `scale_pressure` (line 35): same tree layout as a function call,
       **but the root has no return unit** (subroutines don't return),
       so it reads `call scale_pressure(…) : ? 🟡`. The actual-argument
       row `2.0 * ref_pressure : kg·m⁻¹·s⁻² 🟢` and its sub-tree appear
       beneath.
 - [ ] **Intrinsics — same tree as user calls.** Still in `detailed`:
-      - Hover `log` (line 27): root row `log(ref_pressure) : LOG(Pa)`
+      - Hover `log` (line 29): root row `log(ref_pressure) : LOG(Pa)`
         + child row `ref_pressure : Pa 🟢`. The intrinsic call hover
         now uses the same tree renderer as user calls — no more
         bare-identifier-fallback one-liner.
-      - Hover `sqrt` (line 28): root row `sqrt(c_sound * c_sound) :
+      - Hover `sqrt` (line 30): root row `sqrt(c_sound * c_sound) :
         m·s⁻¹` + computed-arg row (with its operand sub-tree in
         Detailed). Sqrt halves the unit (m²/s² → m/s).
-      - Hover `abs` (line 29): root row `abs(t) : s` + `t : s` child
+      - Hover `abs` (line 31): root row `abs(t) : s` + `t : s` child
         row. Abs preserves the operand's unit.
       Intrinsics have no `(expected …)` annotation on args — we don't
       track formal-arg units for them — but the structural tree is
       identical.
-- [ ] **Assignment-mismatch `(expected …)` annotation.** On line 23
+- [ ] **LOG / EXP computational tricks.** DimFort follows the algebra
+      symbolically, so the two showcase lines resolve clean:
+      - **Line 32** (`log_combo = log(ref_pressure) + log(ref_pressure)`)
+        — homomorphism. Hover the outer `+`: root row
+        `log(ref_pressure) + log(ref_pressure) : LOG(Pa²) 🟢` over the
+        two operand rows `log(ref_pressure) : LOG(Pa) 🟢`. DimFort
+        folds `LOG(Pa) + LOG(Pa) → LOG(Pa²)` (the multiplicative-to-
+        additive trick from atmospheric science).
+      - **Line 33** (`recovered = exp(log(ref_pressure))`) —
+        cancellation. Hover the outer `exp`: root row
+        `exp(log(ref_pressure)) : Pa 🟢` over the child row
+        `log(ref_pressure) : LOG(Pa) 🟢`. `exp ∘ log = identity` —
+        the wrapper survives the round-trip.
+- [ ] **Assignment-mismatch `(expected …)` annotation.** On line 25
       (`bogus = c_sound * t`), hover the `=`. The root row paints 🔴
       from `H001` owning the assignment; the RHS child row reads
       `c_sound * t : m  🟡  (expected kg)`. The 🟡 is the
@@ -172,11 +191,11 @@ alongside the open side panel). Mouse over the symbol (or
 
 Click the lightbulb (`Cmd/Ctrl+.`) with the cursor on the relevant line.
 
-- [ ] On `t_celsius` (line 21) → **"add `@unit{}`"**. Applying inserts
+- [ ] On `t_celsius` (line 23) → **"add `@unit{}`"**. Applying inserts
       `!< @unit{}`, leaves the cursor **between the braces** (VSCode
       expands the `$0` snippet tab-stop natively), and the **unit-name
       completion list pops up automatically** (no manual Ctrl+Space).
-- [ ] On the `273.15` (line 24) → **"extract literal to PARAMETER"**.
+- [ ] On the `273.15` (line 26) → **"extract literal to PARAMETER"**.
       Applying prompts for a name, then inserts a typed `real, parameter`
       declaration and replaces the `273.15`.
 
@@ -197,7 +216,7 @@ shows the data; column alignment is done in the webview, not ASCII.
 - [ ] **Activity-bar icon** — the `[m²]` ruler-of-units glyph is visible
       in the left activity bar; clicking it reveals the **Units** panel.
 
-- [ ] **Assignment with a mismatch** — cursor on the **`=`** in line 23
+- [ ] **Assignment with a mismatch** — cursor on the **`=`** in line 25
       (`bogus = c_sound * t`). The Expression section shows the whole
       assignment marked 🔴 (`kg ≠ m`), with the operand tree beneath:
       `bogus : kg` 🟢, `c_sound * t : m` 🟢 → `c_sound : m·s⁻¹` 🟢,
@@ -209,18 +228,18 @@ shows the data; column alignment is done in the webview, not ASCII.
       product, all 🟢, resolving to `kg·m⁻¹·s⁻²`.
 
 - [ ] **Function call with arguments** — cursor on the call name
-      `dynamic_pressure` in line 30. Expression shows
+      `dynamic_pressure` in line 34. Expression shows
       `dynamic_pressure(0.5 * c_sound) : kg·m⁻¹·s⁻²` 🟢, with the computed
       argument `0.5 * c_sound : m·s⁻¹` 🟢 as a child, breaking down
       into `0.5 : 1` 🟢 and `c_sound : m·s⁻¹` 🟢.
 
 - [ ] **Subroutine call** — cursor on the call name `scale_pressure` in
-      line 31. A subroutine has no return unit, so the root
+      line 35. A subroutine has no return unit, so the root
       `call scale_pressure(2.0 * ref_pressure)` carries none (🟡), but the
       computed argument `2.0 * ref_pressure : kg·m⁻¹·s⁻²` 🟢 still
       expands beneath it into `2.0 : 1` 🟢 and `ref_pressure : kg·m⁻¹·s⁻²` 🟢.
 
-- [ ] **Call-arg expected on mismatch** — temporarily edit line 30 to
+- [ ] **Call-arg expected on mismatch** — temporarily edit line 34 to
       `ref_pressure = dynamic_pressure(c_sound * t)`. The Expression tree
       now shows the argument row `c_sound * t : m 🔴 (expected m·s⁻¹)`,
       surfacing the formal unit the call-site demanded. Revert the edit
@@ -238,13 +257,13 @@ shows the data; column alignment is done in the webview, not ASCII.
       cursor (the box keeps its text). Typing a nonsense string shows
       "(no variables match …)".
 
-- [ ] **Markers** — in `checks` (cursor in line 23), `t_celsius` shows 🟡
+- [ ] **Markers** — in `checks` (cursor in line 25), `t_celsius` shows 🟡
       (unannotated); a `@unit{??}` in scope shows 🔴. Markers are
       **diagnostic-driven** (see `DimFort/docs/design/markers.md`): a
       circle reflects the squiggle that owns the node, so the panel and
       Problems never disagree. Only the consistency family
       (`H001`–`H004`, `S001`, `S002`) colours a circle — an `H010`
-      implicit-cast (e.g. line 24's `273.15`) keeps its squiggle but the
+      implicit-cast (e.g. line 26's `273.15`) keeps its squiggle but the
       circle stays 🟢. Relational comparisons aren't an emission site, so
       they show 🟡, not a red.
 
@@ -259,18 +278,18 @@ shows the data; column alignment is done in the webview, not ASCII.
       collapsed/expanded state **persists** as you move the cursor (and
       across panel hide/show).
 
-- [ ] **Diagnostics section** — cursor on line 23 (`bogus = c_sound * t`):
+- [ ] **Diagnostics section** — cursor on line 25 (`bogus = c_sound * t`):
       a **Diagnostics** section shows `🔴 H001: ...` (the message for the
       cursor line). On a clean line (e.g. 18) the section shows `(none)`.
       (Using the `scale_qa.f90` scene below with `[scale] enabled`, the
       cursor on `t_k = t_c` shows `🟡 S002: …` here too.)
 
-- [ ] **Interactions section** — cursor on a `c_sound` use (line 22). The
+- [ ] **Interactions section** — cursor on a `c_sound` use (line 24). The
       **Interactions** section shows the symbol `c_sound`, then the
       **Declaration** group (line 2) and **Read** group (its use sites),
       each row a `file:line` + unit with the source snippet beneath.
       Because `c_sound` is read as `m·s⁻¹` at lines 18/21 but as `kg/s` at
-      line 23 (`bogus` is `kg`), a **🔴 X001** conflict row sits at the
+      line 25 (`bogus` is `kg`), a **🔴 X001** conflict row sits at the
       top. On a symbol with no cross-site uses the section shows `(none)`.
 
 - [ ] **Click to navigate** — clicking a **diagnostic** row jumps the
@@ -279,10 +298,10 @@ shows the data; column alignment is done in the webview, not ASCII.
       **interaction-site** row jumps to that site (another file when the
       use is cross-file).
 
-- [ ] **Actions** — cursor on `t_celsius` (line 21, unannotated): an
+- [ ] **Actions** — cursor on `t_celsius` (line 23, unannotated): an
       **Actions** section shows an `Add @unit{}` button; clicking it
       applies the same edit as the lightbulb (inserts `!< @unit{}`). On
-      the `273.15` literal (line 24): an `Extract literal to PARAMETER`
+      the `273.15` literal (line 26): an `Extract literal to PARAMETER`
       button. The section is **absent** when no action applies at the cursor.
 
 - [ ] **Imports section** — needs the `imports_qa.f90` scene below. With
@@ -297,7 +316,7 @@ shows the data; column alignment is done in the webview, not ASCII.
       **bottom** of the panel (whole-file counts), even when the content
       above is short.
 
-- [ ] **Cursor-follow** — move between line 10 (function) and line 23
+- [ ] **Cursor-follow** — move between line 10 (function) and line 25
       (subroutine); the Scope section switches between `Function:
       dynamic_pressure` and `Subroutine: checks`.
 
