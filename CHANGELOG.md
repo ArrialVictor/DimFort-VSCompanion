@@ -8,7 +8,7 @@ behavioural changes mostly land in the DimFort server itself. Entries
 below cover client-side changes only (settings, defaults, palette
 commands, packaging).
 
-## [Unreleased]
+## [0.2.0] — 2026-05-28
 
 ### Added
 
