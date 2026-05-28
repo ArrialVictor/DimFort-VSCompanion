@@ -10,6 +10,13 @@ commands, packaging).
 
 ## [Unreleased]
 
+### Polish: dim `?` and `-` glyphs in panel Scope / Imports
+
+Absence-of-information glyphs (`?` for unknown, `-` for structural-
+no-unit) now render with the muted theme colour in the panel's
+Scope and Imports tables, so real units pop visually. The
+expression-tree dimming is deferred to a later pass.
+
 ### Change: scope / import unannotated vars render `?`, not `(none)`
 
 Aligns with the server-side glyph unification (see DimFort

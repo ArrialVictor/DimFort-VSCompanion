@@ -500,16 +500,23 @@ function renderScope(sc, depth) {
     // kg·m⁻¹·s⁻²) are visible without cluttering base-SI rows (m → m).
     const normText =
       v.unitNormalized && v.unitNormalized !== v.unit ? v.unitNormalized : "";
+    const unitText = v.unit ?? "?";
     const cells = [
       ["line", String(v.line)],
       ["name", v.name],
-      ["unit", v.unit ?? "?"],
+      ["unit", unitText],
       ["normalized", normText],
       ["mark", mark],
     ];
     for (const [cls, txt] of cells) {
       const td = document.createElement("td");
-      td.className = cls === "line" ? "line clickable" : cls;
+      let className = cls === "line" ? "line clickable" : cls;
+      // Dim absence-of-information glyphs ('?' = unknown, '-' =
+      // structural-no-unit) so real units pop visually.
+      if (cls === "unit" && (txt === "?" || txt === "-")) {
+        className += " muted";
+      }
+      td.className = className;
       td.textContent = txt;
       tr.appendChild(td);
     }
@@ -583,7 +590,13 @@ function renderImportsList(container) {
       ];
       for (const [cls, txt] of cells) {
         const td = document.createElement("td");
-        td.className = cls;
+        let className = cls;
+        // Dim absence-of-information glyphs ('?' = unknown, '-' =
+        // structural-no-unit) so real units pop visually.
+        if (cls === "unit" && (txt === "?" || txt === "-")) {
+          className += " muted";
+        }
+        td.className = className;
         td.textContent = txt;
         tr.appendChild(td);
       }
