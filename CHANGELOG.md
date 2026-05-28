@@ -12,6 +12,17 @@ commands, packaging).
 
 ### Added
 
+- **Imports panel section** — variables **and procedures** a `use` clause
+  brings into the cursor's scope (usable there but not declared in an
+  enclosing scope, so the Scope tables don't cover them). Grouped by
+  source module under a `from <module>` header, each row shows the
+  imported name + its unit (a function shows its arguments' and return
+  units; callables read as `name(argunits)`, e.g. `force(kg)`) and navigates **cross-file** to where it (and its
+  `@unit{}`) is declared. Scoped like Fortran visibility — module-level
+  `use` shows for any cursor in the module, routine-level only in that
+  routine; a local declaration shadows the import. The section has its
+  own name/unit/module filter box. Driven by the server's new
+  `panelInfo.imports` field.
 - **Scope filter** — a search box at the top of the panel's **Scope** section
   filters the listed variables by name or unit (case-insensitive). Purely
   client-side (no server round-trip); the query persists across cursor-move

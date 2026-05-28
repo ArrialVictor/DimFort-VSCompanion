@@ -22,6 +22,16 @@ interface ScopeSection {
   kind: string;
   vars: ScopeVar[];
 }
+interface ImportVar {
+  name: string;
+  unit: string | null;
+  unitNormalized: string | null;
+  module: string;
+  kind: "annotated" | "unannotated";
+  file?: string; // source-declaration file (cross-file); absent = this file
+  line: number;
+  column: number;
+}
 interface PanelDiagnostic {
   severity: "error" | "warning" | "info" | "hint";
   code: string;
@@ -31,6 +41,7 @@ interface PanelDiagnostic {
 interface PanelInfo {
   expression: ExpressionNode | null;
   scopes: ScopeSection[];
+  imports?: ImportVar[];
   diagnostics?: PanelDiagnostic[];
   fileDiagnosticCounts?: { error: number; warning: number };
 }
@@ -482,8 +493,8 @@ function renderScope(sc, depth) {
       v.kind === "unannotated" ? "🟡" : v.kind === "error" ? "🔴" : "🟢";
     // Input unit as written in its own column; the normalized base-SI form
     // in a second, table-aligned column — only when it differs, so scale
-    // factors (hPa → 100×kg/(m·s²)) and derived expansions (Pa →
-    // kg/(m·s²)) are visible without cluttering base-SI rows (m → m).
+    // factors (hPa → 100×kg·m⁻¹·s⁻²) and derived expansions (Pa →
+    // kg·m⁻¹·s⁻²) are visible without cluttering base-SI rows (m → m).
     const normText =
       v.unitNormalized && v.unitNormalized !== v.unit ? v.unitNormalized : "";
     const cells = [
@@ -503,6 +514,79 @@ function renderScope(sc, depth) {
   }
   wrap.appendChild(table);
   return wrap;
+}
+
+// Imports: variables + procedures a 'use' clause brings into scope,
+// grouped by source module. Each row navigates (cross-file) to where the
+// imported symbol — and its @unit{} — is declared. currentImports holds
+// the latest payload's imports so the shared filter re-renders without a
+// server round-trip (same as the Scope section).
+let currentImports = [];
+let importsFilterValue = getState().importsFilter || "";
+function renderImportsList(container) {
+  container.innerHTML = "";
+  const q = importsFilterValue.trim().toLowerCase();
+  const imports = q
+    ? currentImports.filter((im) =>
+        im.name.toLowerCase().includes(q) ||
+        (im.unit && im.unit.toLowerCase().includes(q)) ||
+        (im.module && im.module.toLowerCase().includes(q)))
+    : currentImports;
+  if (!imports.length) {
+    const e = document.createElement("div");
+    e.className = "muted";
+    e.textContent = q && currentImports.length
+      ? '(no imports match "' + importsFilterValue + '")'
+      : "(none)";
+    container.appendChild(e);
+    return;
+  }
+  const byModule = {};
+  for (const im of imports) {
+    (byModule[im.module] = byModule[im.module] || []).push(im);
+  }
+  for (const mod of Object.keys(byModule)) {
+    const head = document.createElement("div");
+    head.className = "scope-head";
+    head.textContent = "from " + mod;
+    container.appendChild(head);
+    // Indent the module's items under its header so the grouping reads
+    // as a tree (the "tabulation" of the module's content).
+    const table = document.createElement("table");
+    table.style.marginLeft = "14px";
+    for (const im of byModule[mod]) {
+      const tr = document.createElement("tr");
+      tr.className = "clickable";
+      tr.title = "Go to declaration"
+        + (im.file ? " (" + baseName(im.file) + ":" + im.line + ")" : "");
+      tr.addEventListener("click", () =>
+        im.file ? revealAt(im.file, im.line, im.column)
+                : revealLine(im.line, im.column));
+      const mark = im.kind === "unannotated" ? "🟡" : "🟢";
+      const normText =
+        im.unitNormalized && im.unitNormalized !== im.unit ? im.unitNormalized : "";
+      // A callable (imported function/subroutine) reads as name(). A
+      // subroutine has no return value (callable + no unit + not flagged
+      // as a missing annotation) → show "—", not "(none)", which would
+      // wrongly imply an un-annotated declaration.
+      const unitText = im.unit
+        ?? (im.callable && im.kind === "annotated" ? "—" : "(none)");
+      const cells = [
+        ["name", im.callable ? im.name + (im.signature ?? "()") : im.name],
+        ["unit", unitText],
+        ["normalized", normText],
+        ["mark", mark],
+      ];
+      for (const [cls, txt] of cells) {
+        const td = document.createElement("td");
+        td.className = cls;
+        td.textContent = txt;
+        tr.appendChild(td);
+      }
+      table.appendChild(tr);
+    }
+    container.appendChild(table);
+  }
 }
 
 // Client-side Scope filter. currentScopes holds the latest payload's
@@ -686,7 +770,7 @@ function render(payload, actions, interactions) {
   root.appendChild(section("Actions", renderActions(acts)));
 
   // Scope — stacked enclosing scopes, outermost-first, with a client-side
-  // name/unit filter (handy in long routines with many declarations).
+  // name/unit filter.
   const scopes = (payload && payload.scopes) || [];
   currentScopes = scopes;
   const scopeContent = document.createElement("div");
@@ -712,6 +796,29 @@ function render(payload, actions, interactions) {
     renderScopeList(list);
   }
   root.appendChild(section("Scope", scopeContent));
+
+  // Imports — variables + procedures a 'use' clause brings into scope,
+  // grouped by source module. Sits below Scope (both answer "what's
+  // usable here"); has its own name/unit/module filter, mirroring Scope.
+  currentImports = (payload && payload.imports) || [];
+  const importsContent = document.createElement("div");
+  const importsList = document.createElement("div");
+  if (currentImports.length) {
+    const ifilter = document.createElement("input");
+    ifilter.type = "search";
+    ifilter.className = "scope-filter";
+    ifilter.placeholder = "Filter imports by name, unit, or module…";
+    ifilter.value = importsFilterValue;
+    ifilter.addEventListener("input", () => {
+      importsFilterValue = ifilter.value;
+      patchState({ importsFilter: importsFilterValue });
+      renderImportsList(importsList);
+    });
+    importsContent.appendChild(ifilter);
+  }
+  importsContent.appendChild(importsList);
+  renderImportsList(importsList);
+  root.appendChild(section("Imports", importsContent));
 
   // Flat footer: whole-file diagnostic counts.
   root.appendChild(renderFooter((payload && payload.fileDiagnosticCounts) || {}));

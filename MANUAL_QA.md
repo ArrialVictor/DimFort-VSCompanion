@@ -34,7 +34,7 @@ contains
     real :: d          !< @unit{m}
     real :: bogus      !< @unit{kg}
     real :: t_celsius                  ! no annotation -> U005
-    d         = c_sound * t            ! OK:   m = (m/s)*s
+    d         = c_sound * t            ! OK:   m = (m·s⁻¹)*s
     bogus     = c_sound * t            ! H001: kg = m  (mismatch)
     t_celsius = t - 273.15             ! H010: bare 273.15 literal
     ref_pressure = dynamic_pressure(0.5 * c_sound)
@@ -93,14 +93,14 @@ Hover defaults to **`short`** in VSCode (a one-line unit surface
 alongside the open side panel). Mouse over the symbol (or
 `Cmd/Ctrl+K Cmd/Ctrl+I`).
 
-- [ ] **Short (default)** — on **`c_sound`** → `c_sound : m/s`; on the
+- [ ] **Short (default)** — on **`c_sound`** → `c_sound : m·s⁻¹`; on the
       product `c_sound * t` (line 18) → the single line `c_sound * t : m`.
 - [ ] **Detailed** — run **DimFort: Cycle Hover Verbosity** once
       (`short → detailed`). The same product hover now breaks down across
       lines (each operand with its unit), and the call `dynamic_pressure`
       (line 21) gains a sub-tree under its computed argument
-      `0.5 * c_sound` (`0.5 : 1`, `c_sound : m/s`) — the difference from
-      Short, which shows only the `v : m/s ◂ 0.5 * c_sound : m/s` pairing.
+      `0.5 * c_sound` (`0.5 : 1`, `c_sound : m·s⁻¹`) — the difference from
+      Short, which shows only the `v : m·s⁻¹ ◂ 0.5 * c_sound : m·s⁻¹` pairing.
 - [ ] **Subroutine call** — still in `detailed`, hover the call name
       `scale_pressure` (line 22): same formal-vs-actual layout as a
       function call, **but no return unit in the header** (subroutines
@@ -111,7 +111,7 @@ alongside the open side panel). Mouse over the symbol (or
 
 ## Inlay hints
 
-- [ ] **DimFort: Toggle Inlay Hints** → `[m/s]`-style ghost text appears
+- [ ] **DimFort: Toggle Inlay Hints** → `[m·s⁻¹]`-style ghost text appears
       after variable uses; run it again → it disappears.
 
 ## Code actions
@@ -146,25 +146,25 @@ shows the data; column alignment is done in the webview, not ASCII.
 - [ ] **Assignment with a mismatch** — cursor on the **`=`** in line 19
       (`bogus = c_sound * t`). The Expression section shows the whole
       assignment marked 🔴 (`kg ≠ m`), with the operand tree beneath:
-      `bogus : kg` 🟢, `c_sound * t : m` 🟢 (R4.2) → `c_sound : m/s` 🟢,
+      `bogus : kg` 🟢, `c_sound * t : m` 🟢 (R4.2) → `c_sound : m·s⁻¹` 🟢,
       `t : s` 🟢.
 
 - [ ] **Multiplication chain** — cursor on the **`=`** in line 10
       (`q = 0.5 * rho * v * v`). The Expression section shows the nested
       product, each level tagged `(R4.2)`, all 🟢, resolving to
-      `kg/(m×s²)`.
+      `kg·m⁻¹·s⁻²`.
 
 - [ ] **Function call with arguments** — cursor on the call name
       `dynamic_pressure` in line 21. Expression shows
-      `dynamic_pressure(0.5 * c_sound) : kg/(m×s²)` 🟢, with the computed
-      argument `0.5 * c_sound : m/s` 🟢 (R4.2) as a child, breaking down
-      into `0.5 : 1` 🟢 and `c_sound : m/s` 🟢.
+      `dynamic_pressure(0.5 * c_sound) : kg·m⁻¹·s⁻²` 🟢, with the computed
+      argument `0.5 * c_sound : m·s⁻¹` 🟢 (R4.2) as a child, breaking down
+      into `0.5 : 1` 🟢 and `c_sound : m·s⁻¹` 🟢.
 
 - [ ] **Subroutine call** — cursor on the call name `scale_pressure` in
       line 22. A subroutine has no return unit, so the root
       `call scale_pressure(2.0 * ref_pressure)` carries none (🟡), but the
-      computed argument `2.0 * ref_pressure : kg/(m×s²)` 🟢 (R4.2) still
-      expands beneath it into `2.0 : 1` 🟢 and `ref_pressure : kg/(m×s²)` 🟢.
+      computed argument `2.0 * ref_pressure : kg·m⁻¹·s⁻²` 🟢 (R4.2) still
+      expands beneath it into `2.0 : 1` 🟢 and `ref_pressure : kg·m⁻¹·s⁻²` 🟢.
 
 - [ ] **Stacked scopes** — with the cursor in line 10, the Scope section
       stacks `Module: qa_mod` (c_sound, ref_pressure) over
@@ -190,12 +190,12 @@ shows the data; column alignment is done in the webview, not ASCII.
 
 - [ ] **Normalized-unit column** — a scope-var row shows the input unit
       **and** its base-SI normalized form when they differ. With the
-      scale scene below, `phpa` reads `hPa` ⟶ `100×kg/(m×s²)`; base-SI
+      scale scene below, `phpa` reads `hPa` ⟶ `100×kg·m⁻¹·s⁻²`; base-SI
       vars (e.g. `play : Pa`) show only the one form.
 
 - [ ] **Section order + folding** — sections are `EXPRESSION →
-      DIAGNOSTICS → INTERACTIONS → ACTIONS → SCOPE`, each a collapsible
-      `▾ HEADER` (uppercase). Click a header to collapse; the
+      DIAGNOSTICS → INTERACTIONS → ACTIONS → SCOPE → IMPORTS`, each a
+      collapsible `▾ HEADER` (uppercase). Click a header to collapse; the
       collapsed/expanded state **persists** as you move the cursor (and
       across panel hide/show).
 
@@ -209,7 +209,7 @@ shows the data; column alignment is done in the webview, not ASCII.
       **Interactions** section shows the symbol `c_sound`, then the
       **Declaration** group (line 2) and **Read** group (its use sites),
       each row a `file:line` + unit with the source snippet beneath.
-      Because `c_sound` is read as `m/s` at lines 18/21 but as `kg/s` at
+      Because `c_sound` is read as `m·s⁻¹` at lines 18/21 but as `kg/s` at
       line 19 (`bogus` is `kg`), a **🔴 X001** conflict row sits at the
       top. On a symbol with no cross-site uses the section shows `(none)`.
 
@@ -224,6 +224,14 @@ shows the data; column alignment is done in the webview, not ASCII.
       applies the same edit as the lightbulb (inserts `!< @unit{}`). On
       the `273.15` literal (line 20): an `Extract literal to PARAMETER`
       button. The section is **absent** when no action applies at the cursor.
+
+- [ ] **Imports section** — needs the `imports_qa.f90` scene below. With
+      the cursor inside `solver`'s `step` routine, the **Imports** section
+      lists `play` (from `use phys_constants`) under a `use phys_constants`
+      header, with its unit `kg·m⁻¹·s⁻²` and a 🟢 marker. Clicking the row
+      **jumps cross-file** to `play`'s declaration in `phys_constants`.
+      A name not imported (or shadowed by a local declaration) does not
+      appear. On a routine that imports nothing, the section shows `(none)`.
 
 - [ ] **Footer** — a flat `File: 🔴 N  🟡 M` bar is pinned to the
       **bottom** of the panel (whole-file counts), even when the content
@@ -289,7 +297,7 @@ subroutine unparsed_qa(press, vel)
   implicit none
   real, intent(in)  :: press   !< @unit{Pa}
   real, intent(out) :: vel     !< @unit{m/s}
-  vel = press        ! H001 (red): m/s vs Pa
+  vel = press        ! H001 (red): m·s⁻¹ vs Pa
   vel = * / +        ! P001 (blue): unparseable line
   vel = 0.0          ! a valid trailing statement (see note)
 end subroutine unparsed_qa
@@ -316,6 +324,52 @@ end subroutine unparsed_qa
 - [ ] **Suppressible** — add a workspace `.dimfort.toml` with
       `[diagnostics]` `P001 = "off"`, save; the blue squiggle disappears
       (no manual restart), the red `H001` stays.
+
+## Imports section
+
+Save this `imports_qa.f90` (one file, two modules — the second `use`s the
+first) and open it:
+
+```fortran
+module phys_constants
+  real :: play   !< @unit{Pa}
+  real :: grav   !< @unit{m·s⁻¹^2}
+contains
+  function gravity_at(h) result(g)
+    real, intent(in) :: h   !< @unit{m}
+    real             :: g   !< @unit{m·s⁻¹^2}
+    g = grav
+  end function gravity_at
+end module phys_constants
+
+module solver
+  use phys_constants, only: play, gravity_at
+  real :: local_p   !< @unit{Pa}
+contains
+  subroutine step()
+    local_p = play
+  end subroutine step
+end module solver
+```
+
+- [ ] **Lists vars + procedures** — cursor on `local_p = play` (inside
+      `step`): the **Imports** section shows a `from phys_constants` header
+      (its items indented beneath it) with two rows — `play` → `Pa` ⟶
+      `kg·m⁻¹·s⁻²` 🟢, and `gravity_at(m)` → `m·s⁻²` 🟢 (callable: its `(m)` argument unit
+      in the parens, its `m·s⁻²` return unit in the unit column).
+- [ ] **Cross-file navigation** — clicking the `play` row jumps to its
+      declaration (line 2); clicking `gravity_at(m)` jumps to the function
+      definition (line 5). (Same file here; another file in a real project.)
+- [ ] **Scoped + shadowed** — `grav` is **not** listed (the `only:` list
+      excludes it). If you add `real :: play !< @unit{Pa}` as a local in
+      `step`, `play` drops from Imports (the local shadows it, and it shows
+      under Scope instead).
+- [ ] **Imports filter** — the Imports section has its **own** search
+      box (separate from Scope's). Type `gravity` in it → only
+      `gravity_at(m)` remains; type `play` → only `play`. Clear it → both
+      return. The Scope filter does **not** affect Imports (and vice versa).
+- [ ] **Empty case** — cursor in `phys_constants` (which imports nothing):
+      the Imports section shows `(none)`.
 
 ## Config reload & cache
 
