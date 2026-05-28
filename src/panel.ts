@@ -493,8 +493,8 @@ function renderScope(sc, depth) {
       v.kind === "unannotated" ? "🟡" : v.kind === "error" ? "🔴" : "🟢";
     // Input unit as written in its own column; the normalized base-SI form
     // in a second, table-aligned column — only when it differs, so scale
-    // factors (hPa → 100×kg/(m·s²)) and derived expansions (Pa →
-    // kg/(m·s²)) are visible without cluttering base-SI rows (m → m).
+    // factors (hPa → 100×kg·m⁻¹·s⁻²) and derived expansions (Pa →
+    // kg·m⁻¹·s⁻²) are visible without cluttering base-SI rows (m → m).
     const normText =
       v.unitNormalized && v.unitNormalized !== v.unit ? v.unitNormalized : "";
     const cells = [
