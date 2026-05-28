@@ -98,14 +98,15 @@ alongside the open side panel). Mouse over the symbol (or
 - [ ] **Detailed** — run **DimFort: Cycle Hover Verbosity** once
       (`short → detailed`). The same product hover now breaks down across
       lines (each operand with its unit), and the call `dynamic_pressure`
-      (line 21) gains a sub-tree under its computed argument
-      `0.5 * c_sound` (`0.5 : 1`, `c_sound : m·s⁻¹`) — the difference from
-      Short, which shows only the `v : m·s⁻¹ ◂ 0.5 * c_sound : m·s⁻¹` pairing.
+      (line 21) gains a sub-tree under its **computed argument row**
+      (`0.5 * c_sound : m·s⁻¹ 🟢` with `0.5 : 1`, `c_sound : m·s⁻¹` indented
+      beneath). Short shows only the header
+      `dynamic_pressure: (m·s⁻¹) → kg·m⁻¹·s⁻²` plus the single argument row.
 - [ ] **Subroutine call** — still in `detailed`, hover the call name
-      `scale_pressure` (line 22): same formal-vs-actual layout as a
-      function call, **but no return unit in the header** (subroutines
-      don't return) — `p : Pa ◂ 2.0 * ref_pressure : Pa` with the argument
-      sub-tree beneath.
+      `scale_pressure` (line 22): same dimensional-signature layout as a
+      function call, **but no `→ ret` tail** (subroutines don't return).
+      Header: `scale_pressure: (kg·m⁻¹·s⁻²)`, with the actual-argument row
+      `2.0 * ref_pressure : kg·m⁻¹·s⁻² 🟢` and its sub-tree beneath.
 - [ ] **Disabled** — cycle once more (`detailed → disabled`); hovering a
       symbol shows nothing. Cycle once more to return to `short`.
 
@@ -146,25 +147,31 @@ shows the data; column alignment is done in the webview, not ASCII.
 - [ ] **Assignment with a mismatch** — cursor on the **`=`** in line 19
       (`bogus = c_sound * t`). The Expression section shows the whole
       assignment marked 🔴 (`kg ≠ m`), with the operand tree beneath:
-      `bogus : kg` 🟢, `c_sound * t : m` 🟢 (R4.2) → `c_sound : m·s⁻¹` 🟢,
-      `t : s` 🟢.
+      `bogus : kg` 🟢, `c_sound * t : m` 🟢 → `c_sound : m·s⁻¹` 🟢,
+      `t : s` 🟢. (Rule IDs like `(R4.2)` are no longer rendered in the
+      tree.)
 
 - [ ] **Multiplication chain** — cursor on the **`=`** in line 10
       (`q = 0.5 * rho * v * v`). The Expression section shows the nested
-      product, each level tagged `(R4.2)`, all 🟢, resolving to
-      `kg·m⁻¹·s⁻²`.
+      product, all 🟢, resolving to `kg·m⁻¹·s⁻²`.
 
 - [ ] **Function call with arguments** — cursor on the call name
       `dynamic_pressure` in line 21. Expression shows
       `dynamic_pressure(0.5 * c_sound) : kg·m⁻¹·s⁻²` 🟢, with the computed
-      argument `0.5 * c_sound : m·s⁻¹` 🟢 (R4.2) as a child, breaking down
+      argument `0.5 * c_sound : m·s⁻¹` 🟢 as a child, breaking down
       into `0.5 : 1` 🟢 and `c_sound : m·s⁻¹` 🟢.
 
 - [ ] **Subroutine call** — cursor on the call name `scale_pressure` in
       line 22. A subroutine has no return unit, so the root
       `call scale_pressure(2.0 * ref_pressure)` carries none (🟡), but the
-      computed argument `2.0 * ref_pressure : kg·m⁻¹·s⁻²` 🟢 (R4.2) still
+      computed argument `2.0 * ref_pressure : kg·m⁻¹·s⁻²` 🟢 still
       expands beneath it into `2.0 : 1` 🟢 and `ref_pressure : kg·m⁻¹·s⁻²` 🟢.
+
+- [ ] **Call-arg expected on mismatch** — temporarily edit line 21 to
+      `ref_pressure = dynamic_pressure(c_sound * t)`. The Expression tree
+      now shows the argument row `c_sound * t : m 🔴 (expected m·s⁻¹)`,
+      surfacing the formal unit the call-site demanded. Revert the edit
+      when done.
 
 - [ ] **Stacked scopes** — with the cursor in line 10, the Scope section
       stacks `Module: qa_mod` (c_sound, ref_pressure) over
