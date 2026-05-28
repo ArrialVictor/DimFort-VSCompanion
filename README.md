@@ -60,12 +60,13 @@ Open any `.f90` file — DimFort lights up. Settings → search
   picks the level of detail and applies to every hover surface:
   `disabled` (no hover — the side panel is the unit surface),
   `short`, or `detailed`.
-  - On a **call** (function or subroutine) — `Short` is the
-    dimensional-signature header (`name: (u1, u2, …) → ret`,
-    subroutines drop the `→ ret`) plus one row per **actual argument**
-    labelled by the source expression, with a 🟢/🟡/🔴 marker and
-    `(expected <formal>)` on a mismatch. `Detailed` adds a sub-tree
-    under any computed actual showing how its unit was derived.
+  - On a **call** (function or subroutine) — same tree layout as the
+    side panel: root row `name(args) : ret` with the overall verdict
+    marker, and one child row per actual argument labelled by the
+    source expression, with `(expected <formal>)` on a mismatch.
+    Subroutines have no return unit so the root reads `name(args) : ?`
+    and paints 🟡. `Detailed` adds a sub-tree under any computed
+    actual showing how its unit was derived.
   - On an **expression** — `Short` is a one-line homogeneity check on
     assignments and relational expressions, a bare `name : unit`
     hover on identifiers, and the resolved unit on computed
