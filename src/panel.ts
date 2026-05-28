@@ -335,6 +335,10 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .site-loc { color: var(--vscode-textLink-foreground); }
   .site-unit { color: var(--vscode-symbolIcon-unitForeground, var(--vscode-foreground));
             margin-left: 0.7em; }
+  /* .site-unit + .muted (same single-class specificity); the later rule
+     would win and override muted, so a compound selector lifts the
+     specificity so muted takes effect on Interactions unit cells. */
+  .site-unit.muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   .site-snip { opacity: 0.7; white-space: normal; }
 </style>
 </head>
