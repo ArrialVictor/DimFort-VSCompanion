@@ -60,18 +60,18 @@ Open any `.f90` file — DimFort lights up. Settings → search
   picks the level of detail and applies to every hover surface:
   `disabled` (no hover — the side panel is the unit surface),
   `short`, or `detailed`.
-  - On a **call** (function or subroutine) — `Short` is a
-    formal-vs-actual pairing (one row per arg, 🟢/🟡/🔴 marker
-    showing whether the actual unit matches the formal contract).
-    `Detailed` adds a sub-tree under any computed actual showing
-    how its unit was derived.
+  - On a **call** (function or subroutine) — `Short` is the
+    dimensional-signature header (`name: (u1, u2, …) → ret`,
+    subroutines drop the `→ ret`) plus one row per **actual argument**
+    labelled by the source expression, with a 🟢/🟡/🔴 marker and
+    `(expected <formal>)` on a mismatch. `Detailed` adds a sub-tree
+    under any computed actual showing how its unit was derived.
   - On an **expression** — `Short` is a one-line homogeneity check on
     assignments and relational expressions, a bare `name : unit`
     hover on identifiers, and the resolved unit on computed
     sub-expressions. `Detailed` is the full unit-algebra tree (every
-    node tagged with its resolved unit, rule ID — `R3.1`, `R5.6`, … —
-    and a per-row 🟢/🟡/🔴 marker that pinpoints where a violation
-    fires or a leaf is unannotated).
+    node tagged with its resolved unit and a per-row 🟢/🟡/🔴 marker
+    that pinpoints where a violation fires or a leaf is unannotated).
   The header marker aggregates the worst row: 🔴 mismatch, 🟡 partial,
   🟢 clean. Cycle the level with **DimFort: Cycle Hover Verbosity**;
   the side panel is unaffected (always detailed). The full layout
@@ -79,7 +79,7 @@ Open any `.f90` file — DimFort lights up. Settings → search
 
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-call-short_dark.png">
-    <img width="640" src="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-call-short_light.png" alt="Short call hover — formal-vs-actual pairing">
+    <img width="640" src="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-call-short_light.png" alt="Short call hover — dimensional-signature header + per-actual-argument rows">
   </picture>
 
   <picture>
