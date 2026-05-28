@@ -99,14 +99,16 @@ alongside the open side panel). Mouse over the symbol (or
       (`short → detailed`). The same product hover now breaks down across
       lines (each operand with its unit), and the call `dynamic_pressure`
       (line 21) gains a sub-tree under its **computed argument row**
-      (`0.5 * c_sound : m·s⁻¹ 🟢` with `0.5 : 1`, `c_sound : m·s⁻¹` indented
-      beneath). Short shows only the header
-      `dynamic_pressure: (m·s⁻¹) → kg·m⁻¹·s⁻²` plus the single argument row.
+      (`0.5 * c_sound : m·s⁻¹ 🟢` with `0.5 : 1`, `c_sound : m·s⁻¹`
+      indented beneath). Short shows root + the argument row only.
+      Both modes share the side panel's Expression-tree layout — root
+      reads `dynamic_pressure(0.5 * c_sound) : kg·m⁻¹·s⁻² 🟢`.
 - [ ] **Subroutine call** — still in `detailed`, hover the call name
-      `scale_pressure` (line 22): same dimensional-signature layout as a
-      function call, **but no `→ ret` tail** (subroutines don't return).
-      Header: `scale_pressure: (kg·m⁻¹·s⁻²)`, with the actual-argument row
-      `2.0 * ref_pressure : kg·m⁻¹·s⁻² 🟢` and its sub-tree beneath.
+      `scale_pressure` (line 22): same tree layout as a function call,
+      **but the root has no return unit** (subroutines don't return),
+      so it reads `call scale_pressure(…) : ? 🟡`. The actual-argument
+      row `2.0 * ref_pressure : kg·m⁻¹·s⁻² 🟢` and its sub-tree appear
+      beneath.
 - [ ] **Disabled** — cycle once more (`detailed → disabled`); hovering a
       symbol shows nothing. Cycle once more to return to `short`.
 
