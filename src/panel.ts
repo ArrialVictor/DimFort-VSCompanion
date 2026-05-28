@@ -454,21 +454,34 @@ function renderExpression(node) {
   flattenExpr(node, "", true, true, rows);
   const treeW = Math.max(...rows.map(r => r.tree.length), 0);
   const unitW = Math.max(...rows.map(r => (r.unit ? r.unit.length : 0)), 0);
+  // Build HTML rather than plain text so the absence glyphs ('?' = unknown,
+  // '-' = structural-no-unit) can be wrapped in <span class="muted"> and
+  // visually demoted, while real units stay full-weight. .tree carries
+  // a pre white-space rule so newlines render as line breaks.
   const lines = rows.map(r => {
     const treePad = " ".repeat(treeW - r.tree.length);
-    let mid;
+    const treeHtml = esc(r.tree + treePad);
+    let midHtml;
     if (r.unit != null) {
-      mid = " : " + r.unit + " ".repeat(unitW - r.unit.length);
+      const unitPad = " ".repeat(unitW - r.unit.length);
+      const dim = r.unit === "?" || r.unit === "-";
+      const unitHtml = dim
+        ? '<span class="muted">' + esc(r.unit) + '</span>'
+        : esc(r.unit);
+      midHtml = " : " + unitHtml + unitPad;
     } else if (unitW > 0) {
-      mid = " ".repeat(3 + unitW);
+      midHtml = " ".repeat(3 + unitW);
     } else {
-      mid = "";
+      midHtml = "";
     }
-    return esc(r.tree + treePad + mid + "  " + r.mark + r.extra);
+    return treeHtml + midHtml + "  " + esc(r.mark + r.extra);
   });
   const div = document.createElement("div");
   div.className = "tree";
-  div.textContent = lines.join("\\n");
+  // innerHTML so the <span class="muted"> wrappers for absence glyphs
+  // take effect. .tree has white-space: pre so the joined newlines
+  // still render as line breaks.
+  div.innerHTML = lines.join("\\n");
   return div;
 }
 
@@ -739,7 +752,10 @@ function renderInteractions(rep) {
       // label already says so, so don't repeat a "?" on every row.
       if (kind !== "uses") {
         const unit = document.createElement("span");
-        unit.className = "site-unit";
+        // Dim absence-of-information glyphs so real units pop, the same
+        // way Scope / Imports / Expression sections do.
+        unit.className = (p.unit === "?" || p.unit === "-")
+          ? "site-unit muted" : "site-unit";
         unit.textContent = p.unit;
         head.appendChild(unit);
       }
