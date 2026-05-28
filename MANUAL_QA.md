@@ -130,8 +130,9 @@ alongside the open side panel). Mouse over the symbol (or
       `dynamic_pressure(0.5 * c_sound) : kg·m⁻¹·s⁻² 🟢`.
 - [ ] **Subroutine call** — still in `detailed`, hover the call name
       `scale_pressure` (line 39): same tree layout as a function call,
-      **but the root has no return unit** (subroutines don't return),
-      so it reads `call scale_pressure(…) : ? 🟡`. The actual-argument
+      **but the root carries `-`** (structural-no-unit — subroutines
+      have no return unit *by design*) and a clean call paints 🟢:
+      `call scale_pressure(…) : -  🟢`. The actual-argument
       row `2.0 * ref_pressure : kg·m⁻¹·s⁻² 🟢` and its sub-tree appear
       beneath.
 - [ ] **Intrinsics — same tree as user calls.** Still in `detailed`:
