@@ -7,7 +7,10 @@ interface ExpressionNode {
   label: string;
   unit: string | null;
   marker: "ok" | "warn" | "error";
-  ruleId: string | null;
+  // The formal unit this node was expected to satisfy, only set on a
+  // call-argument row whose actual dimensionally differs from the
+  // formal. Renderers append `(expected <expected>)` to the row.
+  expected: string | null;
   children: ExpressionNode[];
 }
 interface ScopeVar {
@@ -436,7 +439,7 @@ function flattenExpr(node, prefix, isLast, isRoot, rows) {
     tree: prefix + connector + (node.label ?? "?"),
     unit: node.unit,                       // may be null (statements)
     mark: MARK[node.marker] || " ",
-    rule: node.ruleId ? " (" + node.ruleId + ")" : "",
+    extra: node.expected ? " (expected " + node.expected + ")" : "",
   });
   const kids = node.children || [];
   kids.forEach((c, i) => flattenExpr(c, nextPrefix, i === kids.length - 1, false, rows));
@@ -457,7 +460,7 @@ function renderExpression(node) {
     } else {
       mid = "";
     }
-    return esc(r.tree + treePad + mid + "  " + r.mark + r.rule);
+    return esc(r.tree + treePad + mid + "  " + r.mark + r.extra);
   });
   const div = document.createElement("div");
   div.className = "tree";
