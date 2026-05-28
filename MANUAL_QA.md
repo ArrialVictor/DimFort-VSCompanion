@@ -37,8 +37,8 @@ contains
     real :: ln_p       !< @unit{LOG(Pa)}
     real :: rt_e2      !< @unit{m/s}
     real :: abs_t      !< @unit{s}
-    real :: log_combo  !< @unit{LOG(Pa^2)}
-    real :: recovered  !< @unit{Pa}
+    real :: recovered  !< @unit{Pa^2}
+    real :: rho_brandes !< @unit{kg/m^3}
     real :: t_celsius                  ! no annotation -> U005
     d         = c_sound * t            ! OK:   m = (m·s⁻¹)*s
     bogus     = c_sound * t            ! H001: kg = m  (mismatch)
@@ -48,10 +48,12 @@ contains
     ln_p      = log(ref_pressure)            ! intrinsic: LOG-wrap (Pa → LOG(Pa))
     rt_e2     = sqrt(c_sound * c_sound)      ! intrinsic: sqrt halves (m²/s² → m/s)
     abs_t     = abs(t)                       ! intrinsic: preserves (s → s)
-    log_combo = log(ref_pressure) + log(ref_pressure)
-                                             ! LOG/EXP algebra: homomorphism
-                                             !   LOG(Pa) + LOG(Pa) → LOG(Pa²)
-    recovered = exp(log(ref_pressure))       ! cancellation: exp(log(p)) → p
+    recovered   = exp(log(ref_pressure) + log(ref_pressure))
+                                             ! LOG/EXP algebra: homomorphism + cancellation
+                                             !   exp(LOG(Pa) + LOG(Pa)) → exp(LOG(Pa²)) → Pa²
+    rho_brandes = 1.e3 * 0.178 * (d * 2.0 * 1000.0)**(-0.922)   !< @unit_assume{kg/m^3 : empirical-fit Brandes2007}
+                                             ! Non-rational power on a length — not algebraically derivable;
+                                             ! @unit_assume asserts the result and fires U020 INFO.
     ref_pressure = dynamic_pressure(0.5 * c_sound)
     call scale_pressure(2.0 * ref_pressure)        ! subroutine call
   end subroutine checks
@@ -91,7 +93,7 @@ confirm exactly:
 - [ ] **Line 25** — `bogus = c_sound * t` → **H001 error** `kg ≠ m`.
 - [ ] **Line 26** — `t_celsius = t - 273.15` → **H010 warning** on the
       `273.15` literal (suggests extracting it to a named PARAMETER).
-- [ ] Lines 24, 27, 29, 30, 31, 32, 33, and 34 are **clean** — no diagnostic.
+- [ ] Lines 24, 27, 29, 30, 31, 32, and 38 are **clean**; line 35 fires a **U020 INFO** acknowledging the `@unit_assume` (informational, not a problem) — no diagnostic.
 
 **Interactive — U002 (unparseable annotation):** change line 14's
 `!< @unit{s}` to `!< @unit{??}` and save. Confirm **two** diagnostics on
@@ -120,14 +122,14 @@ alongside the open side panel). Mouse over the symbol (or
 - [ ] **Detailed** — run **DimFort: Cycle Hover Verbosity** once
       (`short → detailed`). For bare-identifier operands like
       `c_sound * t` the layout is unchanged from short (nothing to
-      expand). For the call `dynamic_pressure` (line 34), Detailed adds
+      expand). For the call `dynamic_pressure` (line 38), Detailed adds
       a sub-tree under its **computed argument row** (`0.5 * c_sound :
       m·s⁻¹ 🟢` with `0.5 : 1`, `c_sound : m·s⁻¹` indented beneath);
       Short shows root + the argument row only. Both modes share the
       side panel's Expression-tree layout — root reads
       `dynamic_pressure(0.5 * c_sound) : kg·m⁻¹·s⁻² 🟢`.
 - [ ] **Subroutine call** — still in `detailed`, hover the call name
-      `scale_pressure` (line 35): same tree layout as a function call,
+      `scale_pressure` (line 39): same tree layout as a function call,
       **but the root has no return unit** (subroutines don't return),
       so it reads `call scale_pressure(…) : ? 🟡`. The actual-argument
       row `2.0 * ref_pressure : kg·m⁻¹·s⁻² 🟢` and its sub-tree appear
@@ -145,19 +147,38 @@ alongside the open side panel). Mouse over the symbol (or
       Intrinsics have no `(expected …)` annotation on args — we don't
       track formal-arg units for them — but the structural tree is
       identical.
-- [ ] **LOG / EXP computational tricks.** DimFort follows the algebra
-      symbolically, so the two showcase lines resolve clean:
-      - **Line 32** (`log_combo = log(ref_pressure) + log(ref_pressure)`)
-        — homomorphism. Hover the outer `+`: root row
-        `log(ref_pressure) + log(ref_pressure) : LOG(Pa²) 🟢` over the
-        two operand rows `log(ref_pressure) : LOG(Pa) 🟢`. DimFort
-        folds `LOG(Pa) + LOG(Pa) → LOG(Pa²)` (the multiplicative-to-
-        additive trick from atmospheric science).
-      - **Line 33** (`recovered = exp(log(ref_pressure))`) —
-        cancellation. Hover the outer `exp`: root row
-        `exp(log(ref_pressure)) : Pa 🟢` over the child row
-        `log(ref_pressure) : LOG(Pa) 🟢`. `exp ∘ log = identity` —
-        the wrapper survives the round-trip.
+- [ ] **LOG / EXP computational tricks** — the idiom physicists use
+      to do multiplicative work in log space:
+      `recovered = exp(log(p) + log(p))`. One line exercises BOTH
+      rules:
+      - **Homomorphism** (inside): `log(p) + log(p) → LOG(p²)`.
+      - **Cancellation** (outside): `exp(log(q)) → q`.
+
+      On **line 32**, hover the outermost `exp` (Detailed): root row
+      `exp(log(ref_pressure) + log(ref_pressure)) : Pa²  🟢` over
+      the child `log(ref_pressure) + log(ref_pressure) : LOG(Pa²) 🟢`,
+      and the sub-tree under that shows two `log(ref_pressure) :
+      LOG(Pa) 🟢` rows. DimFort follows the algebra symbolically —
+      no opacity, no approximation — so the round-trip `exp ∘ (sum
+      of logs)` recovers the product unit cleanly. Strong showcase
+      for atmospheric-science audiences.
+- [ ] **`@unit_assume` escape hatch** — empirical fits with
+      non-derivable units. On **line 35**, hover the assignment
+      (`rho_brandes = 1.e3 * 0.178 * (d * 2.0 * 1000.0)**(-0.922)`):
+      the line carries `!< @unit_assume{kg/m^3 : empirical-fit
+      Brandes2007}`. Because the RHS contains a length raised to a
+      non-rational power, the unit isn't derivable from first
+      principles — DimFort would normally emit `D1.4`. The
+      `@unit_assume` directive asserts the result's unit and
+      suppresses `D1.4`; in its place a **U020 INFO** appears,
+      acknowledging the assumption (informational, not a problem).
+      The hover root reads `rho_brandes = … : -  🟢` (assignment
+      statement, structural-no-unit `-`); the RHS row carries the
+      assumed unit `kg·m⁻³` with no `(expected …)` mismatch.
+      Common in physics: Tetens (saturation vapour pressure),
+      Magnus, Buck, parameterised turbulence closures, etc. The
+      assumed-unit registry lives in
+      `Homogeneity/UNIT_ASSUME_REGISTRY.md`.
 - [ ] **Assignment-mismatch `(expected …)` annotation.** On line 25
       (`bogus = c_sound * t`), hover the `=`. The root row paints 🔴
       from `H001` owning the assignment; the RHS child row reads
@@ -228,18 +249,18 @@ shows the data; column alignment is done in the webview, not ASCII.
       product, all 🟢, resolving to `kg·m⁻¹·s⁻²`.
 
 - [ ] **Function call with arguments** — cursor on the call name
-      `dynamic_pressure` in line 34. Expression shows
+      `dynamic_pressure` in line 38. Expression shows
       `dynamic_pressure(0.5 * c_sound) : kg·m⁻¹·s⁻²` 🟢, with the computed
       argument `0.5 * c_sound : m·s⁻¹` 🟢 as a child, breaking down
       into `0.5 : 1` 🟢 and `c_sound : m·s⁻¹` 🟢.
 
 - [ ] **Subroutine call** — cursor on the call name `scale_pressure` in
-      line 35. A subroutine has no return unit, so the root
+      line 39. A subroutine has no return unit, so the root
       `call scale_pressure(2.0 * ref_pressure)` carries none (🟡), but the
       computed argument `2.0 * ref_pressure : kg·m⁻¹·s⁻²` 🟢 still
       expands beneath it into `2.0 : 1` 🟢 and `ref_pressure : kg·m⁻¹·s⁻²` 🟢.
 
-- [ ] **Call-arg expected on mismatch** — temporarily edit line 34 to
+- [ ] **Call-arg expected on mismatch** — temporarily edit line 38 to
       `ref_pressure = dynamic_pressure(c_sound * t)`. The Expression tree
       now shows the argument row `c_sound * t : m 🔴 (expected m·s⁻¹)`,
       surfacing the formal unit the call-site demanded. Revert the edit
