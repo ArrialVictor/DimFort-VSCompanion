@@ -503,7 +503,7 @@ function renderScope(sc, depth) {
     const cells = [
       ["line", String(v.line)],
       ["name", v.name],
-      ["unit", v.unit ?? "(none)"],
+      ["unit", v.unit ?? "?"],
       ["normalized", normText],
       ["mark", mark],
     ];
@@ -570,10 +570,11 @@ function renderImportsList(container) {
         im.unitNormalized && im.unitNormalized !== im.unit ? im.unitNormalized : "";
       // A callable (imported function/subroutine) reads as name(). A
       // subroutine has no return value (callable + no unit + not flagged
-      // as a missing annotation) → show "—", not "(none)", which would
-      // wrongly imply an un-annotated declaration.
+      // as a missing annotation) → render the structural-no-unit glyph
+      // "-", not "?" (which would wrongly imply we don't know).
+      // Unannotated declarations get "?" (unknown).
       const unitText = im.unit
-        ?? (im.callable && im.kind === "annotated" ? "—" : "(none)");
+        ?? (im.callable && im.kind === "annotated" ? "-" : "?");
       const cells = [
         ["name", im.callable ? im.name + (im.signature ?? "()") : im.name],
         ["unit", unitText],
