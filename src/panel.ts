@@ -295,6 +295,10 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .diag-warning { color: var(--vscode-editorWarning-foreground, var(--vscode-foreground)); }
   .diag-info, .diag-hint { color: var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)); }
   .muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
+  /* td.unit (one type + one class) has higher specificity than .muted
+     (one class), so its colour would otherwise win on a td that has
+     both classes. Match it with a type+class selector so muted applies. */
+  td.muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   .scope-head { font-weight: 600; margin-top: 0.6em; }
   .scope-filter { width: 100%; box-sizing: border-box; margin: 0.1em 0 0.5em;
             padding: 0.25em 0.45em; font-family: inherit; font-size: 0.95em;
