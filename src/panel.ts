@@ -345,7 +345,7 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
 <body>
 <div id="root"><span class="empty">DimFort panel — move the cursor over Fortran code.</span></div>
 <script nonce="${nonce}">
-const MARK = { ok: "🟢", warn: "🟡", error: "🔴" };
+const MARK = { ok: "🟢", assumed: "🔵", warn: "🟡", error: "🔴" };
 const root = document.getElementById("root");
 const vscodeApi = acquireVsCodeApi();
 
@@ -443,11 +443,17 @@ function flattenExpr(node, prefix, isLast, isRoot, rows) {
     connector = isLast ? "└── " : "├── ";
     nextPrefix = prefix + (isLast ? "    " : "│   ");
   }
+  // Row tail: '(expected …)' on call-arg / assignment-RHS mismatches,
+  // '(assumed: <reason>)' on @unit_assume rows. Both may apply in
+  // theory; concatenate with separating space.
+  let extra = "";
+  if (node.expected) extra += " (expected " + node.expected + ")";
+  if (node.assumed) extra += " (assumed: " + node.assumed + ")";
   rows.push({
     tree: prefix + connector + (node.label ?? "?"),
     unit: node.unit,                       // may be null (statements)
     mark: MARK[node.marker] || " ",
-    extra: node.expected ? " (expected " + node.expected + ")" : "",
+    extra: extra,
   });
   const kids = node.children || [];
   kids.forEach((c, i) => flattenExpr(c, nextPrefix, i === kids.length - 1, false, rows));
