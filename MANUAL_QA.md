@@ -543,15 +543,17 @@ end module solver
       excludes it). If you add `real :: play !< @unit{Pa}` as a local in
       `step`, `play` drops from Imports (the local shadows it, and it
       shows under Scope instead).
-- [ ] **Transitive imports — record actual behavior.** `phys_constants`
-      itself `use`s `phys_base`, which declares `g0`. Default Fortran
-      semantics re-export `g0` through `phys_constants`. Cursor inside
-      `step` and confirm whether `g0` appears in solver's Imports:
-      - **If yes** — DimFort follows transitive `use`. Note the unit in
-        the row (`m·s⁻²` 🟢).
-      - **If no** — DimFort treats `use` as non-transitive (only
-        symbols declared directly in `phys_constants` surface). File a
-        finding or document the intentional gap.
+- [ ] **Transitive imports** — drop the `, only: …` filter on `solver`'s
+      `use phys_constants` line so it becomes plain `use phys_constants`.
+      `phys_constants` itself `use`s `phys_base`, which declares `g0`.
+      Default Fortran semantics re-export `g0` through `phys_constants`.
+      Cursor inside `step`: a **second** group header appears, `from
+      phys_base` (tagged `via phys_constants`), with a single row:
+      - `g0` → `m·s⁻²` 🟢 — clicking it **jumps cross-file** to
+        `phys_base`'s declaration site (`imports_qa.f90:2`).
+      The existing `from phys_constants` group still lists `play`,
+      `grav`, `density`, `gravity_at`, `set_play` — transitive
+      re-export only adds the `phys_base` group, never removes a row.
 - [ ] **Imports filter** — the Imports section has its **own** search
       box (separate from Scope's). Type `gravity` in it → only
       `gravity_at(m)` remains; type `play` → `play` + `set_play(Pa)`.
