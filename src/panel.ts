@@ -7,7 +7,10 @@ interface ExpressionNode {
   label: string;
   unit: string | null;
   marker: "ok" | "warn" | "error";
-  ruleId: string | null;
+  // The formal unit this node was expected to satisfy, only set on a
+  // call-argument row whose actual dimensionally differs from the
+  // formal. Renderers append `(expected <expected>)` to the row.
+  expected: string | null;
   children: ExpressionNode[];
 }
 interface ScopeVar {
@@ -292,6 +295,10 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .diag-warning { color: var(--vscode-editorWarning-foreground, var(--vscode-foreground)); }
   .diag-info, .diag-hint { color: var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)); }
   .muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
+  /* td.unit (one type + one class) has higher specificity than .muted
+     (one class), so its colour would otherwise win on a td that has
+     both classes. Match it with a type+class selector so muted applies. */
+  td.muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   .scope-head { font-weight: 600; margin-top: 0.6em; }
   .scope-filter { width: 100%; box-sizing: border-box; margin: 0.1em 0 0.5em;
             padding: 0.25em 0.45em; font-family: inherit; font-size: 0.95em;
@@ -328,13 +335,17 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .site-loc { color: var(--vscode-textLink-foreground); }
   .site-unit { color: var(--vscode-symbolIcon-unitForeground, var(--vscode-foreground));
             margin-left: 0.7em; }
+  /* .site-unit + .muted (same single-class specificity); the later rule
+     would win and override muted, so a compound selector lifts the
+     specificity so muted takes effect on Interactions unit cells. */
+  .site-unit.muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   .site-snip { opacity: 0.7; white-space: normal; }
 </style>
 </head>
 <body>
 <div id="root"><span class="empty">DimFort panel — move the cursor over Fortran code.</span></div>
 <script nonce="${nonce}">
-const MARK = { ok: "🟢", warn: "🟡", error: "🔴" };
+const MARK = { ok: "🟢", assumed: "🔵", warn: "🟡", error: "🔴" };
 const root = document.getElementById("root");
 const vscodeApi = acquireVsCodeApi();
 
@@ -432,11 +443,17 @@ function flattenExpr(node, prefix, isLast, isRoot, rows) {
     connector = isLast ? "└── " : "├── ";
     nextPrefix = prefix + (isLast ? "    " : "│   ");
   }
+  // Row tail: '(expected …)' on call-arg / assignment-RHS mismatches,
+  // '(assumed: <reason>)' on @unit_assume rows. Both may apply in
+  // theory; concatenate with separating space.
+  let extra = "";
+  if (node.expected) extra += " (expected " + node.expected + ")";
+  if (node.assumed) extra += " (assumed: " + node.assumed + ")";
   rows.push({
     tree: prefix + connector + (node.label ?? "?"),
     unit: node.unit,                       // may be null (statements)
     mark: MARK[node.marker] || " ",
-    rule: node.ruleId ? " (" + node.ruleId + ")" : "",
+    extra: extra,
   });
   const kids = node.children || [];
   kids.forEach((c, i) => flattenExpr(c, nextPrefix, i === kids.length - 1, false, rows));
@@ -447,21 +464,34 @@ function renderExpression(node) {
   flattenExpr(node, "", true, true, rows);
   const treeW = Math.max(...rows.map(r => r.tree.length), 0);
   const unitW = Math.max(...rows.map(r => (r.unit ? r.unit.length : 0)), 0);
+  // Build HTML rather than plain text so the absence glyphs ('?' = unknown,
+  // '-' = structural-no-unit) can be wrapped in <span class="muted"> and
+  // visually demoted, while real units stay full-weight. .tree carries
+  // a pre white-space rule so newlines render as line breaks.
   const lines = rows.map(r => {
     const treePad = " ".repeat(treeW - r.tree.length);
-    let mid;
+    const treeHtml = esc(r.tree + treePad);
+    let midHtml;
     if (r.unit != null) {
-      mid = " : " + r.unit + " ".repeat(unitW - r.unit.length);
+      const unitPad = " ".repeat(unitW - r.unit.length);
+      const dim = r.unit === "?" || r.unit === "-";
+      const unitHtml = dim
+        ? '<span class="muted">' + esc(r.unit) + '</span>'
+        : esc(r.unit);
+      midHtml = " : " + unitHtml + unitPad;
     } else if (unitW > 0) {
-      mid = " ".repeat(3 + unitW);
+      midHtml = " ".repeat(3 + unitW);
     } else {
-      mid = "";
+      midHtml = "";
     }
-    return esc(r.tree + treePad + mid + "  " + r.mark + r.rule);
+    return treeHtml + midHtml + "  " + esc(r.mark + r.extra);
   });
   const div = document.createElement("div");
   div.className = "tree";
-  div.textContent = lines.join("\\n");
+  // innerHTML so the <span class="muted"> wrappers for absence glyphs
+  // take effect. .tree has white-space: pre so the joined newlines
+  // still render as line breaks.
+  div.innerHTML = lines.join("\\n");
   return div;
 }
 
@@ -497,16 +527,23 @@ function renderScope(sc, depth) {
     // kg·m⁻¹·s⁻²) are visible without cluttering base-SI rows (m → m).
     const normText =
       v.unitNormalized && v.unitNormalized !== v.unit ? v.unitNormalized : "";
+    const unitText = v.unit ?? "?";
     const cells = [
       ["line", String(v.line)],
       ["name", v.name],
-      ["unit", v.unit ?? "(none)"],
+      ["unit", unitText],
       ["normalized", normText],
       ["mark", mark],
     ];
     for (const [cls, txt] of cells) {
       const td = document.createElement("td");
-      td.className = cls === "line" ? "line clickable" : cls;
+      let className = cls === "line" ? "line clickable" : cls;
+      // Dim absence-of-information glyphs ('?' = unknown, '-' =
+      // structural-no-unit) so real units pop visually.
+      if (cls === "unit" && (txt === "?" || txt === "-")) {
+        className += " muted";
+      }
+      td.className = className;
       td.textContent = txt;
       tr.appendChild(td);
     }
@@ -567,10 +604,11 @@ function renderImportsList(container) {
         im.unitNormalized && im.unitNormalized !== im.unit ? im.unitNormalized : "";
       // A callable (imported function/subroutine) reads as name(). A
       // subroutine has no return value (callable + no unit + not flagged
-      // as a missing annotation) → show "—", not "(none)", which would
-      // wrongly imply an un-annotated declaration.
+      // as a missing annotation) → render the structural-no-unit glyph
+      // "-", not "?" (which would wrongly imply we don't know).
+      // Unannotated declarations get "?" (unknown).
       const unitText = im.unit
-        ?? (im.callable && im.kind === "annotated" ? "—" : "(none)");
+        ?? (im.callable && im.kind === "annotated" ? "-" : "?");
       const cells = [
         ["name", im.callable ? im.name + (im.signature ?? "()") : im.name],
         ["unit", unitText],
@@ -579,7 +617,13 @@ function renderImportsList(container) {
       ];
       for (const [cls, txt] of cells) {
         const td = document.createElement("td");
-        td.className = cls;
+        let className = cls;
+        // Dim absence-of-information glyphs ('?' = unknown, '-' =
+        // structural-no-unit) so real units pop visually.
+        if (cls === "unit" && (txt === "?" || txt === "-")) {
+          className += " muted";
+        }
+        td.className = className;
         td.textContent = txt;
         tr.appendChild(td);
       }
@@ -653,7 +697,7 @@ const KIND_LABEL = {
   declares: "Declaration",
   contributes: "Write",
   requires: "Read",
-  uses: "Undetermined read",
+  uses: "Undetermined",
 };
 function renderInteractions(rep) {
   const wrap = document.createElement("div");
@@ -718,7 +762,10 @@ function renderInteractions(rep) {
       // label already says so, so don't repeat a "?" on every row.
       if (kind !== "uses") {
         const unit = document.createElement("span");
-        unit.className = "site-unit";
+        // Dim absence-of-information glyphs so real units pop, the same
+        // way Scope / Imports / Expression sections do.
+        unit.className = (p.unit === "?" || p.unit === "-")
+          ? "site-unit muted" : "site-unit";
         unit.textContent = p.unit;
         head.appendChild(unit);
       }
