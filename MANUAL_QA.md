@@ -214,7 +214,7 @@ alongside the open side panel). Mouse over the symbol (or
       ```
       🟢 DimFort
 
-      dynamic_pressure: (m·s⁻¹) → kg·m⁻¹·s⁻²
+      dynamic_pressure(m·s⁻¹) : kg·m⁻¹·s⁻²
       ```
 
       Just the dimensional signature. No per-arg row table — the
@@ -260,10 +260,13 @@ shows the data; column alignment is done in the webview, not ASCII.
 
 - [ ] **Assignment with a mismatch** — cursor on the **`=`** in line 25
       (`bogus = c_sound * t`). The Expression section shows the whole
-      assignment marked 🔴 (`kg ≠ m`), with the operand tree beneath:
-      `bogus : kg` 🟢, `c_sound * t : m` 🟢 → `c_sound : m·s⁻¹` 🟢,
-      `t : s` 🟢. (Rule IDs like `(R4.2)` are no longer rendered in the
-      tree.)
+      assignment, root row `bogus = c_sound * t : -` 🔴 (`: -` is the
+      structural-no-unit glyph — an assignment has no own unit; the 🔴
+      comes from H001 owning it). Tree beneath: `bogus : kg` 🟢,
+      `c_sound * t : m` 🟡 `(expected kg)` (🟢→🟡 demotion + tail
+      because the RHS resolved cleanly to `m` but its consumer demanded
+      `kg`); leaves `c_sound : m·s⁻¹` 🟢, `t : s` 🟢. (Rule IDs like
+      `(R4.2)` are no longer rendered in the tree.)
 
 - [ ] **Multiplication chain** — cursor on the **`=`** in line 10
       (`q = 0.5 * rho * v * v`). The Expression section shows the nested
@@ -277,20 +280,26 @@ shows the data; column alignment is done in the webview, not ASCII.
 
 - [ ] **Subroutine call** — cursor on the call name `scale_pressure` in
       line 39. A subroutine has no return unit, so the root
-      `call scale_pressure(2.0 * ref_pressure)` carries none (🟡), but the
-      computed argument `2.0 * ref_pressure : kg·m⁻¹·s⁻²` 🟢 still
-      expands beneath it into `2.0 : 1` 🟢 and `ref_pressure : kg·m⁻¹·s⁻²` 🟢.
+      `call scale_pressure(2.0 * ref_pressure)` shows `-` in the unit
+      column and 🟢 (no diagnostic owns it). The computed argument
+      `2.0 * ref_pressure : kg·m⁻¹·s⁻²` 🟢 still expands beneath it
+      into `2.0 : 1` 🟢 and `ref_pressure : kg·m⁻¹·s⁻²` 🟢.
 
 - [ ] **Call-arg expected on mismatch** — temporarily edit line 38 to
       `ref_pressure = dynamic_pressure(c_sound * t)`. The Expression tree
-      now shows the argument row `c_sound * t : m 🔴 (expected m·s⁻¹)`,
-      surfacing the formal unit the call-site demanded. Revert the edit
-      when done.
+      now shows the argument row `c_sound * t : m 🟡 (expected m·s⁻¹)` —
+      the 🟡 is the expected-override (the expression resolved cleanly,
+      but the call disagrees with the formal); the 🔴 sits on the
+      enclosing call via H004. Revert the edit when done.
 
 - [ ] **Stacked scopes** — with the cursor in line 10, the Scope section
-      stacks `Module: qa_mod` (c_sound, ref_pressure) over
-      `Function: dynamic_pressure` (v, q, rho), indented by nesting, every
-      variable 🟢.
+      stacks `Module: qa_mod` (c_sound, ref_pressure, plus the module's
+      own procedures `dynamic_pressure(m·s⁻¹)` 🟢 and
+      `scale_pressure(kg·m⁻¹·s⁻²)` 🟢 with `-` in the unit column for
+      the subroutine) over `Function: dynamic_pressure` (v, q, rho),
+      indented by nesting, every row 🟢. Procedures are visible from
+      anywhere within their defining module (Fortran host association),
+      mirroring how imported procedures show in Imports.
 
 - [ ] **Scope filter** — type `v` in the Scope section's search box: only
       variables whose name/unit contains `v` remain (e.g. `v`), scopes with
@@ -307,12 +316,16 @@ shows the data; column alignment is done in the webview, not ASCII.
       (`H001`–`H004`, `S001`, `S002`) colours a circle — an `H010`
       implicit-cast (e.g. line 26's `273.15`) keeps its squiggle but the
       circle stays 🟢. Relational comparisons aren't an emission site, so
-      they show 🟡, not a red.
+      they show 🟢 (structural-no-unit, no diagnostic owns the row), not
+      a red.
 
 - [ ] **Normalized-unit column** — a scope-var row shows the input unit
       **and** its base-SI normalized form when they differ. With the
-      scale scene below, `phpa` reads `hPa` ⟶ `100×kg·m⁻¹·s⁻²`; base-SI
-      vars (e.g. `play : Pa`) show only the one form.
+      scale scene below and scale **on**, `phpa` reads
+      `hPa` ⟶ `100×kg·m⁻¹·s⁻²`; with scale **off**, the same row reads
+      `hPa` ⟶ `kg·m⁻¹·s⁻²` (factor hidden — the linter ignores scale
+      when off-mode, so its displays do too). Base-SI vars (e.g.
+      `play : Pa`) show only the one form (source = normalized).
 
 - [ ] **Section order + folding** — sections are `EXPRESSION →
       DIAGNOSTICS → INTERACTIONS → ACTIONS → SCOPE → IMPORTS`, each a
@@ -376,15 +389,17 @@ Save this `scale_qa.f90` in that folder:
 
 ```fortran
 module scale_qa
+  real, parameter :: PA_PER_HPA = 100.   !< @unit{Pa/hPa}
   real :: play   !< @unit{Pa}
   real :: phpa   !< @unit{hPa}
   real :: t_k    !< @unit{K}
   real :: t_c    !< @unit{degC}
 contains
   subroutine s()
-    phpa = play        ! S001: hPa vs Pa (×100 multiplicative scale)
-    t_k  = t_c         ! S002: K vs degC (affine offset, missing +273.15)
-    t_k  = t_c + t_c   ! S002: adding two absolute temperatures
+    phpa = play                  ! S001: hPa vs Pa (×100 multiplicative scale)
+    phpa = play / PA_PER_HPA     ! clean: the typed factor cancels the mismatch
+    t_k  = t_c                   ! S002: K vs degC (affine offset, missing +273.15)
+    t_k  = t_c + t_c             ! S002: adding two absolute temperatures
   end subroutine s
 end module scale_qa
 ```
@@ -394,11 +409,22 @@ end module scale_qa
 - [ ] **On** — with `[scale] enabled = true`, **yellow** squiggles:
       `phpa = play` → **S001**, `t_k = t_c` and `t_k = t_c + t_c` →
       **S002**. The panel/hover **circles match** (🟡 on those lines).
+- [ ] **Scale factor surfaces uniformly in scale mode** — with scale on,
+      hover the `=` of `phpa = play` (or look at the Panel's Expression
+      section). The LHS row reads `phpa : 100×kg·m⁻¹·s⁻²` 🟢 and the
+      RHS row reads `play : kg·m⁻¹·s⁻²` 🟢 — the ×100 ratio matches the
+      diagnostic's `×100`. The same factor appears wherever a unit is
+      rendered (scope/imports normalized columns, etc.). With scale off,
+      factors are hidden everywhere — both sides of the assignment
+      render to the bare `kg·m⁻¹·s⁻²`. Single rule: displays match what
+      the checker is reasoning about.
 - [ ] **Severity override** — add `[diagnostics]` with `S002 = "error"`,
       save (no manual restart — see below); the S002 squiggles **and**
       circles go **red**.
-- [ ] **Typed conversion silences it** — `phpa = play / PA_PER_HPA` with
-      `real, parameter :: PA_PER_HPA = 100. !< @unit{Pa/hPa}` is clean.
+- [ ] **Typed conversion silences it** — the second assignment in `s()`,
+      `phpa = play / PA_PER_HPA`, is **clean** (no S001). The typed
+      `Pa/hPa` parameter carries the multiplicative factor explicitly,
+      so the assignment's units balance and the scale check passes.
 - [ ] **Editor toggle** (no `.dimfort.toml` needed) — set
       `dimfort.scale.mode` to `on` (or run **DimFort: Cycle Scale
       Checking** until the status bar shows `scale checking on`): the
@@ -410,8 +436,9 @@ end module scale_qa
 
 `P001` marks lines tree-sitter couldn't parse — DimFort makes no unit
 guarantee there. It's an **info** diagnostic, so it renders as a faint
-**blue** squiggle, distinct from real (red) violations. Save this
-`unparsed_qa.f90` and open it:
+**blue** squiggle, distinct from real (red) violations.
+
+Save this `unparsed_qa.f90` and open it:
 
 ```fortran
 subroutine unparsed_qa(press, vel)
@@ -420,15 +447,19 @@ subroutine unparsed_qa(press, vel)
   real, intent(out) :: vel     !< @unit{m/s}
   vel = press        ! H001 (red): m·s⁻¹ vs Pa
   vel = * / +        ! P001 (blue): unparseable line
-  vel = 0.0          ! a valid trailing statement (see note)
+  vel = 0.0          ! swallowed by line-6 error region — blue too
+  vel = vel * 2.0    ! CLEAN — proves the blue stops here
 end subroutine unparsed_qa
 ```
 
-> The trailing `vel = 0.0` matters: if an unparseable line is the **last**
-> statement before `end`, tree-sitter can't find the routine boundary and wraps
-> the **whole** routine in an error region — which empties the Scope panel. A
-> valid statement after the bad line keeps the routine parseable. (Tracked as a
-> known panel-robustness gap.)
+> Why two trailing statements: `vel = 0.0` gets swallowed by tree-sitter's
+> error recovery on line 6 (its assignment_statement is consumed into the
+> ERROR region, so the Expression panel is degraded there). `vel = vel * 2.0`
+> is the first fully-clean statement after the bad line — present to
+> demonstrate that the P001 squiggle *stops* at line 7 and does NOT bleed
+> further. A trailing valid statement is also required for tree-sitter to
+> find the subroutine boundary; without one, the **whole** routine wraps in
+> an error region and the Scope panel blanks (known panel-robustness gap).
 
 - [ ] **Blue squiggle** — `vel = * / +` gets a **blue (info)** underline;
       hovering it / the Problems panel shows **`P001` … "could not parse
@@ -438,8 +469,14 @@ end subroutine unparsed_qa
 - [ ] **Distinct from a real error** — `vel = press` carries a **red**
       `H001` on the line above, so blue (FYI) and red (violation) are
       visibly different.
-- [ ] **Localized, not the whole routine** — only the `vel = * / +` line is
-      underlined; the rest of the subroutine is not blue.
+- [ ] **Localized, not the whole routine** — the blue squiggle covers
+      **exactly two lines**: `vel = * / +` (the bad line) and the
+      immediately-following `vel = 0.0` (whose assignment_statement
+      tree-sitter swallows into the error recovery region). The next
+      line `vel = vel * 2.0` is **not blue** — proving the squiggle stops
+      at the right boundary. The Expression panel is correctly empty on
+      lines 6-7 (no trustworthy tree there) and populates normally on
+      line 8 (clean autocast → `m·s⁻¹`).
 - [ ] **Doesn't mask real checks** — the `H001` still fires; P001 only marks
       what it *couldn't* read, it doesn't suppress checking elsewhere.
 - [ ] **Suppressible** — add a workspace `.dimfort.toml` with
