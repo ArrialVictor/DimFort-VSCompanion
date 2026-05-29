@@ -697,7 +697,7 @@ const KIND_LABEL = {
   declares: "Declaration",
   contributes: "Write",
   requires: "Read",
-  uses: "Undetermined read",
+  uses: "Undetermined",
 };
 function renderInteractions(rep) {
   const wrap = document.createElement("div");

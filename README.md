@@ -163,7 +163,7 @@ activity-bar icon toggles it) with six sections:
   to jump to one).
 - **Interactions** — for the symbol under the cursor, every site that
   reads or writes it across the workset, grouped **Declaration / Write /
-  Read / Undetermined read** with the unit each implies, plus any `X001`
+  Read / Undetermined** with the unit each implies, plus any `X001`
   conflicting-claims finding. Rows navigate cross-file.
 - **Actions** — the code actions available at the cursor (Add `@unit{}`
   / extract-to-PARAMETER), as buttons.
