@@ -33,10 +33,27 @@ contains
     real :: t          !< @unit{s}
     real :: d          !< @unit{m}
     real :: bogus      !< @unit{kg}
+    real :: combo      !< @unit{m^2/s^2}
+    real :: ln_p       !< @unit{LOG(Pa)}
+    real :: rt_e2      !< @unit{m/s}
+    real :: abs_t      !< @unit{s}
+    real :: recovered  !< @unit{Pa^2}
+    real :: rho_brandes !< @unit{kg/m^3}
     real :: t_celsius                  ! no annotation -> U005
     d         = c_sound * t            ! OK:   m = (m·s⁻¹)*s
     bogus     = c_sound * t            ! H001: kg = m  (mismatch)
     t_celsius = t - 273.15             ! H010: bare 273.15 literal
+    combo     = c_sound**2 + d * d / (t * t) - c_sound * c_sound
+                                           !       (exercises +, -, *, /, **; all m²/s²)
+    ln_p      = log(ref_pressure)            ! intrinsic: LOG-wrap (Pa → LOG(Pa))
+    rt_e2     = sqrt(c_sound * c_sound)      ! intrinsic: sqrt halves (m²/s² → m/s)
+    abs_t     = abs(t)                       ! intrinsic: preserves (s → s)
+    recovered   = exp(log(ref_pressure) + log(ref_pressure))
+                                             ! LOG/EXP algebra: homomorphism + cancellation
+                                             !   exp(LOG(Pa) + LOG(Pa)) → exp(LOG(Pa²)) → Pa²
+    rho_brandes = 1.e3 * 0.178 * (d * 2.0 * 1000.0)**(-0.922)   !< @unit_assume{kg/m^3 : empirical-fit Brandes2007}
+                                             ! Non-rational power on a length — not algebraically derivable;
+                                             ! @unit_assume asserts the result and fires U020 INFO.
     ref_pressure = dynamic_pressure(0.5 * c_sound)
     call scale_pressure(2.0 * ref_pressure)        ! subroutine call
   end subroutine checks
@@ -72,11 +89,11 @@ Errors are red squiggles, warnings are orange/yellow squiggles; all also
 list in the **Problems** panel (`Cmd/Ctrl+Shift+M`). On a fresh open,
 confirm exactly:
 
-- [ ] **Line 17** — `t_celsius` (no annotation) → **U005 warning**.
-- [ ] **Line 19** — `bogus = c_sound * t` → **H001 error** `kg ≠ m`.
-- [ ] **Line 20** — `t_celsius = t - 273.15` → **H010 warning** on the
+- [ ] **Line 23** — `t_celsius` (no annotation) → **U005 warning**.
+- [ ] **Line 25** — `bogus = c_sound * t` → **H001 error** `kg ≠ m`.
+- [ ] **Line 26** — `t_celsius = t - 273.15` → **H010 warning** on the
       `273.15` literal (suggests extracting it to a named PARAMETER).
-- [ ] Lines 18 and 21 are **clean** — no diagnostic.
+- [ ] Lines 24, 27, 29, 30, 31, 32, and 38 are **clean**; line 35 fires a **U020 INFO** acknowledging the `@unit_assume` (informational, not a problem) — no diagnostic.
 
 **Interactive — U002 (unparseable annotation):** change line 14's
 `!< @unit{s}` to `!< @unit{??}` and save. Confirm **two** diagnostics on
@@ -93,19 +110,117 @@ Hover defaults to **`short`** in VSCode (a one-line unit surface
 alongside the open side panel). Mouse over the symbol (or
 `Cmd/Ctrl+K Cmd/Ctrl+I`).
 
-- [ ] **Short (default)** — on **`c_sound`** → `c_sound : m·s⁻¹`; on the
-      product `c_sound * t` (line 18) → the single line `c_sound * t : m`.
+- [ ] **Short (default)** — on **`c_sound`** → single row `c_sound : m·s⁻¹`;
+      on the product `c_sound * t` (line 24) → the tree shape used by
+      every short hover: root `c_sound * t : m  🟢` + immediate operand
+      rows `├── c_sound : m·s⁻¹  🟢` and `└── t : s  🟢`.
+- [ ] **Binary operators** — on **line 27** (the `combo = …` assignment),
+      hover each of `+`, `-`, `*`, `/`, `**` in turn. Each renders the
+      same tree shape (root sub-expression + immediate operand rows);
+      every row is 🟢; the topmost `**` shows `c_sound**2 : m²·s⁻²` over
+      its operand rows. One fixture exercises every binary operator.
 - [ ] **Detailed** — run **DimFort: Cycle Hover Verbosity** once
-      (`short → detailed`). The same product hover now breaks down across
-      lines (each operand with its unit), and the call `dynamic_pressure`
-      (line 21) gains a sub-tree under its computed argument
-      `0.5 * c_sound` (`0.5 : 1`, `c_sound : m·s⁻¹`) — the difference from
-      Short, which shows only the `v : m·s⁻¹ ◂ 0.5 * c_sound : m·s⁻¹` pairing.
+      (`short → detailed`). For bare-identifier operands like
+      `c_sound * t` the layout is unchanged from short (nothing to
+      expand). For the call `dynamic_pressure` (line 38), Detailed adds
+      a sub-tree under its **computed argument row** (`0.5 * c_sound :
+      m·s⁻¹ 🟢` with `0.5 : 1`, `c_sound : m·s⁻¹` indented beneath);
+      Short shows root + the argument row only. Both modes share the
+      side panel's Expression-tree layout — root reads
+      `dynamic_pressure(0.5 * c_sound) : kg·m⁻¹·s⁻² 🟢`.
 - [ ] **Subroutine call** — still in `detailed`, hover the call name
-      `scale_pressure` (line 22): same formal-vs-actual layout as a
-      function call, **but no return unit in the header** (subroutines
-      don't return) — `p : Pa ◂ 2.0 * ref_pressure : Pa` with the argument
-      sub-tree beneath.
+      `scale_pressure` (line 39): same tree layout as a function call,
+      **but the root carries `-`** (structural-no-unit — subroutines
+      have no return unit *by design*) and a clean call paints 🟢:
+      `call scale_pressure(…) : -  🟢`. The actual-argument
+      row `2.0 * ref_pressure : kg·m⁻¹·s⁻² 🟢` and its sub-tree appear
+      beneath.
+- [ ] **Intrinsics — same tree as user calls.** Still in `detailed`:
+      - Hover `log` (line 29): root row `log(ref_pressure) : LOG(Pa)`
+        + child row `ref_pressure : Pa 🟢`. The intrinsic call hover
+        now uses the same tree renderer as user calls — no more
+        bare-identifier-fallback one-liner.
+      - Hover `sqrt` (line 30): root row `sqrt(c_sound * c_sound) :
+        m·s⁻¹` + computed-arg row (with its operand sub-tree in
+        Detailed). Sqrt halves the unit (m²/s² → m/s).
+      - Hover `abs` (line 31): root row `abs(t) : s` + `t : s` child
+        row. Abs preserves the operand's unit.
+      Intrinsics have no `(expected …)` annotation on args — we don't
+      track formal-arg units for them — but the structural tree is
+      identical.
+- [ ] **LOG / EXP computational tricks** — the idiom physicists use
+      to do multiplicative work in log space:
+      `recovered = exp(log(p) + log(p))`. One line exercises BOTH
+      rules:
+      - **Homomorphism** (inside): `log(p) + log(p) → LOG(p²)`.
+      - **Cancellation** (outside): `exp(log(q)) → q`.
+
+      On **line 32**, hover the outermost `exp` (Detailed): root row
+      `exp(log(ref_pressure) + log(ref_pressure)) : Pa²  🟢` over
+      the child `log(ref_pressure) + log(ref_pressure) : LOG(Pa²) 🟢`,
+      and the sub-tree under that shows two `log(ref_pressure) :
+      LOG(Pa) 🟢` rows. DimFort follows the algebra symbolically —
+      no opacity, no approximation — so the round-trip `exp ∘ (sum
+      of logs)` recovers the product unit cleanly. Strong showcase
+      for atmospheric-science audiences.
+- [ ] **`@unit_assume` escape hatch** — empirical fits with
+      non-derivable units. On **line 35**, hover the assignment
+      (`rho_brandes = 1.e3 * 0.178 * (d * 2.0 * 1000.0)**(-0.922)`):
+      the line carries `!< @unit_assume{kg/m^3 : empirical-fit
+      Brandes2007}`. Because the RHS contains a length raised to a
+      non-rational power, the unit isn't derivable from first
+      principles — DimFort would normally emit `D1.4`. The
+      `@unit_assume` directive asserts the result's unit and
+      suppresses `D1.4`; in its place a **U020 INFO** appears,
+      acknowledging the assumption (informational, not a problem).
+      The hover reads:
+
+      ```
+      🟢 DimFort
+      rho_brandes = … : -                          🟢
+      ├── rho_brandes                : kg·m⁻³     🟢
+      └── 1.e3 * 0.178 * (d * 2.0 * 1000.0)**(-0.922)
+                                     : kg·m⁻³     🔵  (assumed: empirical-fit Brandes2007)
+          ├── …                        (RHS sub-tree with 🟡 leaves
+          └── …                         from the unresolved (-0.922))
+      ```
+
+      The 🔵 is a **per-row overlay** (NOT a severity tier — see
+      DimFort design/markers.md §4.6) painted on the RHS row, the
+      directive's syntactic subject. The RHS row's unit column shows
+      the **asserted** unit `kg·m⁻³`, not the computed `?`. The
+      assignment row stays **🟢** because the homogeneity check
+      passes (LHS `kg·m⁻³` matches the asserted RHS `kg·m⁻³`); the
+      hover header is `🟢 DimFort`. The 🔵 surfaces only in the
+      body, where the assertion lives. The RHS sub-tree still shows
+      its underlying algebra (with 🟡 on the `(-0.922)` unresolved
+      leaf) for transparency, but doesn't propagate up to the
+      assignment row.
+      Common in physics: Tetens (saturation vapour pressure),
+      Magnus, Buck, parameterised turbulence closures, etc. The
+      assumed-unit registry lives in
+      `Homogeneity/UNIT_ASSUME_REGISTRY.md`.
+- [ ] **Assignment-mismatch `(expected …)` annotation.** On line 25
+      (`bogus = c_sound * t`), hover the `=`. The root row paints 🔴
+      from `H001` owning the assignment; the RHS child row reads
+      `c_sound * t : m  🟡  (expected kg)`. The 🟡 is the
+      🟡-on-`expected` override — the RHS expression resolved cleanly
+      to `m`, but its consumer (the LHS) demanded `kg`.
+- [ ] **Pure-signature hover** (cursor on a function/subroutine
+      *definition* header — no call site). Hover `dynamic_pressure`
+      in **line 5** (the function definition itself). The hover
+      collapses to a single line:
+
+      ```
+      🟢 DimFort
+
+      dynamic_pressure(m·s⁻¹) : kg·m⁻¹·s⁻²
+      ```
+
+      Just the dimensional signature. No per-arg row table — the
+      header alone carries the formal interface. Unannotated formal
+      slots and unannotated returns render as `?` and flip the
+      header marker to 🟡.
 - [ ] **Disabled** — cycle once more (`detailed → disabled`); hovering a
       symbol shows nothing. Cycle once more to return to `short`.
 
@@ -118,11 +233,11 @@ alongside the open side panel). Mouse over the symbol (or
 
 Click the lightbulb (`Cmd/Ctrl+.`) with the cursor on the relevant line.
 
-- [ ] On `t_celsius` (line 17) → **"add `@unit{}`"**. Applying inserts
+- [ ] On `t_celsius` (line 23) → **"add `@unit{}`"**. Applying inserts
       `!< @unit{}`, leaves the cursor **between the braces** (VSCode
       expands the `$0` snippet tab-stop natively), and the **unit-name
       completion list pops up automatically** (no manual Ctrl+Space).
-- [ ] On the `273.15` (line 20) → **"extract literal to PARAMETER"**.
+- [ ] On the `273.15` (line 26) → **"extract literal to PARAMETER"**.
       Applying prompts for a name, then inserts a typed `real, parameter`
       declaration and replaces the `273.15`.
 
@@ -143,33 +258,48 @@ shows the data; column alignment is done in the webview, not ASCII.
 - [ ] **Activity-bar icon** — the `[m²]` ruler-of-units glyph is visible
       in the left activity bar; clicking it reveals the **Units** panel.
 
-- [ ] **Assignment with a mismatch** — cursor on the **`=`** in line 19
+- [ ] **Assignment with a mismatch** — cursor on the **`=`** in line 25
       (`bogus = c_sound * t`). The Expression section shows the whole
-      assignment marked 🔴 (`kg ≠ m`), with the operand tree beneath:
-      `bogus : kg` 🟢, `c_sound * t : m` 🟢 (R4.2) → `c_sound : m·s⁻¹` 🟢,
-      `t : s` 🟢.
+      assignment, root row `bogus = c_sound * t : -` 🔴 (`: -` is the
+      structural-no-unit glyph — an assignment has no own unit; the 🔴
+      comes from H001 owning it). Tree beneath: `bogus : kg` 🟢,
+      `c_sound * t : m` 🟡 `(expected kg)` (🟢→🟡 demotion + tail
+      because the RHS resolved cleanly to `m` but its consumer demanded
+      `kg`); leaves `c_sound : m·s⁻¹` 🟢, `t : s` 🟢. (Rule IDs like
+      `(R4.2)` are no longer rendered in the tree.)
 
 - [ ] **Multiplication chain** — cursor on the **`=`** in line 10
       (`q = 0.5 * rho * v * v`). The Expression section shows the nested
-      product, each level tagged `(R4.2)`, all 🟢, resolving to
-      `kg·m⁻¹·s⁻²`.
+      product, all 🟢, resolving to `kg·m⁻¹·s⁻²`.
 
 - [ ] **Function call with arguments** — cursor on the call name
-      `dynamic_pressure` in line 21. Expression shows
+      `dynamic_pressure` in line 38. Expression shows
       `dynamic_pressure(0.5 * c_sound) : kg·m⁻¹·s⁻²` 🟢, with the computed
-      argument `0.5 * c_sound : m·s⁻¹` 🟢 (R4.2) as a child, breaking down
+      argument `0.5 * c_sound : m·s⁻¹` 🟢 as a child, breaking down
       into `0.5 : 1` 🟢 and `c_sound : m·s⁻¹` 🟢.
 
 - [ ] **Subroutine call** — cursor on the call name `scale_pressure` in
-      line 22. A subroutine has no return unit, so the root
-      `call scale_pressure(2.0 * ref_pressure)` carries none (🟡), but the
-      computed argument `2.0 * ref_pressure : kg·m⁻¹·s⁻²` 🟢 (R4.2) still
-      expands beneath it into `2.0 : 1` 🟢 and `ref_pressure : kg·m⁻¹·s⁻²` 🟢.
+      line 39. A subroutine has no return unit, so the root
+      `call scale_pressure(2.0 * ref_pressure)` shows `-` in the unit
+      column and 🟢 (no diagnostic owns it). The computed argument
+      `2.0 * ref_pressure : kg·m⁻¹·s⁻²` 🟢 still expands beneath it
+      into `2.0 : 1` 🟢 and `ref_pressure : kg·m⁻¹·s⁻²` 🟢.
+
+- [ ] **Call-arg expected on mismatch** — temporarily edit line 38 to
+      `ref_pressure = dynamic_pressure(c_sound * t)`. The Expression tree
+      now shows the argument row `c_sound * t : m 🟡 (expected m·s⁻¹)` —
+      the 🟡 is the expected-override (the expression resolved cleanly,
+      but the call disagrees with the formal); the 🔴 sits on the
+      enclosing call via H004. Revert the edit when done.
 
 - [ ] **Stacked scopes** — with the cursor in line 10, the Scope section
-      stacks `Module: qa_mod` (c_sound, ref_pressure) over
-      `Function: dynamic_pressure` (v, q, rho), indented by nesting, every
-      variable 🟢.
+      stacks `Module: qa_mod` (c_sound, ref_pressure, plus the module's
+      own procedures `dynamic_pressure(m·s⁻¹)` 🟢 and
+      `scale_pressure(kg·m⁻¹·s⁻²)` 🟢 with `-` in the unit column for
+      the subroutine) over `Function: dynamic_pressure` (v, q, rho),
+      indented by nesting, every row 🟢. Procedures are visible from
+      anywhere within their defining module (Fortran host association),
+      mirroring how imported procedures show in Imports.
 
 - [ ] **Scope filter** — type `v` in the Scope section's search box: only
       variables whose name/unit contains `v` remain (e.g. `v`), scopes with
@@ -178,20 +308,24 @@ shows the data; column alignment is done in the webview, not ASCII.
       cursor (the box keeps its text). Typing a nonsense string shows
       "(no variables match …)".
 
-- [ ] **Markers** — in `checks` (cursor in line 19), `t_celsius` shows 🟡
+- [ ] **Markers** — in `checks` (cursor in line 25), `t_celsius` shows 🟡
       (unannotated); a `@unit{??}` in scope shows 🔴. Markers are
       **diagnostic-driven** (see `DimFort/docs/design/markers.md`): a
       circle reflects the squiggle that owns the node, so the panel and
       Problems never disagree. Only the consistency family
       (`H001`–`H004`, `S001`, `S002`) colours a circle — an `H010`
-      implicit-cast (e.g. line 20's `273.15`) keeps its squiggle but the
+      implicit-cast (e.g. line 26's `273.15`) keeps its squiggle but the
       circle stays 🟢. Relational comparisons aren't an emission site, so
-      they show 🟡, not a red.
+      they show 🟢 (structural-no-unit, no diagnostic owns the row), not
+      a red.
 
 - [ ] **Normalized-unit column** — a scope-var row shows the input unit
       **and** its base-SI normalized form when they differ. With the
-      scale scene below, `phpa` reads `hPa` ⟶ `100×kg·m⁻¹·s⁻²`; base-SI
-      vars (e.g. `play : Pa`) show only the one form.
+      scale scene below and scale **on**, `phpa` reads
+      `hPa` ⟶ `100×kg·m⁻¹·s⁻²`; with scale **off**, the same row reads
+      `hPa` ⟶ `kg·m⁻¹·s⁻²` (factor hidden — the linter ignores scale
+      when off-mode, so its displays do too). Base-SI vars (e.g.
+      `play : Pa`) show only the one form (source = normalized).
 
 - [ ] **Section order + folding** — sections are `EXPRESSION →
       DIAGNOSTICS → INTERACTIONS → ACTIONS → SCOPE → IMPORTS`, each a
@@ -199,18 +333,18 @@ shows the data; column alignment is done in the webview, not ASCII.
       collapsed/expanded state **persists** as you move the cursor (and
       across panel hide/show).
 
-- [ ] **Diagnostics section** — cursor on line 19 (`bogus = c_sound * t`):
+- [ ] **Diagnostics section** — cursor on line 25 (`bogus = c_sound * t`):
       a **Diagnostics** section shows `🔴 H001: ...` (the message for the
       cursor line). On a clean line (e.g. 18) the section shows `(none)`.
       (Using the `scale_qa.f90` scene below with `[scale] enabled`, the
       cursor on `t_k = t_c` shows `🟡 S002: …` here too.)
 
-- [ ] **Interactions section** — cursor on a `c_sound` use (line 18). The
+- [ ] **Interactions section** — cursor on a `c_sound` use (line 24). The
       **Interactions** section shows the symbol `c_sound`, then the
       **Declaration** group (line 2) and **Read** group (its use sites),
       each row a `file:line` + unit with the source snippet beneath.
       Because `c_sound` is read as `m·s⁻¹` at lines 18/21 but as `kg/s` at
-      line 19 (`bogus` is `kg`), a **🔴 X001** conflict row sits at the
+      line 25 (`bogus` is `kg`), a **🔴 X001** conflict row sits at the
       top. On a symbol with no cross-site uses the section shows `(none)`.
 
 - [ ] **Click to navigate** — clicking a **diagnostic** row jumps the
@@ -219,10 +353,10 @@ shows the data; column alignment is done in the webview, not ASCII.
       **interaction-site** row jumps to that site (another file when the
       use is cross-file).
 
-- [ ] **Actions** — cursor on `t_celsius` (line 17, unannotated): an
+- [ ] **Actions** — cursor on `t_celsius` (line 23, unannotated): an
       **Actions** section shows an `Add @unit{}` button; clicking it
       applies the same edit as the lightbulb (inserts `!< @unit{}`). On
-      the `273.15` literal (line 20): an `Extract literal to PARAMETER`
+      the `273.15` literal (line 26): an `Extract literal to PARAMETER`
       button. The section is **absent** when no action applies at the cursor.
 
 - [ ] **Imports section** — needs the `imports_qa.f90` scene below. With
@@ -237,7 +371,7 @@ shows the data; column alignment is done in the webview, not ASCII.
       **bottom** of the panel (whole-file counts), even when the content
       above is short.
 
-- [ ] **Cursor-follow** — move between line 10 (function) and line 19
+- [ ] **Cursor-follow** — move between line 10 (function) and line 25
       (subroutine); the Scope section switches between `Function:
       dynamic_pressure` and `Subroutine: checks`.
 
@@ -255,15 +389,17 @@ Save this `scale_qa.f90` in that folder:
 
 ```fortran
 module scale_qa
+  real, parameter :: PA_PER_HPA = 100.   !< @unit{Pa/hPa}
   real :: play   !< @unit{Pa}
   real :: phpa   !< @unit{hPa}
   real :: t_k    !< @unit{K}
   real :: t_c    !< @unit{degC}
 contains
   subroutine s()
-    phpa = play        ! S001: hPa vs Pa (×100 multiplicative scale)
-    t_k  = t_c         ! S002: K vs degC (affine offset, missing +273.15)
-    t_k  = t_c + t_c   ! S002: adding two absolute temperatures
+    phpa = play                  ! S001: hPa vs Pa (×100 multiplicative scale)
+    phpa = play / PA_PER_HPA     ! clean: the typed factor cancels the mismatch
+    t_k  = t_c                   ! S002: K vs degC (affine offset, missing +273.15)
+    t_k  = t_c + t_c             ! S002: adding two absolute temperatures
   end subroutine s
 end module scale_qa
 ```
@@ -273,11 +409,22 @@ end module scale_qa
 - [ ] **On** — with `[scale] enabled = true`, **yellow** squiggles:
       `phpa = play` → **S001**, `t_k = t_c` and `t_k = t_c + t_c` →
       **S002**. The panel/hover **circles match** (🟡 on those lines).
+- [ ] **Scale factor surfaces uniformly in scale mode** — with scale on,
+      hover the `=` of `phpa = play` (or look at the Panel's Expression
+      section). The LHS row reads `phpa : 100×kg·m⁻¹·s⁻²` 🟢 and the
+      RHS row reads `play : kg·m⁻¹·s⁻²` 🟢 — the ×100 ratio matches the
+      diagnostic's `×100`. The same factor appears wherever a unit is
+      rendered (scope/imports normalized columns, etc.). With scale off,
+      factors are hidden everywhere — both sides of the assignment
+      render to the bare `kg·m⁻¹·s⁻²`. Single rule: displays match what
+      the checker is reasoning about.
 - [ ] **Severity override** — add `[diagnostics]` with `S002 = "error"`,
       save (no manual restart — see below); the S002 squiggles **and**
       circles go **red**.
-- [ ] **Typed conversion silences it** — `phpa = play / PA_PER_HPA` with
-      `real, parameter :: PA_PER_HPA = 100. !< @unit{Pa/hPa}` is clean.
+- [ ] **Typed conversion silences it** — the second assignment in `s()`,
+      `phpa = play / PA_PER_HPA`, is **clean** (no S001). The typed
+      `Pa/hPa` parameter carries the multiplicative factor explicitly,
+      so the assignment's units balance and the scale check passes.
 - [ ] **Editor toggle** (no `.dimfort.toml` needed) — set
       `dimfort.scale.mode` to `on` (or run **DimFort: Cycle Scale
       Checking** until the status bar shows `scale checking on`): the
@@ -289,8 +436,9 @@ end module scale_qa
 
 `P001` marks lines tree-sitter couldn't parse — DimFort makes no unit
 guarantee there. It's an **info** diagnostic, so it renders as a faint
-**blue** squiggle, distinct from real (red) violations. Save this
-`unparsed_qa.f90` and open it:
+**blue** squiggle, distinct from real (red) violations.
+
+Save this `unparsed_qa.f90` and open it:
 
 ```fortran
 subroutine unparsed_qa(press, vel)
@@ -299,15 +447,19 @@ subroutine unparsed_qa(press, vel)
   real, intent(out) :: vel     !< @unit{m/s}
   vel = press        ! H001 (red): m·s⁻¹ vs Pa
   vel = * / +        ! P001 (blue): unparseable line
-  vel = 0.0          ! a valid trailing statement (see note)
+  vel = 0.0          ! swallowed by line-6 error region — blue too
+  vel = vel * 2.0    ! CLEAN — proves the blue stops here
 end subroutine unparsed_qa
 ```
 
-> The trailing `vel = 0.0` matters: if an unparseable line is the **last**
-> statement before `end`, tree-sitter can't find the routine boundary and wraps
-> the **whole** routine in an error region — which empties the Scope panel. A
-> valid statement after the bad line keeps the routine parseable. (Tracked as a
-> known panel-robustness gap.)
+> Why two trailing statements: `vel = 0.0` gets swallowed by tree-sitter's
+> error recovery on line 6 (its assignment_statement is consumed into the
+> ERROR region, so the Expression panel is degraded there). `vel = vel * 2.0`
+> is the first fully-clean statement after the bad line — present to
+> demonstrate that the P001 squiggle *stops* at line 7 and does NOT bleed
+> further. A trailing valid statement is also required for tree-sitter to
+> find the subroutine boundary; without one, the **whole** routine wraps in
+> an error region and the Scope panel blanks (known panel-robustness gap).
 
 - [ ] **Blue squiggle** — `vel = * / +` gets a **blue (info)** underline;
       hovering it / the Problems panel shows **`P001` … "could not parse
@@ -317,8 +469,14 @@ end subroutine unparsed_qa
 - [ ] **Distinct from a real error** — `vel = press` carries a **red**
       `H001` on the line above, so blue (FYI) and red (violation) are
       visibly different.
-- [ ] **Localized, not the whole routine** — only the `vel = * / +` line is
-      underlined; the rest of the subroutine is not blue.
+- [ ] **Localized, not the whole routine** — the blue squiggle covers
+      **exactly two lines**: `vel = * / +` (the bad line) and the
+      immediately-following `vel = 0.0` (whose assignment_statement
+      tree-sitter swallows into the error recovery region). The next
+      line `vel = vel * 2.0` is **not blue** — proving the squiggle stops
+      at the right boundary. The Expression panel is correctly empty on
+      lines 6-7 (no trustworthy tree there) and populates normally on
+      line 8 (clean autocast → `m·s⁻¹`).
 - [ ] **Doesn't mask real checks** — the `H001` still fires; P001 only marks
       what it *couldn't* read, it doesn't suppress checking elsewhere.
 - [ ] **Suppressible** — add a workspace `.dimfort.toml` with
@@ -331,44 +489,75 @@ Save this `imports_qa.f90` (one file, two modules — the second `use`s the
 first) and open it:
 
 ```fortran
+! `phys_base` exists to test TRANSITIVE re-export: phys_constants
+! `use`s it, and `solver` uses phys_constants — see whether `g0`
+! surfaces in solver's Imports section.
+module phys_base
+  real :: g0   !< @unit{m/s^2}
+end module phys_base
+
 module phys_constants
-  real :: play   !< @unit{Pa}
-  real :: grav   !< @unit{m·s⁻¹^2}
+  use phys_base                          ! transitive: re-exports g0 by default
+  real :: play     !< @unit{Pa}
+  real :: grav     !< @unit{m/s^2}
+  real :: density                        ! NO annotation → unannotated 🟡
 contains
   function gravity_at(h) result(g)
     real, intent(in) :: h   !< @unit{m}
-    real             :: g   !< @unit{m·s⁻¹^2}
+    real             :: g   !< @unit{m/s^2}
     g = grav
   end function gravity_at
+  subroutine set_play(p)
+    real, intent(in) :: p   !< @unit{Pa}
+    play = p
+  end subroutine set_play
 end module phys_constants
 
 module solver
-  use phys_constants, only: play, gravity_at
+  use phys_constants, only: play, gravity_at, set_play, density
   real :: local_p   !< @unit{Pa}
 contains
   subroutine step()
     local_p = play
+    call set_play(local_p)
   end subroutine step
 end module solver
 ```
 
-- [ ] **Lists vars + procedures** — cursor on `local_p = play` (inside
-      `step`): the **Imports** section shows a `from phys_constants` header
-      (its items indented beneath it) with two rows — `play` → `Pa` ⟶
-      `kg·m⁻¹·s⁻²` 🟢, and `gravity_at(m)` → `m·s⁻²` 🟢 (callable: its `(m)` argument unit
-      in the parens, its `m·s⁻²` return unit in the unit column).
+- [ ] **Lists vars + procedures + subroutines + unannotated** — cursor
+      on `local_p = play` (inside `step`): the **Imports** section shows
+      a `from phys_constants` header (items indented beneath it) with
+      four rows in some order:
+      - `play` → `kg·m⁻¹·s⁻²` 🟢 (annotated variable)
+      - `gravity_at(m)` → `m·s⁻²` 🟢 (callable, return unit in
+        column, arg unit in parens)
+      - `set_play(Pa)` → `-` 🟢 (subroutine — structural-no-unit
+        glyph, dimmed; renders distinctly from `(none)`)
+      - `density` → `?` 🟡 (unannotated variable — the `?` glyph
+        appears dimmed, distinguishing it from a real unit)
 - [ ] **Cross-file navigation** — clicking the `play` row jumps to its
-      declaration (line 2); clicking `gravity_at(m)` jumps to the function
-      definition (line 5). (Same file here; another file in a real project.)
+      declaration; clicking `gravity_at(m)` jumps to the function;
+      clicking `set_play(Pa)` jumps to the subroutine. (Same file here;
+      another file in a real project.)
 - [ ] **Scoped + shadowed** — `grav` is **not** listed (the `only:` list
       excludes it). If you add `real :: play !< @unit{Pa}` as a local in
-      `step`, `play` drops from Imports (the local shadows it, and it shows
-      under Scope instead).
+      `step`, `play` drops from Imports (the local shadows it, and it
+      shows under Scope instead).
+- [ ] **Transitive imports — record actual behavior.** `phys_constants`
+      itself `use`s `phys_base`, which declares `g0`. Default Fortran
+      semantics re-export `g0` through `phys_constants`. Cursor inside
+      `step` and confirm whether `g0` appears in solver's Imports:
+      - **If yes** — DimFort follows transitive `use`. Note the unit in
+        the row (`m·s⁻²` 🟢).
+      - **If no** — DimFort treats `use` as non-transitive (only
+        symbols declared directly in `phys_constants` surface). File a
+        finding or document the intentional gap.
 - [ ] **Imports filter** — the Imports section has its **own** search
       box (separate from Scope's). Type `gravity` in it → only
-      `gravity_at(m)` remains; type `play` → only `play`. Clear it → both
-      return. The Scope filter does **not** affect Imports (and vice versa).
-- [ ] **Empty case** — cursor in `phys_constants` (which imports nothing):
+      `gravity_at(m)` remains; type `play` → `play` + `set_play(Pa)`.
+      Clear it → all return. The Scope filter does **not** affect
+      Imports (and vice versa).
+- [ ] **Empty case** — cursor in `phys_base` (which imports nothing):
       the Imports section shows `(none)`.
 
 ## Config reload & cache

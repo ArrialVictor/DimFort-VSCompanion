@@ -60,18 +60,19 @@ Open any `.f90` file — DimFort lights up. Settings → search
   picks the level of detail and applies to every hover surface:
   `disabled` (no hover — the side panel is the unit surface),
   `short`, or `detailed`.
-  - On a **call** (function or subroutine) — `Short` is a
-    formal-vs-actual pairing (one row per arg, 🟢/🟡/🔴 marker
-    showing whether the actual unit matches the formal contract).
-    `Detailed` adds a sub-tree under any computed actual showing
-    how its unit was derived.
+  - On a **call** (function or subroutine) — same tree layout as the
+    side panel: root row `name(args) : ret` with the overall verdict
+    marker, and one child row per actual argument labelled by the
+    source expression, with `(expected <formal>)` on a mismatch.
+    Subroutines have no return unit so the root reads `name(args) : ?`
+    and paints 🟡. `Detailed` adds a sub-tree under any computed
+    actual showing how its unit was derived.
   - On an **expression** — `Short` is a one-line homogeneity check on
     assignments and relational expressions, a bare `name : unit`
     hover on identifiers, and the resolved unit on computed
     sub-expressions. `Detailed` is the full unit-algebra tree (every
-    node tagged with its resolved unit, rule ID — `R3.1`, `R5.6`, … —
-    and a per-row 🟢/🟡/🔴 marker that pinpoints where a violation
-    fires or a leaf is unannotated).
+    node tagged with its resolved unit and a per-row 🟢/🟡/🔴 marker
+    that pinpoints where a violation fires or a leaf is unannotated).
   The header marker aggregates the worst row: 🔴 mismatch, 🟡 partial,
   🟢 clean. Cycle the level with **DimFort: Cycle Hover Verbosity**;
   the side panel is unaffected (always detailed). The full layout
@@ -79,7 +80,7 @@ Open any `.f90` file — DimFort lights up. Settings → search
 
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-call-short_dark.png">
-    <img width="640" src="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-call-short_light.png" alt="Short call hover — formal-vs-actual pairing">
+    <img width="640" src="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-call-short_light.png" alt="Short call hover — dimensional-signature header + per-actual-argument rows">
   </picture>
 
   <picture>
@@ -162,7 +163,7 @@ activity-bar icon toggles it) with six sections:
   to jump to one).
 - **Interactions** — for the symbol under the cursor, every site that
   reads or writes it across the workset, grouped **Declaration / Write /
-  Read / Undetermined read** with the unit each implies, plus any `X001`
+  Read / Undetermined** with the unit each implies, plus any `X001`
   conflicting-claims finding. Rows navigate cross-file.
 - **Actions** — the code actions available at the cursor (Add `@unit{}`
   / extract-to-PARAMETER), as buttons.
