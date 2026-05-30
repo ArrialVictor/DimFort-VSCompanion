@@ -8,7 +8,7 @@ behavioural changes mostly land in the DimFort server itself. Entries
 below cover client-side changes only (settings, defaults, palette
 commands, packaging).
 
-## [Unreleased]
+## [0.2.1] — 2026-05-30
 
 ### Polish: render `assumed` marker (🔵) + `(assumed: <reason>)` tail on the RHS row
 
@@ -67,6 +67,48 @@ sees what the call-site demanded without reading the diagnostic
 text. Mismatched argument rows paint 🟡 (the new 🟡-on-`expected`
 override, server-side; see DimFort design/markers.md §4.4), so a
 row with `(expected …)` will never read `marker: "ok"`.
+
+### Polish: scope/imports `unitNormalized` column + uniform scale-mode display
+
+The Scope-var and Imports rows render the `unitNormalized` field as
+a second cell next to the source unit when they differ (e.g. `Pa`
+beside `kg·m⁻¹·s⁻²`). Server-side gating means the multiplicative
+factor appears only when scale mode is on (`hPa  100×kg·m⁻¹·s⁻²` vs
+`hPa  kg·m⁻¹·s⁻²`) — the panel just renders whatever the server
+emits, so the same rule lands across every surface (Expression tree
+unit columns, hovers, normalized columns).
+
+### Polish: module procedures show up in the Scope panel
+
+For module/program scopes, the panel now lists the module's defined
+functions / subroutines as `name(args)` rows alongside variables,
+mirroring how the Imports section formats imported procedures.
+Zero renderer changes — the server emits these as pre-formatted
+rows in `ScopeVar` shape; the existing renderer treats them as
+ordinary scope entries.
+
+### Change: Interactions label `"Undetermined read"` → `"Undetermined"`
+
+The panel's Interactions section header for the `uses` kind now
+reads `Undetermined` (was `Undetermined read`). Matches the rename
+on the server side; the underlying `kind` value is unchanged so
+existing payloads still route correctly.
+
+### Add: link to the canonical `demos/tour.f90` in the README
+
+The README's intro now points at `demos/tour.f90` in the DimFort
+repo — a short, self-contained moist-thermodynamics file that
+exercises six high-impact diagnostics on a single page. Going
+forward, README screenshots will be taken from this file so they
+stay reproducible.
+
+### Docs: project rule — no validation-workspace name in tracked files
+
+Internal hygiene: explicit references to the specific Fortran
+codebase used as the validation target have been replaced with
+neutral phrasing across `CHANGELOG.md`, `README.md`, and
+`package.json`. No behavioural change; documented here for
+contributors who may notice the rephrasings in the diff.
 
 ## [0.2.0] — 2026-05-28
 
