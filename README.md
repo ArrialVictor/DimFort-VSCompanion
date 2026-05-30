@@ -126,7 +126,7 @@ Settings (under **DimFort** in the Settings UI):
   check: `read-write` (default), `read-only`, or `off`. With
   `read-write`, warm re-runs replay cached diagnostics for files
   whose source, includes, and dependencies haven't changed
-  (LMDZ-scale: ~33 s cold → ~20 s warm). Palette command
+  (a benchmark workspace measured ~33 s cold → ~20 s warm). Palette command
   `DimFort: Toggle Content-Hash Cache` flips between `off` and
   `read-write`. Invalidation triggers and the design are
   documented in
