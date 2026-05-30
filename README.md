@@ -12,6 +12,10 @@ Protocol client: spawns `dimfort lsp` and forwards your Fortran
 sources to it; the server publishes diagnostics back, and VSCode
 renders them as squiggles and entries in the Problems panel.
 
+Want a hands-on look first? See the [DimFort tour](https://github.com/ArrialVictor/DimFort/blob/main/demos/README.md) —
+a short, self-contained Fortran file that exercises the most common
+diagnostics, with a line-by-line walkthrough.
+
 ## Install
 
 ### 1. Install DimFort itself
