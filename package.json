@@ -190,7 +190,7 @@
             "Read-write"
           ],
           "default": "read-write",
-          "description": "Content-hash cache for the workspace check. `read-write` (default): replay and update the cache. `read-only`: replay cached diagnostics but never write. `off`: no caching. On large workspaces (~2000 files), a warm cache drops total check time substantially (LMDZ-scale: ~33 s cold → ~20 s warm). See [DimFort's cache docs](https://github.com/ArrialVictor/DimFort/blob/main/docs/usage.md#content-hash-cache) for invalidation triggers."
+          "description": "Content-hash cache for the workspace check. `read-write` (default): replay and update the cache. `read-only`: replay cached diagnostics but never write. `off`: no caching. On large workspaces (~2000 files), a warm cache drops total check time substantially (a benchmark workspace measured ~33 s cold → ~20 s warm). See [DimFort's cache docs](https://github.com/ArrialVictor/DimFort/blob/main/docs/usage.md#content-hash-cache) for invalidation triggers."
         },
         "dimfort.cache.dir": {
           "type": "string",

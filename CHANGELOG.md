@@ -175,7 +175,7 @@ row with `(expected …)` will never read `marker: "ok"`.
   the workspace check: `off` (default), `read-only`, or
   `read-write`. With `read-write`, every file's check phase is
   cached; warm re-runs replay cached diagnostics for unchanged
-  files. LMDZ-scale: ~33 s cold → ~20 s warm. Settings UI exposes
+  files. A benchmark workspace measured ~33 s cold → ~20 s warm. Settings UI exposes
   it under **DimFort: Cache: Mode**. Full invalidation triggers
   documented at
   [DimFort/docs/usage.md#content-hash-cache](https://github.com/ArrialVictor/DimFort/blob/main/docs/usage.md#content-hash-cache).
