@@ -197,9 +197,7 @@ alongside the open side panel). Mouse over the symbol (or
       leaf) for transparency, but doesn't propagate up to the
       assignment row.
       Common in physics: Tetens (saturation vapour pressure),
-      Magnus, Buck, parameterised turbulence closures, etc. The
-      assumed-unit registry lives in
-      `Homogeneity/UNIT_ASSUME_REGISTRY.md`.
+      Magnus, Buck, parameterised turbulence closures, etc.
 - [ ] **Assignment-mismatch `(expected …)` annotation.** On line 25
       (`bogus = c_sound * t`), hover the `=`. The root row paints 🔴
       from `H001` owning the assignment; the RHS child row reads
