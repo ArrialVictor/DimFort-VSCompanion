@@ -8,6 +8,31 @@ behavioural changes mostly land in the DimFort server itself. Entries
 below cover client-side changes only (settings, defaults, palette
 commands, packaging).
 
+## [0.2.2] — 2026-06-03
+
+### Passthrough: DimFort 0.2.2's configurable comment delimiters
+
+This release tracks DimFort 0.2.2. The extension itself is
+unchanged — the new `[parser]` keys
+(`unit_comment_delimiters` / `unit_assume_comment_delimiters` /
+`unit_affine_comment_delimiters`) are read by the server from
+`.dimfort.toml`, no client config is added. The companion needs
+this version bump only to gate against pre-0.2.2 servers in the
+PyPI-pinned install path.
+
+The new U021 / U023 / U002-suggested-rewrite diagnostics render
+through the existing diagnostic surface; the U002 "Replace with
+`<X>`" quick-fix is a `WorkspaceEdit`-based code action (no
+command delegation) so it works identically here and in every
+other LSP client.
+
+### Min server version
+
+`dimfort >= 0.2.2` in the pinned install path. Earlier servers
+still run as a fallback (the marketplace install does the version
+pin best-effort; pre-pin servers don't expose the new toml keys
+but the rest of the extension still functions).
+
 ## [0.2.1] — 2026-05-30
 
 ### Polish: render `assumed` marker (🔵) + `(assumed: <reason>)` tail on the RHS row
