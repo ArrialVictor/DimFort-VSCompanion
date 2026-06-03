@@ -567,3 +567,73 @@ end module solver
       diagnostics update **without** running *DimFort: Restart* manually.
 - [ ] **Clear cache** — run **DimFort: Clear Content-Hash Cache**; the
       status bar confirms and the server restarts (diagnostics repopulate).
+
+## Configurable comment delimiters (0.2.2)
+
+Save this `delim_qa.f90` in a fresh folder alongside the toml
+just below it:
+
+```fortran
+subroutine delim_demo
+  implicit none
+
+  ! §10 — bare ! @unit{} is now eligible at a decl. Hover → m/s.
+  real :: ws   ! @unit{m/s}
+
+  ! §2 — bracket pattern (configured below). Hover → Pa.
+  real :: pa   ! atmospheric pressure [Pa] at the surface
+
+  ! §3.2 — standalone above a decl, plain `!`. Hover → kg.
+  ! mass loading [kg]
+  real :: kg
+
+  ! §6 — any pattern on a multi-var attaches to all names.
+  real :: a, b, c   ! [m]
+
+  ! §8.2 — two patterns disagree → U021. First-listed (`@unit{}`)
+  ! wins, so hover `g` → kg.
+  real :: g   !< wind speed [m/s] @unit{kg}
+
+  ! §8.3 — @unit_assume on a declaration → U023.
+  real :: t   !< @unit_assume{K: legacy fit}
+
+  ! §8.3 — @unit{} on an assignment → U023.
+  ws = 1.0   !< @unit{m/s}
+
+  ! §12 — unparseable unit → U002 with suggested rewrite.
+  real :: diff   !< @unit{m2/s}
+end subroutine
+```
+
+Save this `.dimfort.toml` next to it:
+
+```toml
+[parser]
+unit_comment_delimiters = [
+  { open = "@unit{", close = "}" },
+  { open = "[",      close = "]" },
+]
+```
+
+- [ ] **Bracket pattern recognised** — hover `pa`, `a`/`b`/`c`,
+      `kg` (above) shows the bracket-captured unit.
+- [ ] **Plain `!` eligibility (§10)** — `ws` on line 4 has the
+      `! @unit{m/s}` form (no Doxygen marker). Hover shows `m/s`.
+- [ ] **U021 fires** — line with `[m/s] @unit{kg}` shows a yellow
+      squiggle; message names both captures; hover `g` shows `kg`
+      (the first-listed pattern's capture).
+- [ ] **U023 fires** — `@unit_assume{K: legacy fit}` on the
+      `real :: t` decl shows a yellow squiggle; message says
+      "did you mean @unit?". Same for `@unit{m/s}` on
+      `ws = 1.0` — yellow squiggle, message suggests
+      `@unit_assume` or `@unit_affine_conversion`.
+- [ ] **U002 quick-fix** — `@unit{m2/s}` shows a red squiggle;
+      message includes "did you mean 'm^2/s'?". Quick Fix
+      (`Cmd+.`) offers **DimFort: Replace with 'm^2/s'** as the
+      preferred fix; accepting it edits `m2/s` → `m^2/s` and
+      clears the squiggle.
+- [ ] **Pattern config invalidates cache** — comment out
+      `{ open = "@unit{", close = "}" }` in the toml, save, then
+      reload the window. The `@unit{m/s}` hover on `ws` should
+      now show no unit (the canonical form is no longer
+      configured in this project). Uncomment to restore.
