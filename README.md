@@ -155,36 +155,23 @@ Settings (under **DimFort** in the Settings UI):
 
 ## Side panel
 
-A cursor-following side panel (open by default; the **DimFort**
-activity-bar icon toggles it) with six sections:
+A cursor-following side panel rendering the six DimFort sections —
+Expression, Diagnostics, Interactions, Actions, Scope, Imports.
+The full description of what each section shows is the canonical
+[side-panel reference](https://github.com/ArrialVictor/DimFort/blob/main/docs/editor-integration/side-panel.md);
+the controls below are the VSCode-specific bits.
 
-- **Expression** — the unit-algebra tree for the expression under the
-  cursor: each node with its resolved unit, the rule that produced it,
-  and a 🟢 / 🟡 / 🔴 marker. The same content as the detailed hover, but
-  it stays put while you edit — handy for debugging a mismatch or
-  walking through code with someone.
-- **Diagnostics** — the DimFort diagnostics on the cursor's line (click
-  to jump to one).
-- **Interactions** — for the symbol under the cursor, every site that
-  reads or writes it across the workset, grouped **Declaration / Write /
-  Read / Undetermined** with the unit each implies, plus any `X001`
-  conflicting-claims finding. Rows navigate cross-file.
-- **Actions** — the code actions available at the cursor (Add `@unit{}`
-  / extract-to-PARAMETER), as buttons.
-- **Scope** — the declarations of every enclosing scope, stacked
-  outermost-first and indented by nesting (a module's declarations,
-  then a contained subroutine's locals). Each variable is marked 🟢
-  (annotated), 🟡 (unannotated), or 🔴 (unparseable annotation), so
-  annotation gaps stand out.
-- **Imports** — variables and procedures a `use` clause brings into scope
-  (usable here but declared elsewhere), grouped by source module under a
-  `from <module>` header (functions read as `name(argunits)`, showing their argument + return
-  units, e.g. `force(kg)`). Rows navigate cross-file to where the imported symbol — and
-  its `@unit{}` — is declared. Has its own name/unit/module filter box.
+**Toggle**: open by default. The **DimFort** activity-bar icon
+toggles the panel; the palette command `DimFort: Show Side Panel`
+does the same.
 
-On by default — set `dimfort.panel.enabled` to `false` to keep it
-closed, then open it from the **DimFort** activity-bar icon (or run
-`DimFort: Show Side Panel`).
+**Settings**:
+
+- `dimfort.panel.enabled` — set to `false` to keep the panel
+  closed on attach.
+
+**Filters**: the Scope and Imports sections each carry an inline
+filter box (name / unit / module).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/panel-vscode-hero_dark.png">
