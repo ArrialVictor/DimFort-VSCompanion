@@ -79,9 +79,40 @@ sections below. Commands below are run from the Command Palette
 - [ ] In Settings (search "dimfort"), confirm the defaults:
       `inlayHints.enabled` off, `completion.enabled` on,
       `codeActions.enabled` on, `gotoDefinition.enabled` on,
-      `hover` = `short`, `cache.mode` = `read-write`, `panel.enabled` on.
+      `hover` = `short`, `cache.mode` = `read-write`, `panel.enabled` on,
+      `coverage.mode` = `disabled`.
       (There is **no** `codeLens` setting and **no** `trace.enabled` /
       `hover.*` per-surface settings — those were removed/collapsed.)
+
+## Coverage visualisation (0.2.4)
+
+Coverage requires DimFort 0.2.4+ server. Mode is `disabled` by default;
+the tests below set it manually.
+
+- [ ] Open a Fortran file with a mix of clean and yellow/red lines.
+- [ ] Run **DimFort: Cycle Coverage Visualisation** once → status bar
+      shows `DimFort: coverage gutter`. Confirm:
+      - Green dots appear in the gutter on verified declaration and
+        use-site lines.
+      - Yellow / red diagnostic lines keep their native VSCode gutter
+        icon (red circle X for errors, yellow triangle for warnings);
+        no extra coverage dot stacks on top.
+      - Out-of-scope lines (string assignments, control flow, blank
+        lines) carry no gutter decoration.
+- [ ] Run the cycle command again → status bar shows
+      `DimFort: coverage verbose`. Confirm:
+      - All four tiers (green / yellow / red / blue) get a low-alpha
+        background tint.
+      - Gutter dots are still painted on green and blue lines as in
+        gutter mode (the verbose mode is additive).
+- [ ] Run the cycle command a third time → `DimFort: coverage disabled`.
+      All coverage decorations should clear; the file stays as the user
+      sees it without DimFort.
+- [ ] **Mode flip does not restart the LSP** — check Output panel
+      ("DimFort Language Server"). The "language server restarted"
+      message should NOT appear when cycling coverage.
+- [ ] Edit a file with coverage in `gutter` mode. After ~200 ms the
+      gutter should refresh in place to reflect the new diagnostics.
 
 ## Diagnostics
 

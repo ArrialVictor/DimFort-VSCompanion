@@ -102,6 +102,16 @@ Open any `.f90` file — DimFort lights up. Settings → search
 - **Go-to-definition** on variables and procedure calls.
 - **Completion** inside `@unit{}` annotations, sourced from the
   active unit table.
+- **Coverage visualisation** — per-line status as gutter dots and an
+  optional background tint. Off by default; toggle with **DimFort:
+  Cycle Coverage Visualisation** (Disabled → Gutter → Verbose):
+  - **Gutter** — green dot on verified lines, blue dot on unparsed
+    regions. Yellow / red diagnostics keep their native gutter
+    icon, so the coverage layer adds only the positive and the
+    informational signal.
+  - **Verbose** — gutter dots as above, plus a low-alpha background
+    tint for all four tiers (green / yellow / red / blue) so the
+    state of every line is visible at a glance.
 
 ## Configuration
 
