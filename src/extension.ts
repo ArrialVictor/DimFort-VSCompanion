@@ -162,7 +162,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const coverageCfg = vscode.workspace.getConfiguration("dimfort");
   coverageProvider.setDebounceMs(coverageCfg.get<number>("coverage.debounceMs", 200));
   coverageProvider.setMode(
-    coverageCfg.get<"disabled" | "gutter" | "verbose">("coverage.mode", "disabled"),
+    coverageCfg.get<"disabled" | "gutter" | "background">("coverage.mode", "disabled"),
   );
 
   // Refresh triggers. The provider no-ops when mode is disabled, so the
@@ -257,7 +257,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const cfg = vscode.workspace.getConfiguration("dimfort");
         coverageProvider?.setDebounceMs(cfg.get<number>("coverage.debounceMs", 200));
         coverageProvider?.setMode(
-          cfg.get<"disabled" | "gutter" | "verbose">("coverage.mode", "disabled"),
+          cfg.get<"disabled" | "gutter" | "background">("coverage.mode", "disabled"),
         );
         return;
       }
@@ -437,14 +437,16 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Coverage visualisation is tri-state (disabled / gutter / verbose).
-  // The config-change listener takes the coverage-only path here, so
-  // flipping the mode does NOT restart the LSP — the provider re-renders
-  // directly. Cycles in disabled → gutter → verbose order.
+  // Coverage visualisation is tri-state (disabled / gutter / background).
+  // Gutter and background are mutually-exclusive visual encodings of the
+  // same data; pick the visual weight you prefer. The config-change
+  // listener takes the coverage-only path here, so flipping the mode does
+  // NOT restart the LSP — the provider re-renders directly. Cycles in
+  // disabled → gutter → background order.
   context.subscriptions.push(
     vscode.commands.registerCommand("dimfort.cycleCoverage", async () => {
       const cfg = vscode.workspace.getConfiguration("dimfort");
-      const order = ["disabled", "gutter", "verbose"];
+      const order = ["disabled", "gutter", "background"];
       const current = cfg.get<string>("coverage.mode", "disabled");
       const next = order[(order.indexOf(current) + 1) % order.length];
       await cfg.update("coverage.mode", next, vscode.ConfigurationTarget.Global);

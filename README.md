@@ -102,16 +102,17 @@ Open any `.f90` file — DimFort lights up. Settings → search
 - **Go-to-definition** on variables and procedure calls.
 - **Completion** inside `@unit{}` annotations, sourced from the
   active unit table.
-- **Coverage visualisation** — per-line status as gutter dots and an
-  optional background tint. Off by default; toggle with **DimFort:
-  Cycle Coverage Visualisation** (Disabled → Gutter → Verbose):
-  - **Gutter** — one dot per line in the four tiers: green (verified),
-    yellow (needs attention), red (hard fire), blue (unparsed). Lines
-    with no unit semantics (control flow, blank lines, string
-    assignments) carry no dot.
-  - **Verbose** — gutter dots as above, plus a low-alpha background
-    tint for all four tiers so the state of every line is visible at
-    a glance.
+- **Coverage visualisation** — per-line status in one of two visual
+  encodings (mutually exclusive). Off by default; toggle with
+  **DimFort: Cycle Coverage Visualisation** (Disabled → Gutter →
+  Background):
+  - **Gutter** — one dot per line in the left margin, in four
+    tiers: green (verified), yellow (needs attention), red (hard
+    fire), blue (unparsed). Lines with no unit semantics (control
+    flow, blank lines, string assignments) carry no dot.
+  - **Background** — low-alpha background tint behind each in-scope
+    line, in the same four tiers. Heavier visual weight; reads at
+    a glance without scanning the gutter column.
 
 ## Configuration
 

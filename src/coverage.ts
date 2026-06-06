@@ -4,7 +4,7 @@ import { LanguageClient } from "vscode-languageclient/node";
 // Wire-format mirror of the server's dimfort/lineStatus response.
 // See DimFort/docs/design/future/coverage-visualization.md §7.
 type CoverageTier = "green" | "yellow" | "red" | "blue";
-type CoverageMode = "disabled" | "gutter" | "verbose";
+type CoverageMode = "disabled" | "gutter" | "background";
 
 interface LineStatus {
   line: number;        // 1-based
@@ -175,12 +175,15 @@ export class CoverageProvider implements vscode.Disposable {
       ranges[entry.status].push(editor.document.lineAt(lineIdx).range);
     }
     for (const tier of ["green", "yellow", "red", "blue"] as CoverageTier[]) {
-      // Gutter signs: only for green and blue, in both gutter and verbose modes.
-      const gutterRanges = GUTTER_TIERS.includes(tier) ? ranges[tier] : [];
+      // The two visible modes are mutually exclusive: gutter paints in
+      // the left-margin column, background paints behind the line text.
+      // Both encode the same per-line tier; the user picks which visual
+      // weight they prefer.
+      const gutterRanges =
+        this.mode === "gutter" && GUTTER_TIERS.includes(tier) ? ranges[tier] : [];
       editor.setDecorations(this.gutterDecorations[tier], gutterRanges);
 
-      // Background tint: only in verbose mode, paints every tier.
-      const tintRanges = this.mode === "verbose" ? ranges[tier] : [];
+      const tintRanges = this.mode === "background" ? ranges[tier] : [];
       editor.setDecorations(this.tintDecorations[tier], tintRanges);
     }
   }

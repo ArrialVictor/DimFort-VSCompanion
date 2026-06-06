@@ -14,15 +14,15 @@ commands, packaging).
 
 - **Coverage visualisation** — per-line status decoration driven by the
   server's `dimfort/lineStatus` LSP method (requires DimFort 0.2.4+).
-  Setting `dimfort.coverage.mode` (`disabled` | `gutter` | `verbose`)
+  Setting `dimfort.coverage.mode` (`disabled` | `gutter` | `background`)
   controls the layer; default is `disabled` (opt-in). Palette command
   **DimFort: Cycle Coverage Visualisation** cycles through the three
-  modes. In `gutter` mode, one dot per line paints across the four
-  tiers (green / yellow / red / blue). In `verbose` mode, gutter dots
-  are kept and a low-alpha background tint is added for the same
-  tiers. Refresh is driven by `vscode.languages.onDidChangeDiagnostics`
-  so the layer stays in lock-step with the squiggles — no separate
-  debounce race against the server's own check pipeline. New setting
+  modes. `gutter` and `background` are mutually-exclusive visual
+  encodings of the same per-line tier (green / yellow / red / blue);
+  pick the visual weight you prefer. Refresh is driven by
+  `vscode.languages.onDidChangeDiagnostics` so the layer stays in
+  lock-step with the squiggles — no separate debounce race against
+  the server's own check pipeline. New setting
   `dimfort.coverage.debounceMs` (default 200) coalesces bursts of
   diagnostic-change events. Coverage settings are companion-only —
   flipping the mode does not restart the language server. New file

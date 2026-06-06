@@ -87,70 +87,47 @@ sections below. Commands below are run from the Command Palette
 ## Coverage visualisation (0.2.4)
 
 Coverage requires the DimFort server with the `dimfort/lineStatus`
-method (server PR #53 merged; available on `main` and any
-post-#53 build). The companion mode is `disabled` by default; the
-tests below set it manually.
-
-### Setup
-
-- [ ] Install the candidate companion. Either:
-      - **F5 dev host** (fastest iteration): open this repo in VSCode,
-        run **Run → Start Debugging** (or press `F5`). A new Extension
-        Development Host window opens with the candidate active.
-      - **`.vsix` install**: run `vsce package` in this repo, then
-        `code --install-extension dimfort-vscode-*.vsix`. Reload.
-- [ ] Confirm the dev DimFort server is available — `dimfort --version`
-      must print a version that includes the `dimfort/lineStatus`
-      handler (server `main` after PR #53).
-- [ ] Open the `qa.f90` from the **Scene** block at the top of this
-      file. It already exercises three of the four coverage tiers:
-      green on annotated declarations and clean expressions
-      (`c_sound`, `dynamic_pressure`, the `d = c_sound * t` line
-      under `checks()`), yellow on `U005` / `H010` lines
-      (`t_celsius`'s declaration, the `H010` `t_celsius = t - 273.15`
-      line), and red on the H001 line (`bogus = c_sound * t`).
-      The blue tier (`P001` unparsed regions) is exercised by a
-      dedicated synthetic fixture below.
-- [ ] Settings sanity: open Settings (`Cmd/Ctrl+,`), search
-      `dimfort coverage`. Confirm:
-      - `dimfort.coverage.mode` shows an enum picker with three
-        labelled options: `Disabled`, `Gutter`, `Verbose`. The
-        description text reads cleanly.
-      - `dimfort.coverage.debounceMs` is present with a default of
-        `200`.
+method (server PR #53 merged). The companion mode is `disabled` by
+default; the tests below set it manually.
 
 ### Three-mode cycle
 
-With `qa.f90` open in the dev host:
+With `qa.f90` open:
 
 - [ ] Run **DimFort: Cycle Coverage Visualisation** once → status bar
       shows `DimFort: coverage gutter`. Confirm:
-      - **Green dots** appear in the gutter on annotated-declaration
-        lines (`real :: c_sound  !< @unit{m/s}` etc.) and on clean
+      - **Green dots** in the gutter on annotated-declaration lines
+        (`real :: c_sound  !< @unit{m/s}` etc.) and on clean
         expression lines (`d = c_sound * t`, `q = 0.5 * rho * v * v`,
         the `combo`, `ln_p`, `rt_e2` calculations).
-      - **Yellow dots** appear on `t_celsius`'s declaration line
-        (`U005` — no annotation) and on the `t_celsius = t - 273.15`
-        line (`H010` D1.5 — bare literal cast). With U005
-        propagation (server PR #55), every other line referencing
-        `t_celsius` also paints yellow.
-      - **Red dots** appear on the `bogus = c_sound * t` line (`H001`
-        — bogus is `kg`, RHS resolves to `m`).
+      - **Yellow dots** on `t_celsius`'s declaration (U005 — no
+        annotation) and the `t_celsius = t - 273.15` line (H010
+        D1.5 — bare literal cast). With U005 propagation (server
+        PR #55), every other line referencing `t_celsius` also
+        paints yellow.
+      - **Red dot** on the `bogus = c_sound * t` line (H001 — bogus
+        is `kg`, RHS resolves to `m`).
       - Out-of-scope lines (`module`, `contains`, `end function`,
-        `end subroutine`, `end module`, blank lines, lines that
-        only carry comments) carry no gutter decoration.
+        `end subroutine`, `end module`, blank lines, comment-only
+        lines) carry no gutter decoration.
       - The yellow / red coverage dots coexist with the inline
         squiggles. VSCode does not paint diagnostic icons in the
-        gutter by default, so there is no native icon competing
-        with the coverage dot.
+        gutter by default, so the coverage dot has no native icon
+        to compete with.
 - [ ] Run the cycle command again → status bar shows
-      `DimFort: coverage verbose`. Confirm:
-      - All four tiers get a low-alpha background tint.
-      - Gutter dots stay painted at all four tiers as in gutter
-        mode (verbose is additive).
+      `DimFort: coverage background`. Confirm:
+      - The gutter dots are gone.
+      - Each in-scope line carries a low-alpha background tint in
+        the matching tier colour (green / yellow / red / blue).
+        `gutter` and `background` are mutually exclusive — pick
+        the visual weight you prefer.
 - [ ] Run the cycle command a third time → `DimFort: coverage disabled`.
-      All coverage decorations should clear; the file stays as the
-      user sees it without DimFort.
+      All coverage decorations clear; the file stays as the user
+      sees it without DimFort.
+- [ ] Settings sanity: open Settings (`Cmd/Ctrl+,`), search
+      `dimfort coverage`. Confirm the enum picker shows three
+      labelled options (`Disabled`, `Gutter`, `Background`) with
+      readable description text.
 
 ### U005 propagation regression (PR #55)
 
