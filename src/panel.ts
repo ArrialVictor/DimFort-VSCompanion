@@ -11,6 +11,14 @@ interface ExpressionNode {
   // call-argument row whose actual dimensionally differs from the
   // formal. Renderers append `(expected <expected>)` to the row.
   expected: string | null;
+  // Sibling-arg partner list for an H020 (polymorphic call-site
+  // unification failure) row, e.g. "arg 2" or "arg 1, arg 3". When
+  // set, the renderer appends `(collides with <collides>)` to the
+  // row tail — parallel to `(expected …)` but using the spec's
+  // distinct wording for the polymorphism conflict path. Null on
+  // every non-H020 row. Server omits the field on pre-0.2.3.1
+  // payloads; treat absent as null.
+  collides?: string | null;
   children: ExpressionNode[];
 }
 interface ScopeVar {
@@ -444,10 +452,12 @@ function flattenExpr(node, prefix, isLast, isRoot, rows) {
     nextPrefix = prefix + (isLast ? "    " : "│   ");
   }
   // Row tail: '(expected …)' on call-arg / assignment-RHS mismatches,
-  // '(assumed: <reason>)' on @unit_assume rows. Both may apply in
-  // theory; concatenate with separating space.
+  // '(collides with …)' on H020 polymorphic-call-site conflicts,
+  // '(assumed: <reason>)' on @unit_assume rows. May apply together in
+  // principle; concatenate with separating space.
   let extra = "";
   if (node.expected) extra += " (expected " + node.expected + ")";
+  if (node.collides) extra += " (collides with " + node.collides + ")";
   if (node.assumed) extra += " (assumed: " + node.assumed + ")";
   rows.push({
     tree: prefix + connector + (node.label ?? "?"),
