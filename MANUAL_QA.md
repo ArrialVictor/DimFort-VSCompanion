@@ -86,33 +86,114 @@ sections below. Commands below are run from the Command Palette
 
 ## Coverage visualisation (0.2.4)
 
-Coverage requires DimFort 0.2.4+ server. Mode is `disabled` by default;
-the tests below set it manually.
+Coverage requires the DimFort server with the `dimfort/lineStatus`
+method (server PR #53 merged; available on `main` and any
+post-#53 build). The companion mode is `disabled` by default; the
+tests below set it manually.
 
-- [ ] Open a Fortran file with a mix of clean and yellow/red lines.
+### Setup
+
+- [ ] Install the candidate companion. Either:
+      - **F5 dev host** (fastest iteration): open this repo in VSCode,
+        run **Run → Start Debugging** (or press `F5`). A new Extension
+        Development Host window opens with the candidate active.
+      - **`.vsix` install**: run `vsce package` in this repo, then
+        `code --install-extension dimfort-vscode-*.vsix`. Reload.
+- [ ] Confirm the dev DimFort server is available — `dimfort --version`
+      must print a version that includes the `dimfort/lineStatus`
+      handler (server `main` after PR #53).
+- [ ] Open the DimFort `demos/` directory in the dev host window:
+      - `tour.f90` — exercises the green and yellow tiers (richly
+        annotated, with a couple of S001 fires under `--scale`).
+      - `broken.f90` — exercises the red and yellow tiers (the bug
+        zoo: H001, H002, U005, etc.).
+- [ ] Settings sanity: open Settings (`Cmd/Ctrl+,`), search
+      `dimfort coverage`. Confirm:
+      - `dimfort.coverage.mode` shows an enum picker with three
+        labelled options: `Disabled`, `Gutter`, `Verbose`. The
+        description text reads cleanly.
+      - `dimfort.coverage.debounceMs` is present with a default of
+        `200`.
+
+### Three-mode cycle
+
 - [ ] Run **DimFort: Cycle Coverage Visualisation** once → status bar
-      shows `DimFort: coverage gutter`. Confirm:
+      shows `DimFort: coverage gutter`. Confirm on `tour.f90`:
       - Green dots appear in the gutter on verified declaration and
         use-site lines.
+      - Out-of-scope lines (the `program` / `end program` lines,
+        blank lines, comments) carry no gutter decoration.
+- [ ] Switch to `broken.f90`. With `gutter` mode still on, confirm:
       - Yellow / red diagnostic lines keep their native VSCode gutter
         icon (red circle X for errors, yellow triangle for warnings);
         no extra coverage dot stacks on top.
-      - Out-of-scope lines (string assignments, control flow, blank
-        lines) carry no gutter decoration.
+      - Lines with clean expressions (declarations of annotated vars,
+        assignments where the algebra resolves) still show the green
+        coverage dot.
 - [ ] Run the cycle command again → status bar shows
       `DimFort: coverage verbose`. Confirm:
       - All four tiers (green / yellow / red / blue) get a low-alpha
         background tint.
       - Gutter dots are still painted on green and blue lines as in
-        gutter mode (the verbose mode is additive).
+        gutter mode (verbose is additive).
 - [ ] Run the cycle command a third time → `DimFort: coverage disabled`.
       All coverage decorations should clear; the file stays as the user
       sees it without DimFort.
-- [ ] **Mode flip does not restart the LSP** — check Output panel
-      ("DimFort Language Server"). The "language server restarted"
-      message should NOT appear when cycling coverage.
-- [ ] Edit a file with coverage in `gutter` mode. After ~200 ms the
-      gutter should refresh in place to reflect the new diagnostics.
+
+### Blue tier (`P001` unparsed regions)
+
+The blue tier paints on lines tree-sitter could not recover into a
+unit-checkable AST. The demo fixtures do not contain a `P001` region
+by design, so this test needs a synthetic file.
+
+- [ ] In the dev host, create a file `cov-p001.f90` with a deliberately
+      malformed block, e.g.
+
+      ```
+      program p
+        implicit none
+        real :: x  !< @unit{m}
+      ! ----- unparseable region below -----
+      $$$ garbage line $$$
+      ! ----- end -----
+        x = 1.0
+      end program
+      ```
+
+      Save it.
+- [ ] Cycle to `gutter` mode. Confirm:
+      - The garbage line and any surrounding unparsed-region lines
+        carry a **blue** coverage dot in the gutter.
+      - The clean lines around it (`real :: x`, the assignment) keep
+        their green coverage dot.
+
+### No LSP restart on mode flip
+
+- [ ] Open the Output panel (`Cmd/Ctrl+Shift+U`) and select the
+      `DimFort Language Server` channel.
+- [ ] Cycle the coverage mode (palette command) two or three times.
+      Confirm no `language server restarted` / connection-restart
+      messages appear in the channel during the cycles. (Cycling other
+      settings such as `dimfort.hover` does restart the server; this
+      contrast is the verification.)
+
+### Debounce + multi-editor
+
+- [ ] With `gutter` mode on, edit a file (add a line, then delete it,
+      etc.). After ~200 ms the gutter should refresh in place to
+      reflect the new diagnostics.
+- [ ] Split the editor (`Cmd/Ctrl+\`) and view two different Fortran
+      files side by side. Cycle to `verbose` mode. Confirm both panes
+      paint independently (gutter dots + tint) — the coverage layer
+      handles every visible editor, not just the active one.
+
+### Persistence across reload
+
+- [ ] With `verbose` mode on, run **Developer: Reload Window**
+      (`Cmd/Ctrl+Shift+P` → `Developer: Reload Window`). After the
+      reload, the coverage decoration should re-paint at `verbose`
+      automatically — the setting persists, and the provider
+      re-attaches to the freshly-launched LSP.
 
 ## Diagnostics
 
