@@ -165,23 +165,25 @@ export function activate(context: vscode.ExtensionContext): void {
     coverageCfg.get<"disabled" | "gutter" | "verbose">("coverage.mode", "disabled"),
   );
 
-  // Refresh triggers: active editor change, document save, and debounced
-  // document change. The provider no-ops when mode is disabled, so the
+  // Refresh triggers. The provider no-ops when mode is disabled, so the
   // listeners cost nothing in the default configuration.
+  //
+  // The primary trigger is `onDidChangeDiagnostics`: VSCode fires it the
+  // instant the server publishes (which is post-debounce on the server
+  // side, ~400 ms after the last keystroke). Hooking here keeps the
+  // coverage layer in lock-step with the squiggles — no race against
+  // the server's own debounce, no separate-debounce guesswork.
+  //
+  // We also refresh on active-editor change so a freshly-focused editor
+  // paints from the last cached result without waiting for an edit.
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor) =>
       coverageProvider?.scheduleRefresh(editor),
     ),
-    vscode.workspace.onDidSaveTextDocument((doc) => {
+    vscode.languages.onDidChangeDiagnostics((event) => {
+      const changed = new Set(event.uris.map((u) => u.toString()));
       for (const ed of vscode.window.visibleTextEditors) {
-        if (ed.document.uri.toString() === doc.uri.toString()) {
-          coverageProvider?.scheduleRefresh(ed);
-        }
-      }
-    }),
-    vscode.workspace.onDidChangeTextDocument((event) => {
-      for (const ed of vscode.window.visibleTextEditors) {
-        if (ed.document.uri.toString() === event.document.uri.toString()) {
+        if (changed.has(ed.document.uri.toString())) {
           coverageProvider?.scheduleRefresh(ed);
         }
       }

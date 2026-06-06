@@ -17,15 +17,17 @@ commands, packaging).
   Setting `dimfort.coverage.mode` (`disabled` | `gutter` | `verbose`)
   controls the layer; default is `disabled` (opt-in). Palette command
   **DimFort: Cycle Coverage Visualisation** cycles through the three
-  modes. In `gutter` mode, green dots paint on verified lines and blue
-  dots on unparsed regions; yellow / red diagnostics keep their native
-  VSCode gutter icon (no double-rendering). In `verbose` mode, the
-  gutter dots are kept and a low-alpha background tint is added for all
-  four tiers. New setting `dimfort.coverage.debounceMs` (default 200)
-  controls the post-change refresh debounce. Coverage settings are
-  companion-only — flipping the mode does not restart the language
-  server. New file `src/coverage.ts` carries the rendering provider;
-  four SVG icons under `media/coverage-*.svg`.
+  modes. In `gutter` mode, one dot per line paints across the four
+  tiers (green / yellow / red / blue). In `verbose` mode, gutter dots
+  are kept and a low-alpha background tint is added for the same
+  tiers. Refresh is driven by `vscode.languages.onDidChangeDiagnostics`
+  so the layer stays in lock-step with the squiggles — no separate
+  debounce race against the server's own check pipeline. New setting
+  `dimfort.coverage.debounceMs` (default 200) coalesces bursts of
+  diagnostic-change events. Coverage settings are companion-only —
+  flipping the mode does not restart the language server. New file
+  `src/coverage.ts` carries the rendering provider; four SVG icons
+  under `media/coverage-*.svg`.
 
 ## [0.2.3] — 2026-06-07
 

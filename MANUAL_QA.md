@@ -124,18 +124,20 @@ tests below set it manually.
       - Out-of-scope lines (the `program` / `end program` lines,
         blank lines, comments) carry no gutter decoration.
 - [ ] Switch to `broken.f90`. With `gutter` mode still on, confirm:
-      - Yellow / red diagnostic lines keep their native VSCode gutter
-        icon (red circle X for errors, yellow triangle for warnings);
-        no extra coverage dot stacks on top.
-      - Lines with clean expressions (declarations of annotated vars,
-        assignments where the algebra resolves) still show the green
-        coverage dot.
+      - **All four tiers** paint a coverage dot in the gutter: green
+        on verified lines, yellow on lines with `U005` / `H010`,
+        red on lines with `H001` / `H002` / `H003` / `H004`, blue
+        on lines covered by a `P001` unparsed region.
+      - The yellow / red coverage dots coexist with the inline
+        squiggles (VSCode does not paint diagnostic icons in the
+        gutter by default, so there is no native icon to compete
+        with).
 - [ ] Run the cycle command again → status bar shows
       `DimFort: coverage verbose`. Confirm:
       - All four tiers (green / yellow / red / blue) get a low-alpha
         background tint.
-      - Gutter dots are still painted on green and blue lines as in
-        gutter mode (verbose is additive).
+      - Gutter dots are still painted at all four tiers as in gutter
+        mode (verbose is additive).
 - [ ] Run the cycle command a third time → `DimFort: coverage disabled`.
       All coverage decorations should clear; the file stays as the user
       sees it without DimFort.
@@ -177,11 +179,17 @@ by design, so this test needs a synthetic file.
       settings such as `dimfort.hover` does restart the server; this
       contrast is the verification.)
 
-### Debounce + multi-editor
+### Live unsaved-buffer updates + multi-editor
 
-- [ ] With `gutter` mode on, edit a file (add a line, then delete it,
-      etc.). After ~200 ms the gutter should refresh in place to
-      reflect the new diagnostics.
+- [ ] With `gutter` mode on, edit a file (add a `@unit{}` to an
+      unannotated declaration, or change a unit to introduce an
+      H001). **Do not save.** Wait ~400 ms (the server's debounce
+      window). The gutter should refresh in place to reflect the new
+      diagnostics — squiggles and coverage dots update together.
+- [ ] Confirm the same behaviour for an edit that *removes* a
+      problem (delete the offending operand): yellow / red dots
+      disappear and green dots appear in their place, again on
+      unsaved buffer.
 - [ ] Split the editor (`Cmd/Ctrl+\`) and view two different Fortran
       files side by side. Cycle to `verbose` mode. Confirm both panes
       paint independently (gutter dots + tint) — the coverage layer

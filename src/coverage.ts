@@ -42,11 +42,15 @@ const TIER_STYLES: Record<CoverageTier, TierStyle> = {
   },
 };
 
-// Lines with these tiers get a coverage gutter sign. Lines with the
-// other tiers (yellow / red) rely on the editor's native diagnostic
-// gutter icon — painting our sign alongside would double up. Per the
-// design spec §6.
-const GUTTER_TIERS: ReadonlyArray<CoverageTier> = ["green", "blue"];
+// All four tiers paint in the gutter. The design spec §6 originally
+// proposed stepping aside on yellow / red lines so the editor's native
+// diagnostic icon would carry the signal, but VSCode does not paint
+// diagnostic icons in the gutter by default (squiggles in the text and
+// the overview-ruler markers are the native surface). Without a gutter
+// sign for yellow / red, those tiers would have no per-line indicator
+// in the gutter at all — leaving the green dots looking like the only
+// coverage signal. Painting all four restores the at-a-glance read.
+const GUTTER_TIERS: ReadonlyArray<CoverageTier> = ["green", "yellow", "red", "blue"];
 
 const DEFAULT_DEBOUNCE_MS = 200;
 
