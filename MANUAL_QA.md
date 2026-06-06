@@ -102,11 +102,15 @@ tests below set it manually.
 - [ ] Confirm the dev DimFort server is available — `dimfort --version`
       must print a version that includes the `dimfort/lineStatus`
       handler (server `main` after PR #53).
-- [ ] Open the DimFort `demos/` directory in the dev host window:
-      - `tour.f90` — exercises the green and yellow tiers (richly
-        annotated, with a couple of S001 fires under `--scale`).
-      - `broken.f90` — exercises the red and yellow tiers (the bug
-        zoo: H001, H002, U005, etc.).
+- [ ] Open the `qa.f90` from the **Scene** block at the top of this
+      file. It already exercises three of the four coverage tiers:
+      green on annotated declarations and clean expressions
+      (`c_sound`, `dynamic_pressure`, the `d = c_sound * t` line
+      under `checks()`), yellow on `U005` / `H010` lines
+      (`t_celsius`'s declaration, the `H010` `t_celsius = t - 273.15`
+      line), and red on the H001 line (`bogus = c_sound * t`).
+      The blue tier (`P001` unparsed regions) is exercised by a
+      dedicated synthetic fixture below.
 - [ ] Settings sanity: open Settings (`Cmd/Ctrl+,`), search
       `dimfort coverage`. Confirm:
       - `dimfort.coverage.mode` shows an enum picker with three
@@ -117,36 +121,58 @@ tests below set it manually.
 
 ### Three-mode cycle
 
+With `qa.f90` open in the dev host:
+
 - [ ] Run **DimFort: Cycle Coverage Visualisation** once → status bar
-      shows `DimFort: coverage gutter`. Confirm on `tour.f90`:
-      - Green dots appear in the gutter on verified declaration and
-        use-site lines.
-      - Out-of-scope lines (the `program` / `end program` lines,
-        blank lines, comments) carry no gutter decoration.
-- [ ] Switch to `broken.f90`. With `gutter` mode still on, confirm:
-      - **All four tiers** paint a coverage dot in the gutter: green
-        on verified lines, yellow on lines with `U005` / `H010`,
-        red on lines with `H001` / `H002` / `H003` / `H004`, blue
-        on lines covered by a `P001` unparsed region.
+      shows `DimFort: coverage gutter`. Confirm:
+      - **Green dots** appear in the gutter on annotated-declaration
+        lines (`real :: c_sound  !< @unit{m/s}` etc.) and on clean
+        expression lines (`d = c_sound * t`, `q = 0.5 * rho * v * v`,
+        the `combo`, `ln_p`, `rt_e2` calculations).
+      - **Yellow dots** appear on `t_celsius`'s declaration line
+        (`U005` — no annotation) and on the `t_celsius = t - 273.15`
+        line (`H010` D1.5 — bare literal cast). With U005
+        propagation (server PR #55), every other line referencing
+        `t_celsius` also paints yellow.
+      - **Red dots** appear on the `bogus = c_sound * t` line (`H001`
+        — bogus is `kg`, RHS resolves to `m`).
+      - Out-of-scope lines (`module`, `contains`, `end function`,
+        `end subroutine`, `end module`, blank lines, lines that
+        only carry comments) carry no gutter decoration.
       - The yellow / red coverage dots coexist with the inline
-        squiggles (VSCode does not paint diagnostic icons in the
-        gutter by default, so there is no native icon to compete
-        with).
+        squiggles. VSCode does not paint diagnostic icons in the
+        gutter by default, so there is no native icon competing
+        with the coverage dot.
 - [ ] Run the cycle command again → status bar shows
       `DimFort: coverage verbose`. Confirm:
-      - All four tiers (green / yellow / red / blue) get a low-alpha
-        background tint.
-      - Gutter dots are still painted at all four tiers as in gutter
+      - All four tiers get a low-alpha background tint.
+      - Gutter dots stay painted at all four tiers as in gutter
         mode (verbose is additive).
 - [ ] Run the cycle command a third time → `DimFort: coverage disabled`.
-      All coverage decorations should clear; the file stays as the user
-      sees it without DimFort.
+      All coverage decorations should clear; the file stays as the
+      user sees it without DimFort.
+
+### U005 propagation regression (PR #55)
+
+This test verifies the qa.f90 transition: removing an annotation
+should turn previously-red use sites yellow, never green.
+
+- [ ] In `gutter` mode, delete `@unit{s}` from the `t` declaration
+      line (`real :: t          !< @unit{s}` → `real :: t`).
+      Wait for the server's debounce (~400 ms) on the unsaved
+      buffer. Confirm:
+      - The `bogus = c_sound * t` line goes red → **yellow**
+        (it must NOT turn green — `t` is now unannotated and
+        propagates yellow to every use site).
+      - The `d = c_sound * t` line also paints yellow.
+      - Restore the annotation; the lines should revert to red
+        / green respectively.
 
 ### Blue tier (`P001` unparsed regions)
 
 The blue tier paints on lines tree-sitter could not recover into a
-unit-checkable AST. The demo fixtures do not contain a `P001` region
-by design, so this test needs a synthetic file.
+unit-checkable AST. The `qa.f90` scene contains no `P001` region,
+so this test needs a synthetic file.
 
 - [ ] In the dev host, create a file `cov-p001.f90` with a deliberately
       malformed block, e.g.
