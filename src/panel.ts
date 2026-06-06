@@ -485,9 +485,12 @@ function renderExpression(node) {
     if (r.unit != null) {
       const unitPad = " ".repeat(unitW - r.unit.length);
       const dim = r.unit === "?" || r.unit === "-";
+      const unbound = !dim && r.unit.length >= 4 && r.unit.substring(r.unit.length - 4) === " = ?";
       const unitHtml = dim
         ? '<span class="muted">' + esc(r.unit) + '</span>'
-        : esc(r.unit);
+        : unbound
+          ? esc(r.unit.substring(0, r.unit.length - 1)) + '<span class="muted">?</span>'
+          : esc(r.unit);
       midHtml = " : " + unitHtml + unitPad;
     } else if (unitW > 0) {
       midHtml = " ".repeat(3 + unitW);
