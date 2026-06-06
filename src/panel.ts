@@ -298,7 +298,7 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   td.line { color: var(--vscode-descriptionForeground); text-align: right; }
   td.unit { color: var(--vscode-symbolIcon-unitForeground, var(--vscode-foreground)); }
   td.normalized { color: var(--vscode-descriptionForeground); }
-  .diag { white-space: normal; margin: 0.15em 0; line-height: 1.3; }
+  .diag { white-space: pre-wrap; margin: 0.15em 0; line-height: 1.3; }
   .diag-error { color: var(--vscode-editorError-foreground, var(--vscode-errorForeground)); }
   .diag-warning { color: var(--vscode-editorWarning-foreground, var(--vscode-foreground)); }
   .diag-info, .diag-hint { color: var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)); }
