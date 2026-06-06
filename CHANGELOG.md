@@ -8,6 +8,30 @@ behavioural changes mostly land in the DimFort server itself. Entries
 below cover client-side changes only (settings, defaults, palette
 commands, packaging).
 
+## [0.2.3.1] — 2026-06-07
+
+### Render the new `collides` ExpressionNode field and mute trailing `?`
+
+Tracks DimFort 0.2.3.1's H020 hover/panel rewrite. Two changes:
+
+- **`(collides with …)` row tail** on H020 polymorphic-conflict rows.
+  The server now ships a `collides` field on `ExpressionNode` carrying
+  the partner-arg list (`"arg 2"` / `"arg 1, arg 3"`); the panel
+  renders it as `(collides with <X>)` to the right of the marker,
+  alongside the existing `(expected …)` and `(assumed: …)` row tails.
+  Forward-compatible: pre-0.2.3.1 servers omit the field and the
+  trailer doesn't render.
+- **Muted trailing `?`** on the new `'a = ?` unbound-polymorphic-return
+  form. Mirrors the bare-`?` / bare-`-` muting already applied to
+  pure absence-glyphs; the bound prefix stays full-weight, only the
+  unknown component is dimmed.
+
+### Min server version
+
+`dimfort >= 0.2.3.1` in the pinned install path. Earlier 0.2.3
+servers still run as a fallback (the `collides` field just stays
+absent; the panel renders the binding form without the trailer).
+
 ## [0.2.3] — 2026-06-06
 
 ### Passthrough: DimFort 0.2.3's polymorphism feature + audit-fix series
