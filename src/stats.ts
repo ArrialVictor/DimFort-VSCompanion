@@ -25,7 +25,12 @@ interface StatsResponse {
   uri?: string;
   files: StatsRow[];
   total: StatsTotal;
+  // Present on workspace scope; True if the cached aggregate is
+  // out of date or a background refresh is in flight.
+  ws_stale?: boolean;
 }
+
+export type WorkspaceStatsMode = "disabled" | "manual" | "automatic";
 
 // Companion-side rendering shape consumed by the panel webview footer.
 // Fields use camelCase to match the surrounding TS style; the snake_case
@@ -48,6 +53,10 @@ export interface StatsSnapshot {
   file: FileCoverage | null;
   workspace: WorkspaceCoverage | null;
   wsStale: boolean;
+  // Tells the renderer which "no data" affordance to show for the
+  // WS segment: disabled → "—" (suppressed), manual → "?" (click
+  // to compute), automatic → "—" (transient until next refresh).
+  mode: WorkspaceStatsMode;
 }
 
 // Workspace-scope refresh debounce. The server already debounces
@@ -61,23 +70,32 @@ const WS_DEBOUNCE_MS = 2000;
 /**
  * Drives the panel stats bar. Owns:
  *   - File-scope stats cache keyed by URI (refreshed live on diagnostic change).
- *   - Workspace-scope stats cache (refreshed on a 2 s debounce per spec).
+ *   - Workspace-scope stats cache (refresh strategy depends on mode).
  *   - The `wsStale` flag that lets the panel render the WS segment in a
- *     muted foreground between a diagnostic-change signal and the
- *     arrival of the corresponding `dimfort/coverageStats` response.
+ *     muted foreground when the cached aggregate is out of date.
  *
- * Fires `onDidChange` whenever any of those shifts; the panel
+ * Three modes for workspace stats, controlled by the
+ * `dimfort.coverage.workspace_stats` setting:
+ *
+ *   - **disabled**: never request workspace data. WS segment shows "—".
+ *   - **manual** *(default)*: request only when explicitly triggered
+ *     (palette command or click on the WS segment). Marks workspace
+ *     stale on every diagnostic-change signal but does not auto-fetch.
+ *   - **automatic**: request on every diagnostic-change signal,
+ *     2 s debounce. Bar updates live.
+ *
+ * File-scope is always live regardless of the mode setting; it's
+ * cheap and the user always wants to know what their cursor is on.
+ *
+ * Fires `onDidChange` whenever any state shifts; the panel
  * subscribes and re-renders its footer.
- *
- * The server-side cache (keyed by `WorksetResult` identity) keeps
- * repeat calls for the same result O(1); this provider does not
- * cache aggressively beyond holding the latest snapshot.
  */
 export class CoverageStatsProvider implements vscode.Disposable {
   private client: LanguageClient | undefined;
   private readonly fileStats = new Map<string, FileCoverage>();
   private workspace: WorkspaceCoverage | null = null;
   private wsStale = false;
+  private mode: WorkspaceStatsMode = "manual";
   private wsDebounceTimer: NodeJS.Timeout | undefined;
   private wsRequestSeq = 0;
   private fileRequestSeq = new Map<string, number>();
@@ -86,6 +104,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor() {
+    this.mode = this.readModeFromConfig();
     this.disposables.push(
       vscode.languages.onDidChangeDiagnostics(this.handleDiagChange.bind(this)),
       vscode.window.onDidChangeActiveTextEditor(() => {
@@ -93,6 +112,11 @@ export class CoverageStatsProvider implements vscode.Disposable {
         // numbers (or "—" if we haven't fetched them yet). Then fetch.
         this.emitter.fire();
         void this.refreshActiveFile();
+      }),
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration("dimfort.coverage.workspace_stats")) {
+          this.applyMode(this.readModeFromConfig());
+        }
       }),
     );
   }
@@ -104,10 +128,14 @@ export class CoverageStatsProvider implements vscode.Disposable {
     this.wsStale = false;
     this.emitter.fire();
     if (client) {
-      // Kick off both scopes so the bar populates after activation
-      // without waiting for the first edit.
+      // File-scope is always live; fetch on connect so the bar
+      // populates without waiting for the first edit.
       void this.refreshActiveFile();
-      this.scheduleWorkspaceRefresh();
+      // Workspace-scope: kick off only in automatic mode. Manual
+      // and disabled wait for explicit user action (or never).
+      if (this.mode === "automatic") {
+        this.scheduleWorkspaceRefresh();
+      }
     }
   }
 
@@ -116,7 +144,51 @@ export class CoverageStatsProvider implements vscode.Disposable {
       file: uri ? this.fileStats.get(uri) ?? null : null,
       workspace: this.workspace,
       wsStale: this.wsStale,
+      mode: this.mode,
     };
+  }
+
+  /**
+   * Trigger an immediate workspace-scope refresh, bypassing the
+   * mode setting. Called from the palette command + WS-segment
+   * click handler. In `disabled` mode this still respects the
+   * user's opt-out and no-ops.
+   */
+  forceWorkspaceRefresh(): void {
+    if (this.mode === "disabled") return;
+    void this.refreshWorkspace(/* force */ true);
+  }
+
+  private readModeFromConfig(): WorkspaceStatsMode {
+    const raw = vscode.workspace
+      .getConfiguration("dimfort")
+      .get<string>("coverage.workspace_stats", "manual");
+    if (raw === "disabled" || raw === "manual" || raw === "automatic") {
+      return raw;
+    }
+    return "manual";
+  }
+
+  private applyMode(next: WorkspaceStatsMode): void {
+    if (next === this.mode) return;
+    const previous = this.mode;
+    this.mode = next;
+    if (next === "disabled") {
+      // Clear any in-flight refresh timer; suppress the WS segment.
+      if (this.wsDebounceTimer) {
+        clearTimeout(this.wsDebounceTimer);
+        this.wsDebounceTimer = undefined;
+      }
+      this.workspace = null;
+      this.wsStale = false;
+    } else if (next === "automatic" && previous !== "automatic") {
+      // Just turned on live updates — kick off a refresh so the
+      // user sees data without waiting for the next edit.
+      this.scheduleWorkspaceRefresh();
+    }
+    // Manual mode: leave existing workspace data in place; user
+    // controls when to refresh via command / click.
+    this.emitter.fire();
   }
 
   private handleDiagChange(event: vscode.DiagnosticChangeEvent): void {
@@ -136,10 +208,18 @@ export class CoverageStatsProvider implements vscode.Disposable {
     if (activeAffected && active) {
       void this.refreshFile(active);
     }
-    // Workspace-scope: any diagnostic change makes WS stale and
-    // schedules a debounced refetch.
+    // Workspace-scope:
+    //   - disabled: no-op.
+    //   - manual: mark stale so the bar shows the cached value as
+    //     dim, but don't auto-fetch — the user controls when.
+    //   - automatic: mark stale + schedule a debounced refetch.
+    if (this.mode === "disabled") {
+      return;
+    }
     this.wsStale = true;
-    this.scheduleWorkspaceRefresh();
+    if (this.mode === "automatic") {
+      this.scheduleWorkspaceRefresh();
+    }
     this.emitter.fire();
   }
 
@@ -185,14 +265,15 @@ export class CoverageStatsProvider implements vscode.Disposable {
     }, WS_DEBOUNCE_MS);
   }
 
-  private async refreshWorkspace(): Promise<void> {
+  private async refreshWorkspace(force = false): Promise<void> {
     if (!this.client) return;
+    if (this.mode === "disabled") return;
     const seq = ++this.wsRequestSeq;
     let resp: StatsResponse;
     try {
       resp = await this.client.sendRequest<StatsResponse>(
         "dimfort/coverageStats",
-        {},
+        force ? { force_refresh: true } : {},
       );
     } catch {
       return;
@@ -202,7 +283,9 @@ export class CoverageStatsProvider implements vscode.Disposable {
       ok: resp.total.ok, warn: resp.total.warn, fire: resp.total.fire,
       unparsed: resp.total.unparsed, coveragePct: resp.total.coverage_pct,
     };
-    this.wsStale = false;
+    // Trust the server's stale flag when present (post-0.2.4 servers);
+    // older servers omit the field, so default to false on absence.
+    this.wsStale = resp.ws_stale ?? false;
     this.emitter.fire();
   }
 

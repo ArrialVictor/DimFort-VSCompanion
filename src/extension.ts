@@ -464,6 +464,20 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.setStatusBarMessage(`DimFort: coverage ${next}`, 2000);
     }),
   );
+
+  // Refresh workspace coverage stats on demand. Drives the bar's
+  // `manual` mode and gives users in `automatic` mode an escape
+  // hatch when they want fresh numbers without waiting for the
+  // next diagnostic-change debounce.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.refreshCoverageStats", () => {
+      statsProvider?.forceWorkspaceRefresh();
+      vscode.window.setStatusBarMessage(
+        "DimFort: refreshing workspace coverage…",
+        2000,
+      );
+    }),
+  );
 }
 
 

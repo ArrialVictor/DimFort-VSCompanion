@@ -18,11 +18,25 @@ commands, packaging).
   🔴 38)`. Replaces the previous diagnostic-event count line — VSCode's
   own status bar already surfaces W / E totals; the panel now carries
   coverage-specific information. The WS segment renders briefly muted
-  (italic, disabled-foreground) between a diagnostic-change signal and
-  the arrival of fresh workspace stats; the file segment refreshes
-  live. The bar collapses to `File: —  ·  WS: —` before the first
-  workset check or when no Fortran file is active. New file
-  `src/stats.ts` carries the provider; requires DimFort 0.2.4+.
+  (italic, disabled-foreground) when the cached aggregate is out of
+  date; the file segment refreshes live. New file `src/stats.ts`
+  carries the provider; requires DimFort 0.2.4+.
+
+- **Workspace stats mode setting** — new
+  `dimfort.coverage.workspace_stats` (`disabled` | `manual` |
+  `automatic`, default `manual`) controls how the WS segment
+  refreshes. `manual` shows the segment as a clickable `?` until
+  computed on demand; `automatic` refreshes on every
+  diagnostic-change signal; `disabled` suppresses the segment
+  entirely. Companion-only setting (no LSP restart on change).
+  New palette command **DimFort: Refresh Workspace Coverage Stats**
+  forces a refresh from any mode (no-ops under `disabled`).
+
+- **Panel tab-switch flicker fix** — empty-state posts (`no Fortran
+  file active`) now wait 200 ms before landing, so VSCode's brief
+  active-editor-undefined transition during tab-switch no longer
+  flashes the panel. A real update during the delay cancels the
+  empty post; truly-empty states still show after the delay.
 
 - **Coverage visualisation** — per-line status decoration driven by the
   server's `dimfort/lineStatus` LSP method (requires DimFort 0.2.4+).

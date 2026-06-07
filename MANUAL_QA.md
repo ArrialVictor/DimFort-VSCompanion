@@ -488,19 +488,32 @@ shows the data; column alignment is done in the webview, not ASCII.
       A name not imported (or shadowed by a local declaration) does not
       appear. On a routine that imports nothing, the section shows `(none)`.
 
-- [ ] **Footer (coverage stats)** — a `File: <pct>% (🟡 N 🔴 M)
-      · WS: <pct>% (🟡 N 🔴 M)` bar is pinned to the **bottom** of
-      the panel. The two segments report coverage for the active
-      file and the whole workset; circles are coverage tiers (lines
-      painted yellow / red), **not** W/E diagnostic counts — those
-      live in VSCode's own status bar.
-      - Edit a line, save → the WS segment briefly renders muted /
-        italic ("stale" marker) until the next workspace stats
-        response arrives (~2 s debounce).
-      - Open a non-Fortran file → bar collapses to `File: —  ·  WS: <…>`
-        (file segment empty; workspace persists).
+- [ ] **Footer (coverage stats bar)** — a `File: <pct>% (🟡 N 🔴 M)
+      · WS: …` bar is pinned to the **bottom** of the panel. The
+      File segment is always live; the WS segment depends on the
+      `dimfort.coverage.workspace_stats` setting.
+      - **Manual (default)**: WS shows `?` (clickable, link-coloured)
+        until you click it or run **DimFort: Refresh Workspace
+        Coverage Stats** from the palette. After the refresh, the
+        segment displays numbers. Editing a file marks the segment
+        muted-italic; clicking again computes fresh numbers.
+      - **Automatic**: WS refreshes live on every diagnostic-change
+        signal (debounced server-side). The segment marks itself
+        muted-italic briefly between an edit and the arrival of
+        fresh numbers.
+      - **Disabled**: WS shows `—` always; no compute fires.
+      - Circles in the WS segment are coverage tiers (lines painted
+        yellow / red), **not** W/E diagnostic counts — those live
+        in VSCode's own status bar.
+      - Open a non-Fortran file → File segment shows `—`; WS
+        persists at its last value.
       - Before the first workset check completes → bar shows
-        `File: —  ·  WS: —`.
+        `File: —  ·  WS: ?` (manual) or `WS: —` (automatic /
+        disabled).
+      - Switching tabs rapidly between Fortran files should NOT
+        flash the panel to "no Fortran file active" — the empty
+        message is delayed 200 ms to absorb VSCode's tab-switch
+        transition.
 
 - [ ] **Cursor-follow** — move between line 10 (function) and line 25
       (subroutine); the Scope section switches between `Function:
