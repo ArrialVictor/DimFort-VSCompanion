@@ -12,6 +12,18 @@ commands, packaging).
 
 ### Added
 
+- **Coverage stats bar** — the side-panel footer now reports per-file
+  and workspace coverage percentages, with raw red / yellow tier
+  counts in parentheses: `File: 78% (🟡 18 🔴 2) · WS: 73% (🟡 412
+  🔴 38)`. Replaces the previous diagnostic-event count line — VSCode's
+  own status bar already surfaces W / E totals; the panel now carries
+  coverage-specific information. The WS segment renders briefly muted
+  (italic, disabled-foreground) between a diagnostic-change signal and
+  the arrival of fresh workspace stats; the file segment refreshes
+  live. The bar collapses to `File: —  ·  WS: —` before the first
+  workset check or when no Fortran file is active. New file
+  `src/stats.ts` carries the provider; requires DimFort 0.2.4+.
+
 - **Coverage visualisation** — per-line status decoration driven by the
   server's `dimfort/lineStatus` LSP method (requires DimFort 0.2.4+).
   Setting `dimfort.coverage.mode` (`disabled` | `gutter` | `background`)

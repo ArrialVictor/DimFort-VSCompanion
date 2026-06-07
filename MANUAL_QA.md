@@ -488,9 +488,19 @@ shows the data; column alignment is done in the webview, not ASCII.
       A name not imported (or shadowed by a local declaration) does not
       appear. On a routine that imports nothing, the section shows `(none)`.
 
-- [ ] **Footer** — a flat `File: 🔴 N  🟡 M` bar is pinned to the
-      **bottom** of the panel (whole-file counts), even when the content
-      above is short.
+- [ ] **Footer (coverage stats)** — a `File: <pct>% (🟡 N 🔴 M)
+      · WS: <pct>% (🟡 N 🔴 M)` bar is pinned to the **bottom** of
+      the panel. The two segments report coverage for the active
+      file and the whole workset; circles are coverage tiers (lines
+      painted yellow / red), **not** W/E diagnostic counts — those
+      live in VSCode's own status bar.
+      - Edit a line, save → the WS segment briefly renders muted /
+        italic ("stale" marker) until the next workspace stats
+        response arrives (~2 s debounce).
+      - Open a non-Fortran file → bar collapses to `File: —  ·  WS: <…>`
+        (file segment empty; workspace persists).
+      - Before the first workset check completes → bar shows
+        `File: —  ·  WS: —`.
 
 - [ ] **Cursor-follow** — move between line 10 (function) and line 25
       (subroutine); the Scope section switches between `Function:

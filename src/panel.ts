@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { LanguageClient } from "vscode-languageclient/node";
+import { CoverageStatsProvider, StatsSnapshot } from "./stats";
 
 // Wire-format mirror of the server's dimfort/panelInfo response.
 // See DimFort/docs/design/panel-info.md.
@@ -105,7 +106,16 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   private actions: vscode.CodeAction[] = [];
   private actionDoc?: vscode.TextDocument;
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly statsProvider: CoverageStatsProvider,
+  ) {
+    // Stats changes drive a footer-only re-render: when the workspace
+    // refetch lands, or the active-file stats refresh after a
+    // diagnostic-change signal, push the new snapshot to the webview
+    // so the bar updates without doing a full panel rebuild.
+    this.statsProvider.onDidChange(() => this.postStats());
+  }
 
   setClient(client: LanguageClient | undefined): void {
     this.client = client;
@@ -233,7 +243,18 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
       payload: result,
       actions: actions.map((a) => a.title),
       interactions,
+      stats: this.statsProvider.snapshot(editor.document.uri.toString()),
     });
+  }
+
+  /** Push the current stats snapshot as a footer-only update. */
+  private postStats(): void {
+    if (!this.view || !this.view.visible) return;
+    const active = vscode.window.activeTextEditor;
+    const uri = active?.document.languageId === "fortran"
+      ? active.document.uri.toString()
+      : undefined;
+    this.post({ kind: "stats", stats: this.statsProvider.snapshot(uri) });
   }
 
   /** Apply the code action the panel's button at ``index`` stands for. */
@@ -334,6 +355,11 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .footer { margin-top: auto; padding: 0.4em 0 0.1em;
             border-top: 1px solid var(--vscode-panel-border);
             color: var(--vscode-descriptionForeground); font-size: 0.9em; }
+  /* WS segment renders in a more-muted foreground between a
+     diagnostic-change signal and the arrival of the corresponding
+     dimfort/coverageStats response. Cleared when fresh stats land. */
+  .ws-stale { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
+              font-style: italic; }
   .section-body { padding-left: 0.8em; }
   .group-label { color: var(--vscode-descriptionForeground); font-weight: 600;
             margin: 0.5em 0 0.15em; }
@@ -434,11 +460,38 @@ function renderActions(titles) {
   return wrap;
 }
 
-// Flat footer: whole-file diagnostic counts.
-function renderFooter(counts) {
+// Coverage stats bar — per-file + workspace coverage %, with raw red /
+// yellow tier counts in parentheses. See spec §8.3.1.
+//
+// W / E diagnostic counts are deliberately not shown here — VSCode's
+// own status bar already surfaces them, and reusing the circle
+// glyphs for two different referents (line-tier state vs. fired-event
+// counts) was the original notation conflict that motivated this
+// design.
+//
+// Collapses to "File: —  ·  WS: —" when the snapshot has nothing
+// for the active file and no workspace data yet (snapshot fields are
+// all null) — rather than rendering "0% (🟡 0 🔴 0)", which would
+// read as "everything is broken."
+function renderFooter(stats) {
   const f = document.createElement("div");
   f.className = "footer";
-  f.textContent = "File: 🔴 " + (counts.error || 0) + "   🟡 " + (counts.warning || 0);
+  if (!stats || (!stats.file && !stats.workspace)) {
+    f.textContent = "File: —  ·  WS: —";
+    return f;
+  }
+  const fileSpan = document.createElement("span");
+  fileSpan.textContent = stats.file
+    ? "File: " + stats.file.coveragePct + "% (🟡 " + stats.file.warn + " 🔴 " + stats.file.fire + ")"
+    : "File: —";
+  const wsSpan = document.createElement("span");
+  wsSpan.textContent = stats.workspace
+    ? "WS: " + stats.workspace.coveragePct + "% (🟡 " + stats.workspace.warn + " 🔴 " + stats.workspace.fire + ")"
+    : "WS: —";
+  if (stats.wsStale) wsSpan.classList.add("ws-stale");
+  f.appendChild(fileSpan);
+  f.appendChild(document.createTextNode("  ·  "));
+  f.appendChild(wsSpan);
   return f;
 }
 
@@ -880,20 +933,48 @@ function render(payload, actions, interactions) {
   renderImportsList(importsList);
   root.appendChild(section("Imports", importsContent));
 
-  // Flat footer: whole-file diagnostic counts.
-  root.appendChild(renderFooter((payload && payload.fileDiagnosticCounts) || {}));
+  // Coverage stats bar — drawn last so it pins the panel's bottom edge.
+  root.appendChild(renderFooter(lastStats));
+}
+
+// Cached message state. Kept so a stats-only update can re-render the
+// footer without losing the rest of the panel, and so a stats arrival
+// during the empty state stays buffered for the next data update.
+let lastPayload = null, lastActions = [], lastInteractions = null, lastStats = null;
+let isEmpty = true, emptyReason = "";
+
+function repaint() {
+  if (isEmpty) {
+    root.innerHTML = "";
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = emptyReason || "";
+    root.appendChild(e);
+    return;
+  }
+  render(lastPayload, lastActions, lastInteractions);
 }
 
 window.addEventListener("message", (ev) => {
   const msg = ev.data;
   if (msg.kind === "data") {
-    render(msg.payload, msg.actions, msg.interactions);
+    lastPayload = msg.payload;
+    lastActions = msg.actions;
+    lastInteractions = msg.interactions;
+    if (msg.stats !== undefined) lastStats = msg.stats;
+    isEmpty = false;
+    repaint();
+  } else if (msg.kind === "stats") {
+    lastStats = msg.stats;
+    // Only the footer changed — but render() rebuilds the whole panel
+    // off cached state, which is fast (no DOM measurement, no
+    // network), so the simplest path is a full repaint. Skipped
+    // entirely while the panel is in its empty state.
+    if (!isEmpty) repaint();
   } else if (msg.kind === "empty") {
-    root.innerHTML = "";
-    const e = document.createElement("div");
-    e.className = "empty";
-    e.textContent = msg.reason || "";
-    root.appendChild(e);
+    isEmpty = true;
+    emptyReason = msg.reason || "";
+    repaint();
   }
 });
 </script>
