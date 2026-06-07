@@ -6,10 +6,12 @@ import {
 } from "vscode-languageclient/node";
 import { CoverageProvider } from "./coverage";
 import { DimFortPanelProvider } from "./panel";
+import { CoverageStatsProvider } from "./stats";
 
 let client: LanguageClient | undefined;
 let panelProvider: DimFortPanelProvider | undefined;
 let coverageProvider: CoverageProvider | undefined;
+let statsProvider: CoverageStatsProvider | undefined;
 
 // Build a fresh LanguageClient from the current VSCode settings. Called
 // at activation and every time a toggle command flips a setting — never
@@ -101,6 +103,7 @@ async function doRebuildClient(): Promise<void> {
   client = buildClient();
   panelProvider?.setClient(client);
   coverageProvider?.setClient(client);
+  statsProvider?.setClient(client);
   await client.start();
 }
 
@@ -113,8 +116,16 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   });
 
+  // Coverage stats provider — drives the side panel's bottom-bar
+  // segment (per-file + workspace coverage %). Constructed before the
+  // panel so the panel can subscribe to its onDidChange in its
+  // constructor. Owns its own diagnostic-change listener for refresh.
+  statsProvider = new CoverageStatsProvider();
+  statsProvider.setClient(client);
+  context.subscriptions.push(statsProvider);
+
   // Side panel — a webview view fed by the dimfort/panelInfo request.
-  panelProvider = new DimFortPanelProvider(context.extensionUri);
+  panelProvider = new DimFortPanelProvider(context.extensionUri, statsProvider);
   panelProvider.setClient(client);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -451,6 +462,20 @@ export function activate(context: vscode.ExtensionContext): void {
       const next = order[(order.indexOf(current) + 1) % order.length];
       await cfg.update("coverage.mode", next, vscode.ConfigurationTarget.Global);
       vscode.window.setStatusBarMessage(`DimFort: coverage ${next}`, 2000);
+    }),
+  );
+
+  // Refresh workspace coverage stats on demand. Drives the bar's
+  // `manual` mode and gives users in `automatic` mode an escape
+  // hatch when they want fresh numbers without waiting for the
+  // next diagnostic-change debounce.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.refreshCoverageStats", () => {
+      statsProvider?.forceWorkspaceRefresh();
+      vscode.window.setStatusBarMessage(
+        "DimFort: refreshing workspace coverage…",
+        2000,
+      );
     }),
   );
 }

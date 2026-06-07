@@ -1,5 +1,13 @@
 import * as vscode from "vscode";
 import { LanguageClient } from "vscode-languageclient/node";
+import { CoverageStatsProvider, StatsSnapshot } from "./stats";
+
+// VSCode's tab-switch can briefly leave activeTextEditor undefined
+// before settling on the new editor. An "empty" post during that
+// window flashes the panel to "no Fortran file active" mid-switch.
+// Delaying the empty post by this much lets the transition resolve;
+// a real update during the delay cancels the empty.
+const EMPTY_POST_DELAY_MS = 200;
 
 // Wire-format mirror of the server's dimfort/panelInfo response.
 // See DimFort/docs/design/panel-info.md.
@@ -99,13 +107,27 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private client?: LanguageClient;
   private debounceTimer?: ReturnType<typeof setTimeout>;
+  // Separate timer for "empty" posts so tab-switches don't flash the
+  // panel to the empty state during VSCode's brief
+  // activeTextEditor-is-undefined transition. Real Fortran content
+  // always posts immediately; only the empty state is delayed.
+  private emptyTimer?: ReturnType<typeof setTimeout>;
   private requestSeq = 0;
   // Code actions available at the current cursor, kept so the panel's
   // Actions buttons can apply them by index when clicked.
   private actions: vscode.CodeAction[] = [];
   private actionDoc?: vscode.TextDocument;
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly statsProvider: CoverageStatsProvider,
+  ) {
+    // Stats changes drive a footer-only re-render: when the workspace
+    // refetch lands, or the active-file stats refresh after a
+    // diagnostic-change signal, push the new snapshot to the webview
+    // so the bar updates without doing a full panel rebuild.
+    this.statsProvider.onDidChange(() => this.postStats());
+  }
 
   setClient(client: LanguageClient | undefined): void {
     this.client = client;
@@ -148,6 +170,11 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
         void vscode.window.showTextDocument(editor.document, editor.viewColumn);
       } else if (msg?.command === "action" && typeof msg.index === "number") {
         void this.applyAction(msg.index);
+      } else if (msg?.command === "refreshCoverageStats") {
+        // WS-segment click in manual mode (and any explicit refresh
+        // from the bar in automatic mode). Routes through the
+        // command so palette + click share the same path.
+        void vscode.commands.executeCommand("dimfort.refreshCoverageStats");
       }
     });
     // Render whatever the cursor is on as soon as the view appears.
@@ -163,16 +190,51 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
     this.debounceTimer = setTimeout(() => void this.update(), delayMs);
   }
 
+  /**
+   * Schedule an "empty" message to land after a short delay rather
+   * than posting it immediately.
+   *
+   * VSCode's tab-switch goes through a brief window where
+   * ``activeTextEditor`` is undefined or the new editor's language
+   * hasn't resolved yet; an immediate empty post during that window
+   * makes the panel flash to "no Fortran file active" between every
+   * tab switch. Delaying lets the transition settle: if a real
+   * Fortran-content ``update()`` arrives before the timer fires,
+   * the empty post is cancelled.
+   */
+  private scheduleEmptyPost(reason: string): void {
+    if (this.emptyTimer) clearTimeout(this.emptyTimer);
+    this.emptyTimer = setTimeout(() => {
+      this.emptyTimer = undefined;
+      // Re-check at fire time: another update may have settled on a
+      // valid Fortran editor in the meantime.
+      const editor = vscode.window.activeTextEditor;
+      const stillEmpty =
+        !editor ||
+        editor.document.languageId !== "fortran" ||
+        !this.client;
+      if (stillEmpty) {
+        this.post({ kind: "empty", reason });
+      }
+    }, EMPTY_POST_DELAY_MS);
+  }
+
   private async update(): Promise<void> {
     if (!this.view || !this.view.visible) return;
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== "fortran") {
-      this.post({ kind: "empty", reason: "no Fortran file active" });
+      this.scheduleEmptyPost("no Fortran file active");
       return;
     }
     if (!this.client) {
-      this.post({ kind: "empty", reason: "DimFort server not running" });
+      this.scheduleEmptyPost("DimFort server not running");
       return;
+    }
+    // Real content path: cancel any pending empty post — VSCode has
+    // settled on a Fortran editor with a live client.
+    if (this.emptyTimer) {
+      clearTimeout(this.emptyTimer);
+      this.emptyTimer = undefined;
     }
     const pos = editor.selection.active;
     const params = {
@@ -233,7 +295,18 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
       payload: result,
       actions: actions.map((a) => a.title),
       interactions,
+      stats: this.statsProvider.snapshot(editor.document.uri.toString()),
     });
+  }
+
+  /** Push the current stats snapshot as a footer-only update. */
+  private postStats(): void {
+    if (!this.view || !this.view.visible) return;
+    const active = vscode.window.activeTextEditor;
+    const uri = active?.document.languageId === "fortran"
+      ? active.document.uri.toString()
+      : undefined;
+    this.post({ kind: "stats", stats: this.statsProvider.snapshot(uri) });
   }
 
   /** Apply the code action the panel's button at ``index`` stands for. */
@@ -334,6 +407,16 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .footer { margin-top: auto; padding: 0.4em 0 0.1em;
             border-top: 1px solid var(--vscode-panel-border);
             color: var(--vscode-descriptionForeground); font-size: 0.9em; }
+  /* WS segment renders in a more-muted foreground between a
+     diagnostic-change signal and the arrival of the corresponding
+     dimfort/coverageStats response. Cleared when fresh stats land. */
+  .ws-stale { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
+              font-style: italic; }
+  /* Manual-mode WS segment: hint-text foreground + cursor pointer
+     so users notice the affordance. Hover underlines the segment
+     like every other clickable bit of the panel. */
+  .ws-clickable { color: var(--vscode-textLink-foreground); cursor: pointer; }
+  .ws-clickable:hover { text-decoration: underline; }
   .section-body { padding-left: 0.8em; }
   .group-label { color: var(--vscode-descriptionForeground); font-weight: 600;
             margin: 0.5em 0 0.15em; }
@@ -434,11 +517,109 @@ function renderActions(titles) {
   return wrap;
 }
 
-// Flat footer: whole-file diagnostic counts.
-function renderFooter(counts) {
+// Coverage stats bar — per-file + workspace coverage %, with raw red /
+// yellow tier counts in parentheses. See spec §8.3.1.
+//
+// W / E diagnostic counts are deliberately not shown here — VSCode's
+// own status bar already surfaces them, and reusing the circle
+// glyphs for two different referents (line-tier state vs. fired-event
+// counts) was the original notation conflict that motivated this
+// design.
+//
+// Collapses to "File: —  ·  WS: —" when the snapshot has nothing
+// for the active file and no workspace data yet (snapshot fields are
+// all null) — rather than rendering "0% (🟡 0 🔴 0)", which would
+// read as "everything is broken."
+function renderFooter(stats) {
   const f = document.createElement("div");
   f.className = "footer";
-  f.textContent = "File: 🔴 " + (counts.error || 0) + "   🟡 " + (counts.warning || 0);
+  if (!stats) {
+    f.textContent = "File: —  ·  WS: —";
+    return f;
+  }
+  // File segment: always live (cheap), shows "—" only when there's
+  // no active Fortran file.
+  const fileSpan = document.createElement("span");
+  fileSpan.textContent = stats.file
+    ? "File: " + stats.file.coveragePct + "% (🟡 " + stats.file.warn + " 🔴 " + stats.file.fire + ")"
+    : "File: —";
+  f.appendChild(fileSpan);
+
+  // WS segment: rendering depends on workspace_stats mode plus
+  // whether the cached aggregate is empty (cold-start sentinel)
+  // vs. a real numeric workspace.
+  //
+  //   disabled            → segment omitted entirely (default).
+  //                          The underlying workspace check holds
+  //                          the LSP check lock for seconds at a
+  //                          time on larger codebases, freezing
+  //                          other interactive work; the bar opts
+  //                          out by default until a future release
+  //                          ships an incremental check that's
+  //                          cheap enough to enable by default.
+  //   manual + no data    → "WS: ?" (clickable, prompts compute)
+  //   manual + empty cold-cache + stale → "WS: …" (computing,
+  //                          poll loop running, clickable to
+  //                          re-trigger if needed)
+  //   any + data          → numbers (may be marked stale)
+  //   automatic + no data → "WS: —" until first refresh lands
+  //
+  // "Empty cold-cache" means server returned zeros for every tier
+  // — distinguishable from real 0% because real 0% has at least
+  // one warn or fire (otherwise the file has no checkable lines
+  // and wouldn't show 0).
+  const mode = stats.mode || "disabled";
+  if (mode === "disabled") {
+    // Omit the segment entirely — no "WS: —" text, no separator,
+    // bar reads as just "File: …".
+    return f;
+  }
+
+  // From here on we're either manual or automatic; emit the
+  // separator and a WS span.
+  f.appendChild(document.createTextNode("  ·  "));
+  const wsSpan = document.createElement("span");
+  const ws = stats.workspace;
+  const wsEmpty =
+    !ws ||
+    ((ws.ok | 0) + (ws.warn | 0) + (ws.fire | 0) + (ws.unparsed | 0)) === 0;
+
+  function attachManualClick(label) {
+    wsSpan.classList.add("ws-clickable");
+    wsSpan.title = label;
+    wsSpan.addEventListener("click", () =>
+      vscodeApi.postMessage({ command: "refreshCoverageStats" }),
+    );
+  }
+
+  if (!ws) {
+    // No data at all yet.
+    if (mode === "manual") {
+      wsSpan.textContent = "WS: ?";
+      attachManualClick("Click to compute workspace coverage");
+    } else {
+      // automatic — first refresh in flight or not yet scheduled.
+      wsSpan.textContent = "WS: —";
+      if (stats.wsStale) wsSpan.classList.add("ws-stale");
+    }
+  } else if (wsEmpty && stats.wsStale) {
+    // Cold-cache placeholder while the server's background worker
+    // computes. Poll loop will replace this with real numbers when
+    // they arrive.
+    wsSpan.textContent = "WS: …";
+    wsSpan.classList.add("ws-stale");
+    if (mode === "manual") {
+      attachManualClick("Computing workspace coverage…");
+    }
+  } else {
+    wsSpan.textContent =
+      "WS: " + ws.coveragePct + "% (🟡 " + ws.warn + " 🔴 " + ws.fire + ")";
+    if (stats.wsStale) wsSpan.classList.add("ws-stale");
+    if (mode === "manual") {
+      attachManualClick("Click to refresh workspace coverage");
+    }
+  }
+  f.appendChild(wsSpan);
   return f;
 }
 
@@ -880,20 +1061,48 @@ function render(payload, actions, interactions) {
   renderImportsList(importsList);
   root.appendChild(section("Imports", importsContent));
 
-  // Flat footer: whole-file diagnostic counts.
-  root.appendChild(renderFooter((payload && payload.fileDiagnosticCounts) || {}));
+  // Coverage stats bar — drawn last so it pins the panel's bottom edge.
+  root.appendChild(renderFooter(lastStats));
+}
+
+// Cached message state. Kept so a stats-only update can re-render the
+// footer without losing the rest of the panel, and so a stats arrival
+// during the empty state stays buffered for the next data update.
+let lastPayload = null, lastActions = [], lastInteractions = null, lastStats = null;
+let isEmpty = true, emptyReason = "";
+
+function repaint() {
+  if (isEmpty) {
+    root.innerHTML = "";
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = emptyReason || "";
+    root.appendChild(e);
+    return;
+  }
+  render(lastPayload, lastActions, lastInteractions);
 }
 
 window.addEventListener("message", (ev) => {
   const msg = ev.data;
   if (msg.kind === "data") {
-    render(msg.payload, msg.actions, msg.interactions);
+    lastPayload = msg.payload;
+    lastActions = msg.actions;
+    lastInteractions = msg.interactions;
+    if (msg.stats !== undefined) lastStats = msg.stats;
+    isEmpty = false;
+    repaint();
+  } else if (msg.kind === "stats") {
+    lastStats = msg.stats;
+    // Only the footer changed — but render() rebuilds the whole panel
+    // off cached state, which is fast (no DOM measurement, no
+    // network), so the simplest path is a full repaint. Skipped
+    // entirely while the panel is in its empty state.
+    if (!isEmpty) repaint();
   } else if (msg.kind === "empty") {
-    root.innerHTML = "";
-    const e = document.createElement("div");
-    e.className = "empty";
-    e.textContent = msg.reason || "";
-    root.appendChild(e);
+    isEmpty = true;
+    emptyReason = msg.reason || "";
+    repaint();
   }
 });
 </script>

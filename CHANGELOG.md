@@ -12,6 +12,35 @@ commands, packaging).
 
 ### Added
 
+- **Coverage stats bar (File segment)** — the side-panel footer now
+  reports per-file coverage: `File: 78% (🟡 18 🔴 2)`. Replaces the
+  previous diagnostic-event count line — VSCode's own status bar
+  already surfaces W / E totals; the panel now carries
+  coverage-specific information. Refreshes live on every
+  diagnostic-change signal. Circles are coverage tiers (lines
+  painted yellow / red), not W/E counts. New file `src/stats.ts`
+  carries the provider; requires DimFort 0.2.4+.
+
+- **Workspace stats segment (opt-in)** — new
+  `dimfort.coverage.workspace_stats` setting (`disabled` |
+  `manual` | `automatic`, default **`disabled`**) controls a
+  second segment that aggregates coverage across the whole
+  workspace. Default is `disabled` because the underlying
+  workspace check holds the LSP check lock for seconds at a time
+  on larger codebases — squiggles and panel updates freeze for
+  the duration. Opt-in users get `manual` (click `WS: ?` or run
+  the palette command to compute on demand) or `automatic` (live
+  updates). A future release will ship an incremental workspace
+  check that's cheap enough to enable by default. Palette command
+  **DimFort: Refresh Workspace Coverage Stats** forces a refresh
+  from `manual` / `automatic` mode (no-ops under `disabled`).
+
+- **Panel tab-switch flicker fix** — empty-state posts (`no Fortran
+  file active`) now wait 200 ms before landing, so VSCode's brief
+  active-editor-undefined transition during tab-switch no longer
+  flashes the panel. A real update during the delay cancels the
+  empty post; truly-empty states still show after the delay.
+
 - **Coverage visualisation** — per-line status decoration driven by the
   server's `dimfort/lineStatus` LSP method (requires DimFort 0.2.4+).
   Setting `dimfort.coverage.mode` (`disabled` | `gutter` | `background`)
