@@ -488,32 +488,26 @@ shows the data; column alignment is done in the webview, not ASCII.
       A name not imported (or shadowed by a local declaration) does not
       appear. On a routine that imports nothing, the section shows `(none)`.
 
-- [ ] **Footer (coverage stats bar)** — a `File: <pct>% (🟡 N 🔴 M)
-      · WS: …` bar is pinned to the **bottom** of the panel. The
-      File segment is always live; the WS segment depends on the
-      `dimfort.coverage.workspace_stats` setting.
-      - **Manual (default)**: WS shows `?` (clickable, link-coloured)
-        until you click it or run **DimFort: Refresh Workspace
-        Coverage Stats** from the palette. After the refresh, the
-        segment displays numbers. Editing a file marks the segment
-        muted-italic; clicking again computes fresh numbers.
-      - **Automatic**: WS refreshes live on every diagnostic-change
-        signal (debounced server-side). The segment marks itself
-        muted-italic briefly between an edit and the arrival of
-        fresh numbers.
-      - **Disabled**: WS shows `—` always; no compute fires.
-      - Circles in the WS segment are coverage tiers (lines painted
-        yellow / red), **not** W/E diagnostic counts — those live
-        in VSCode's own status bar.
-      - Open a non-Fortran file → File segment shows `—`; WS
-        persists at its last value.
-      - Before the first workset check completes → bar shows
-        `File: —  ·  WS: ?` (manual) or `WS: —` (automatic /
-        disabled).
+- [ ] **Footer (coverage stats bar)** — a `File: <pct>% (🟡 N 🔴 M)`
+      bar is pinned to the **bottom** of the panel.
+      - **Default**: bar shows the File segment only. Circles are
+        coverage tiers (lines painted yellow / red), **not** W/E
+        diagnostic counts — those live in VSCode's own status bar.
+      - The bar collapses to `File: —` when no Fortran file is
+        active.
       - Switching tabs rapidly between Fortran files should NOT
         flash the panel to "no Fortran file active" — the empty
         message is delayed 200 ms to absorb VSCode's tab-switch
         transition.
+      - **Opt-in workspace segment** via `dimfort.coverage
+        .workspace_stats` (default `disabled`; opt-ins are
+        `manual` and `automatic`). When enabled, a `· WS: …`
+        segment appears with per-mode behaviour. Carries a
+        documented performance caveat: workspace aggregation
+        holds the LSP check lock for seconds at a time on
+        larger codebases, which freezes other interactive work
+        (squiggles, panel updates). Disabled by default until
+        a future release ships an incremental workspace check.
 
 - [ ] **Cursor-follow** — move between line 10 (function) and line 25
       (subroutine); the Scope section switches between `Function:

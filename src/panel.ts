@@ -544,13 +544,19 @@ function renderFooter(stats) {
     ? "File: " + stats.file.coveragePct + "% (🟡 " + stats.file.warn + " 🔴 " + stats.file.fire + ")"
     : "File: —";
   f.appendChild(fileSpan);
-  f.appendChild(document.createTextNode("  ·  "));
 
   // WS segment: rendering depends on workspace_stats mode plus
   // whether the cached aggregate is empty (cold-start sentinel)
   // vs. a real numeric workspace.
   //
-  //   disabled            → "WS: —" (suppressed; never queried)
+  //   disabled            → segment omitted entirely (default).
+  //                          The underlying workspace check holds
+  //                          the LSP check lock for seconds at a
+  //                          time on larger codebases, freezing
+  //                          other interactive work; the bar opts
+  //                          out by default until a future release
+  //                          ships an incremental check that's
+  //                          cheap enough to enable by default.
   //   manual + no data    → "WS: ?" (clickable, prompts compute)
   //   manual + empty cold-cache + stale → "WS: …" (computing,
   //                          poll loop running, clickable to
@@ -562,7 +568,16 @@ function renderFooter(stats) {
   // — distinguishable from real 0% because real 0% has at least
   // one warn or fire (otherwise the file has no checkable lines
   // and wouldn't show 0).
-  const mode = stats.mode || "manual";
+  const mode = stats.mode || "disabled";
+  if (mode === "disabled") {
+    // Omit the segment entirely — no "WS: —" text, no separator,
+    // bar reads as just "File: …".
+    return f;
+  }
+
+  // From here on we're either manual or automatic; emit the
+  // separator and a WS span.
+  f.appendChild(document.createTextNode("  ·  "));
   const wsSpan = document.createElement("span");
   const ws = stats.workspace;
   const wsEmpty =
@@ -577,9 +592,7 @@ function renderFooter(stats) {
     );
   }
 
-  if (mode === "disabled") {
-    wsSpan.textContent = "WS: —";
-  } else if (!ws) {
+  if (!ws) {
     // No data at all yet.
     if (mode === "manual") {
       wsSpan.textContent = "WS: ?";

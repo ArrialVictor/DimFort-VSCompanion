@@ -240,13 +240,13 @@
           "type": "string",
           "enum": ["disabled", "manual", "automatic"],
           "enumItemLabels": ["Disabled", "Manual", "Automatic"],
-          "default": "manual",
+          "default": "disabled",
           "enumDescriptions": [
-            "Suppress the WS segment of the panel stats bar entirely.",
-            "Show the WS segment but do not compute automatically. Click the segment or run `DimFort: Refresh Workspace Coverage Stats` to compute on demand.",
-            "Live updates. The WS segment refreshes after every diagnostic change (server debounces idle periods so active typing doesn't spam re-aggregations)."
+            "Suppress the WS segment of the panel stats bar entirely. Recommended default until a future release lands an incremental workspace check; see the project's coverage spec.",
+            "Show the WS segment but do not compute automatically. Click the segment or run `DimFort: Refresh Workspace Coverage Stats` to compute on demand. On larger codebases each compute takes seconds and briefly freezes other LSP work (squiggles, panel updates).",
+            "Live updates. The WS segment refreshes after every diagnostic change. Same caveat as `manual`: on larger codebases the background check holds the LSP lock for tens of seconds at a time."
           ],
-          "description": "How the panel stats bar's workspace coverage segment refreshes. Workspace aggregation can be expensive on large codebases; `manual` (the default) gives the user explicit control. File-scope coverage is always live regardless of this setting."
+          "description": "How the panel stats bar's workspace coverage segment refreshes. Default is `disabled`: the WS segment is suppressed entirely because the underlying workspace check currently holds the LSP's check lock for seconds at a time on larger codebases, freezing other interactive work. `manual` and `automatic` are available as opt-ins for small projects. File-scope coverage is always live regardless."
         }
       }
     },

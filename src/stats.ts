@@ -103,7 +103,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
   private readonly fileStats = new Map<string, FileCoverage>();
   private workspace: WorkspaceCoverage | null = null;
   private wsStale = false;
-  private mode: WorkspaceStatsMode = "manual";
+  private mode: WorkspaceStatsMode = "disabled";
   private wsDebounceTimer: NodeJS.Timeout | undefined;
   private wsPollTimer: NodeJS.Timeout | undefined;
   private wsPollCount = 0;
@@ -172,11 +172,11 @@ export class CoverageStatsProvider implements vscode.Disposable {
   private readModeFromConfig(): WorkspaceStatsMode {
     const raw = vscode.workspace
       .getConfiguration("dimfort")
-      .get<string>("coverage.workspace_stats", "manual");
+      .get<string>("coverage.workspace_stats", "disabled");
     if (raw === "disabled" || raw === "manual" || raw === "automatic") {
       return raw;
     }
-    return "manual";
+    return "disabled";
   }
 
   private applyMode(next: WorkspaceStatsMode): void {
