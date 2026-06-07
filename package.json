@@ -81,6 +81,11 @@
         "command": "dimfort.cycleScale",
         "title": "Cycle Scale Checking (Auto / On / Off)",
         "category": "DimFort"
+      },
+      {
+        "command": "dimfort.cycleCoverage",
+        "title": "Cycle Coverage Visualisation (Disabled / Gutter / Background)",
+        "category": "DimFort"
       }
     ],
     "viewsContainers": {
@@ -207,6 +212,24 @@
           "default": 200,
           "minimum": 0,
           "description": "Debounce (milliseconds) for the side panel's cursor-follow refresh."
+        },
+        "dimfort.coverage.mode": {
+          "type": "string",
+          "enum": ["disabled", "gutter", "background"],
+          "enumItemLabels": ["Disabled", "Gutter", "Background"],
+          "default": "disabled",
+          "enumDescriptions": [
+            "No coverage decoration.",
+            "One dot per line in the left margin (gutter), in the four tiers: green / yellow / red / blue.",
+            "Low-alpha background tint behind each in-scope line, in the same four tiers."
+          ],
+          "description": "Per-line coverage visualisation: paints a four-tier projection of the checker's status onto the editor. `gutter` and `background` are mutually-exclusive visual encodings of the same data; pick the visual weight you prefer. Cycle with the `DimFort: Cycle Coverage Visualisation` command."
+        },
+        "dimfort.coverage.debounceMs": {
+          "type": "integer",
+          "default": 200,
+          "minimum": 0,
+          "description": "Debounce (milliseconds) for the coverage layer's refresh after a document change."
         }
       }
     },

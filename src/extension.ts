@@ -4,10 +4,12 @@ import {
   LanguageClientOptions,
   ServerOptions,
 } from "vscode-languageclient/node";
+import { CoverageProvider } from "./coverage";
 import { DimFortPanelProvider } from "./panel";
 
 let client: LanguageClient | undefined;
 let panelProvider: DimFortPanelProvider | undefined;
+let coverageProvider: CoverageProvider | undefined;
 
 // Build a fresh LanguageClient from the current VSCode settings. Called
 // at activation and every time a toggle command flips a setting — never
@@ -98,6 +100,7 @@ async function doRebuildClient(): Promise<void> {
   }
   client = buildClient();
   panelProvider?.setClient(client);
+  coverageProvider?.setClient(client);
   await client.start();
 }
 
@@ -147,6 +150,45 @@ export function activate(context: vscode.ExtensionContext): void {
   ) {
     void vscode.commands.executeCommand("dimfort.panel.focus");
   }
+
+  // Coverage layer — per-line green/yellow/red/blue decoration driven by
+  // the dimfort/lineStatus LSP method. Default mode is `disabled` (opt-in
+  // per the design spec); users cycle via the palette command. The
+  // provider holds its own debounce so simultaneous edits across editors
+  // don't pile up requests.
+  coverageProvider = new CoverageProvider(context);
+  coverageProvider.setClient(client);
+  context.subscriptions.push(coverageProvider);
+  const coverageCfg = vscode.workspace.getConfiguration("dimfort");
+  coverageProvider.setDebounceMs(coverageCfg.get<number>("coverage.debounceMs", 200));
+  coverageProvider.setMode(
+    coverageCfg.get<"disabled" | "gutter" | "background">("coverage.mode", "disabled"),
+  );
+
+  // Refresh triggers. The provider no-ops when mode is disabled, so the
+  // listeners cost nothing in the default configuration.
+  //
+  // The primary trigger is `onDidChangeDiagnostics`: VSCode fires it the
+  // instant the server publishes (which is post-debounce on the server
+  // side, ~400 ms after the last keystroke). Hooking here keeps the
+  // coverage layer in lock-step with the squiggles — no race against
+  // the server's own debounce, no separate-debounce guesswork.
+  //
+  // We also refresh on active-editor change so a freshly-focused editor
+  // paints from the last cached result without waiting for an edit.
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor((editor) =>
+      coverageProvider?.scheduleRefresh(editor),
+    ),
+    vscode.languages.onDidChangeDiagnostics((event) => {
+      const changed = new Set(event.uris.map((u) => u.toString()));
+      for (const ed of vscode.window.visibleTextEditors) {
+        if (changed.has(ed.document.uri.toString())) {
+          coverageProvider?.scheduleRefresh(ed);
+        }
+      }
+    }),
+  );
 
   // Hand-rolled restart command: faster than "Developer: Reload Window"
   // when you've just edited the Python server source. Goes through
@@ -200,9 +242,25 @@ export function activate(context: vscode.ExtensionContext): void {
   // restarting the server. Watch the `dimfort.*` namespace and reload
   // transparently when any of them change — the user gets immediate
   // feedback instead of having to run "Restart Language Server".
+  //
+  // Coverage settings are companion-side only (no LSP restart needed);
+  // they re-apply directly on the provider so a mode flip does not
+  // tear down and rebuild the server.
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(async (event) => {
       if (!event.affectsConfiguration("dimfort")) return;
+      const coverageOnly =
+        (event.affectsConfiguration("dimfort.coverage.mode") ||
+          event.affectsConfiguration("dimfort.coverage.debounceMs")) &&
+        !affectsOtherDimfortSettings(event);
+      if (coverageOnly) {
+        const cfg = vscode.workspace.getConfiguration("dimfort");
+        coverageProvider?.setDebounceMs(cfg.get<number>("coverage.debounceMs", 200));
+        coverageProvider?.setMode(
+          cfg.get<"disabled" | "gutter" | "background">("coverage.mode", "disabled"),
+        );
+        return;
+      }
       try {
         await rebuildClient();
       } catch (err) {
@@ -378,6 +436,50 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.setStatusBarMessage(`DimFort: scale checking ${next}`, 2000);
     }),
   );
+
+  // Coverage visualisation is tri-state (disabled / gutter / background).
+  // Gutter and background are mutually-exclusive visual encodings of the
+  // same data; pick the visual weight you prefer. The config-change
+  // listener takes the coverage-only path here, so flipping the mode does
+  // NOT restart the LSP — the provider re-renders directly. Cycles in
+  // disabled → gutter → background order.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.cycleCoverage", async () => {
+      const cfg = vscode.workspace.getConfiguration("dimfort");
+      const order = ["disabled", "gutter", "background"];
+      const current = cfg.get<string>("coverage.mode", "disabled");
+      const next = order[(order.indexOf(current) + 1) % order.length];
+      await cfg.update("coverage.mode", next, vscode.ConfigurationTarget.Global);
+      vscode.window.setStatusBarMessage(`DimFort: coverage ${next}`, 2000);
+    }),
+  );
+}
+
+
+// True if the configuration change affects any `dimfort.*` setting OTHER
+// than the two coverage-only knobs. Used by the config-change listener to
+// decide whether a setting flip warrants a full LSP restart (the default)
+// or is companion-only (coverage mode / debounce).
+function affectsOtherDimfortSettings(
+  event: vscode.ConfigurationChangeEvent,
+): boolean {
+  const namespaces = [
+    "dimfort.executable",
+    "dimfort.trace.server",
+    "dimfort.inlayHints.enabled",
+    "dimfort.completion.enabled",
+    "dimfort.codeActions.enabled",
+    "dimfort.gotoDefinition.enabled",
+    "dimfort.hover",
+    "dimfort.scale.mode",
+    "dimfort.maxWorksetSize",
+    "dimfort.externalModules",
+    "dimfort.cache.mode",
+    "dimfort.cache.dir",
+    "dimfort.panel.enabled",
+    "dimfort.panel.debounceMs",
+  ];
+  return namespaces.some((ns) => event.affectsConfiguration(ns));
 }
 
 export function deactivate(): Thenable<void> | undefined {

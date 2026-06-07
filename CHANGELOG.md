@@ -8,6 +8,27 @@ behavioural changes mostly land in the DimFort server itself. Entries
 below cover client-side changes only (settings, defaults, palette
 commands, packaging).
 
+## [Unreleased]
+
+### Added
+
+- **Coverage visualisation** — per-line status decoration driven by the
+  server's `dimfort/lineStatus` LSP method (requires DimFort 0.2.4+).
+  Setting `dimfort.coverage.mode` (`disabled` | `gutter` | `background`)
+  controls the layer; default is `disabled` (opt-in). Palette command
+  **DimFort: Cycle Coverage Visualisation** cycles through the three
+  modes. `gutter` and `background` are mutually-exclusive visual
+  encodings of the same per-line tier (green / yellow / red / blue);
+  pick the visual weight you prefer. Refresh is driven by
+  `vscode.languages.onDidChangeDiagnostics` so the layer stays in
+  lock-step with the squiggles — no separate debounce race against
+  the server's own check pipeline. New setting
+  `dimfort.coverage.debounceMs` (default 200) coalesces bursts of
+  diagnostic-change events. Coverage settings are companion-only —
+  flipping the mode does not restart the language server. New file
+  `src/coverage.ts` carries the rendering provider; four SVG icons
+  under `media/coverage-*.svg`.
+
 ## [0.2.3] — 2026-06-07
 
 ### Track DimFort 0.2.3.1's polymorphism feature + in-editor UX polish

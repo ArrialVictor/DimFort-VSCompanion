@@ -79,9 +79,132 @@ sections below. Commands below are run from the Command Palette
 - [ ] In Settings (search "dimfort"), confirm the defaults:
       `inlayHints.enabled` off, `completion.enabled` on,
       `codeActions.enabled` on, `gotoDefinition.enabled` on,
-      `hover` = `short`, `cache.mode` = `read-write`, `panel.enabled` on.
+      `hover` = `short`, `cache.mode` = `read-write`, `panel.enabled` on,
+      `coverage.mode` = `disabled`.
       (There is **no** `codeLens` setting and **no** `trace.enabled` /
       `hover.*` per-surface settings — those were removed/collapsed.)
+
+## Coverage visualisation (0.2.4)
+
+Coverage requires the DimFort server with the `dimfort/lineStatus`
+method (server PR #53 merged). The companion mode is `disabled` by
+default; the tests below set it manually.
+
+### Three-mode cycle
+
+With `qa.f90` open:
+
+- [ ] Run **DimFort: Cycle Coverage Visualisation** once → status bar
+      shows `DimFort: coverage gutter`. Confirm:
+      - **Green dots** in the gutter on annotated-declaration lines
+        (`real :: c_sound  !< @unit{m/s}` etc.) and on clean
+        expression lines (`d = c_sound * t`, `q = 0.5 * rho * v * v`,
+        the `combo`, `ln_p`, `rt_e2` calculations).
+      - **Yellow dots** on `t_celsius`'s declaration (U005 — no
+        annotation) and the `t_celsius = t - 273.15` line (H010
+        D1.5 — bare literal cast). With U005 propagation (server
+        PR #55), every other line referencing `t_celsius` also
+        paints yellow.
+      - **Red dot** on the `bogus = c_sound * t` line (H001 — bogus
+        is `kg`, RHS resolves to `m`).
+      - Out-of-scope lines (`module`, `contains`, `end function`,
+        `end subroutine`, `end module`, blank lines, comment-only
+        lines) carry no gutter decoration.
+      - The yellow / red coverage dots coexist with the inline
+        squiggles. VSCode does not paint diagnostic icons in the
+        gutter by default, so the coverage dot has no native icon
+        to compete with.
+- [ ] Run the cycle command again → status bar shows
+      `DimFort: coverage background`. Confirm:
+      - The gutter dots are gone.
+      - Each in-scope line carries a low-alpha background tint in
+        the matching tier colour (green / yellow / red / blue).
+        `gutter` and `background` are mutually exclusive — pick
+        the visual weight you prefer.
+- [ ] Run the cycle command a third time → `DimFort: coverage disabled`.
+      All coverage decorations clear; the file stays as the user
+      sees it without DimFort.
+- [ ] Settings sanity: open Settings (`Cmd/Ctrl+,`), search
+      `dimfort coverage`. Confirm the enum picker shows three
+      labelled options (`Disabled`, `Gutter`, `Background`) with
+      readable description text.
+
+### U005 propagation regression (PR #55)
+
+This test verifies the qa.f90 transition: removing an annotation
+should turn previously-red use sites yellow, never green.
+
+- [ ] In `gutter` mode, delete `@unit{s}` from the `t` declaration
+      line (`real :: t          !< @unit{s}` → `real :: t`).
+      Wait for the server's debounce (~400 ms) on the unsaved
+      buffer. Confirm:
+      - The `bogus = c_sound * t` line goes red → **yellow**
+        (it must NOT turn green — `t` is now unannotated and
+        propagates yellow to every use site).
+      - The `d = c_sound * t` line also paints yellow.
+      - Restore the annotation; the lines should revert to red
+        / green respectively.
+
+### Blue tier (`P001` unparsed regions)
+
+The blue tier paints on lines tree-sitter could not recover into a
+unit-checkable AST. The `qa.f90` scene contains no `P001` region,
+so this test needs a synthetic file.
+
+- [ ] In the dev host, create a file `cov-p001.f90` with a deliberately
+      malformed block, e.g.
+
+      ```
+      program p
+        implicit none
+        real :: x  !< @unit{m}
+      ! ----- unparseable region below -----
+      $$$ garbage line $$$
+      ! ----- end -----
+        x = 1.0
+      end program
+      ```
+
+      Save it.
+- [ ] Cycle to `gutter` mode. Confirm:
+      - The garbage line and any surrounding unparsed-region lines
+        carry a **blue** coverage dot in the gutter.
+      - The clean lines around it (`real :: x`, the assignment) keep
+        their green coverage dot.
+
+### No LSP restart on mode flip
+
+- [ ] Open the Output panel (`Cmd/Ctrl+Shift+U`) and select the
+      `DimFort Language Server` channel.
+- [ ] Cycle the coverage mode (palette command) two or three times.
+      Confirm no `language server restarted` / connection-restart
+      messages appear in the channel during the cycles. (Cycling other
+      settings such as `dimfort.hover` does restart the server; this
+      contrast is the verification.)
+
+### Live unsaved-buffer updates + multi-editor
+
+- [ ] With `gutter` mode on, edit a file (add a `@unit{}` to an
+      unannotated declaration, or change a unit to introduce an
+      H001). **Do not save.** Wait ~400 ms (the server's debounce
+      window). The gutter should refresh in place to reflect the new
+      diagnostics — squiggles and coverage dots update together.
+- [ ] Confirm the same behaviour for an edit that *removes* a
+      problem (delete the offending operand): yellow / red dots
+      disappear and green dots appear in their place, again on
+      unsaved buffer.
+- [ ] Split the editor (`Cmd/Ctrl+\`) and view two different Fortran
+      files side by side. Cycle to `verbose` mode. Confirm both panes
+      paint independently (gutter dots + tint) — the coverage layer
+      handles every visible editor, not just the active one.
+
+### Persistence across reload
+
+- [ ] With `verbose` mode on, run **Developer: Reload Window**
+      (`Cmd/Ctrl+Shift+P` → `Developer: Reload Window`). After the
+      reload, the coverage decoration should re-paint at `verbose`
+      automatically — the setting persists, and the provider
+      re-attaches to the freshly-launched LSP.
 
 ## Diagnostics
 
