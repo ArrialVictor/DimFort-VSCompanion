@@ -546,37 +546,65 @@ function renderFooter(stats) {
   f.appendChild(fileSpan);
   f.appendChild(document.createTextNode("  ·  "));
 
-  // WS segment: rendering depends on workspace_stats mode.
-  //   disabled → "WS: —" (suppressed; never queried)
-  //   manual + no data → "WS: ?" (clickable, prompts compute)
-  //   manual + data → numbers (may be marked stale)
-  //   automatic → numbers or "—" if first refresh not back yet
+  // WS segment: rendering depends on workspace_stats mode plus
+  // whether the cached aggregate is empty (cold-start sentinel)
+  // vs. a real numeric workspace.
+  //
+  //   disabled            → "WS: —" (suppressed; never queried)
+  //   manual + no data    → "WS: ?" (clickable, prompts compute)
+  //   manual + empty cold-cache + stale → "WS: …" (computing,
+  //                          poll loop running, clickable to
+  //                          re-trigger if needed)
+  //   any + data          → numbers (may be marked stale)
+  //   automatic + no data → "WS: —" until first refresh lands
+  //
+  // "Empty cold-cache" means server returned zeros for every tier
+  // — distinguishable from real 0% because real 0% has at least
+  // one warn or fire (otherwise the file has no checkable lines
+  // and wouldn't show 0).
   const mode = stats.mode || "manual";
   const wsSpan = document.createElement("span");
-  if (mode === "disabled") {
-    wsSpan.textContent = "WS: —";
-  } else if (stats.workspace) {
-    wsSpan.textContent =
-      "WS: " + stats.workspace.coveragePct + "% (🟡 " + stats.workspace.warn + " 🔴 " + stats.workspace.fire + ")";
-    if (stats.wsStale) wsSpan.classList.add("ws-stale");
-    if (mode === "manual") {
-      wsSpan.classList.add("ws-clickable");
-      wsSpan.title = "Click to refresh workspace coverage";
-      wsSpan.addEventListener("click", () =>
-        vscodeApi.postMessage({ command: "refreshCoverageStats" }),
-      );
-    }
-  } else if (mode === "manual") {
-    wsSpan.textContent = "WS: ?";
+  const ws = stats.workspace;
+  const wsEmpty =
+    !ws ||
+    ((ws.ok | 0) + (ws.warn | 0) + (ws.fire | 0) + (ws.unparsed | 0)) === 0;
+
+  function attachManualClick(label) {
     wsSpan.classList.add("ws-clickable");
-    wsSpan.title = "Click to compute workspace coverage";
+    wsSpan.title = label;
     wsSpan.addEventListener("click", () =>
       vscodeApi.postMessage({ command: "refreshCoverageStats" }),
     );
-  } else {
-    // automatic, no data yet — first refresh in flight.
+  }
+
+  if (mode === "disabled") {
     wsSpan.textContent = "WS: —";
+  } else if (!ws) {
+    // No data at all yet.
+    if (mode === "manual") {
+      wsSpan.textContent = "WS: ?";
+      attachManualClick("Click to compute workspace coverage");
+    } else {
+      // automatic — first refresh in flight or not yet scheduled.
+      wsSpan.textContent = "WS: —";
+      if (stats.wsStale) wsSpan.classList.add("ws-stale");
+    }
+  } else if (wsEmpty && stats.wsStale) {
+    // Cold-cache placeholder while the server's background worker
+    // computes. Poll loop will replace this with real numbers when
+    // they arrive.
+    wsSpan.textContent = "WS: …";
+    wsSpan.classList.add("ws-stale");
+    if (mode === "manual") {
+      attachManualClick("Computing workspace coverage…");
+    }
+  } else {
+    wsSpan.textContent =
+      "WS: " + ws.coveragePct + "% (🟡 " + ws.warn + " 🔴 " + ws.fire + ")";
     if (stats.wsStale) wsSpan.classList.add("ws-stale");
+    if (mode === "manual") {
+      attachManualClick("Click to refresh workspace coverage");
+    }
   }
   f.appendChild(wsSpan);
   return f;

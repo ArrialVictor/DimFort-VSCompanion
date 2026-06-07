@@ -67,6 +67,14 @@ export interface StatsSnapshot {
 // re-aggregate the whole workset. Spec §8.3.3.
 const WS_DEBOUNCE_MS = 2000;
 
+// Poll cadence while a workspace refresh is in flight on the server.
+// After a request that returns ws_stale=true, the companion polls
+// every WS_POLL_INTERVAL_MS until the server reports fresh stats or
+// the safety cap is hit. Each poll is cheap server-side (snapshot
+// read), so a few extra requests during a long check don't matter.
+const WS_POLL_INTERVAL_MS = 2000;
+const WS_POLL_MAX = 60;  // 60 × 2 s = 2 min ceiling against stuck checks
+
 /**
  * Drives the panel stats bar. Owns:
  *   - File-scope stats cache keyed by URI (refreshed live on diagnostic change).
@@ -97,6 +105,8 @@ export class CoverageStatsProvider implements vscode.Disposable {
   private wsStale = false;
   private mode: WorkspaceStatsMode = "manual";
   private wsDebounceTimer: NodeJS.Timeout | undefined;
+  private wsPollTimer: NodeJS.Timeout | undefined;
+  private wsPollCount = 0;
   private wsRequestSeq = 0;
   private fileRequestSeq = new Map<string, number>();
   private readonly emitter = new vscode.EventEmitter<void>();
@@ -179,6 +189,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
         clearTimeout(this.wsDebounceTimer);
         this.wsDebounceTimer = undefined;
       }
+      this.cancelPoll();
       this.workspace = null;
       this.wsStale = false;
     } else if (next === "automatic" && previous !== "automatic") {
@@ -287,10 +298,48 @@ export class CoverageStatsProvider implements vscode.Disposable {
     // older servers omit the field, so default to false on absence.
     this.wsStale = resp.ws_stale ?? false;
     this.emitter.fire();
+    // The server runs the actual check_files on a background thread.
+    // If it told us the result is stale (a worker is in flight or
+    // dirty bit is set), we need to keep polling until fresh stats
+    // arrive — otherwise we'd display the empty cold-cache numbers
+    // forever after a manual refresh. Each poll is cheap server-side.
+    if (this.wsStale) {
+      this.schedulePoll();
+    } else {
+      this.cancelPoll();
+    }
+  }
+
+  private schedulePoll(): void {
+    if (this.wsPollTimer) return;  // already polling
+    this.wsPollCount = 0;
+    this.wsPollTimer = setTimeout(() => this.pollTick(), WS_POLL_INTERVAL_MS);
+  }
+
+  private cancelPoll(): void {
+    if (this.wsPollTimer) {
+      clearTimeout(this.wsPollTimer);
+      this.wsPollTimer = undefined;
+    }
+    this.wsPollCount = 0;
+  }
+
+  private async pollTick(): Promise<void> {
+    this.wsPollTimer = undefined;
+    this.wsPollCount++;
+    if (this.wsPollCount > WS_POLL_MAX) {
+      // Safety cap: stop the loop if the server stays stale for too
+      // long. The user can click "refresh" again to restart.
+      return;
+    }
+    if (this.mode === "disabled" || !this.client) return;
+    await this.refreshWorkspace(/* force */ false);
+    // refreshWorkspace reschedules via schedulePoll if still stale.
   }
 
   dispose(): void {
     if (this.wsDebounceTimer) clearTimeout(this.wsDebounceTimer);
+    this.cancelPoll();
     this.emitter.dispose();
     for (const d of this.disposables) d.dispose();
   }
