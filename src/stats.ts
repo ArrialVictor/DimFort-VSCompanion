@@ -2,7 +2,10 @@ import * as vscode from "vscode";
 import { LanguageClient } from "vscode-languageclient/node";
 
 // Wire-format mirror of the server's dimfort/coverageStats response.
-// See DimFort/docs/design/future/coverage-visualization.md §8.2.
+// File-scope is served live by the read-only stats endpoint;
+// workspace-scope is populated only by the explicit
+// `dimfort.checkWorkspace` command (see
+// `DimFort/docs/design/future/coverage-visualization.md` §13.2).
 interface StatsRow {
   uri: string;
   ok: number;
@@ -25,12 +28,7 @@ interface StatsResponse {
   uri?: string;
   files: StatsRow[];
   total: StatsTotal;
-  // Present on workspace scope; True if the cached aggregate is
-  // out of date or a background refresh is in flight.
-  ws_stale?: boolean;
 }
-
-export type WorkspaceStatsMode = "disabled" | "manual" | "automatic";
 
 // Companion-side rendering shape consumed by the panel webview footer.
 // Fields use camelCase to match the surrounding TS style; the snake_case
@@ -51,51 +49,32 @@ export interface WorkspaceCoverage {
 }
 export interface StatsSnapshot {
   file: FileCoverage | null;
+  // ``workspace`` is null until the user runs the refresh command for
+  // the first time. Render as "–" in that case.
   workspace: WorkspaceCoverage | null;
+  // True when at least one file's diagnostics changed since the last
+  // successful workspace refresh. Panel renders the WS numbers dimmed
+  // so the user knows they may not reflect the current state.
   wsStale: boolean;
-  // Tells the renderer which "no data" affordance to show for the
-  // WS segment: disabled → "—" (suppressed), manual → "?" (click
-  // to compute), automatic → "—" (transient until next refresh).
-  mode: WorkspaceStatsMode;
+  // True while a workspace refresh request is in flight. Panel can
+  // show a "computing..." indicator and dim the panel for the duration.
+  wsRefreshing: boolean;
 }
-
-// Workspace-scope refresh debounce. The server already debounces
-// `didChange` at ~400 ms before re-checking, and the diagnostic-change
-// signal fires every time a fresh result is published — i.e. up to
-// ~2.5×/s during active typing. Without a companion-side debounce on
-// the workspace-scoped stats call, every keystroke session would
-// re-aggregate the whole workset. Spec §8.3.3.
-const WS_DEBOUNCE_MS = 2000;
-
-// Poll cadence while a workspace refresh is in flight on the server.
-// After a request that returns ws_stale=true, the companion polls
-// every WS_POLL_INTERVAL_MS until the server reports fresh stats or
-// the safety cap is hit. Each poll is cheap server-side (snapshot
-// read), so a few extra requests during a long check don't matter.
-const WS_POLL_INTERVAL_MS = 2000;
-const WS_POLL_MAX = 60;  // 60 × 2 s = 2 min ceiling against stuck checks
 
 /**
  * Drives the panel stats bar. Owns:
  *   - File-scope stats cache keyed by URI (refreshed live on diagnostic change).
- *   - Workspace-scope stats cache (refresh strategy depends on mode).
- *   - The `wsStale` flag that lets the panel render the WS segment in a
- *     muted foreground when the cached aggregate is out of date.
+ *   - Workspace-scope stats cache (populated only by explicit refresh).
+ *   - The ``wsStale`` flag that marks the workspace numbers as
+ *     "may no longer reflect current state" after edits.
+ *   - The ``wsRefreshing`` flag that drives the in-progress UI.
  *
- * Three modes for workspace stats, controlled by the
- * `dimfort.coverage.workspace_stats` setting:
+ * Workspace stats are *manual-only* — the auto-refresh machinery the
+ * 0.2.4 bar shipped with proved to be the wrong UX at scale and was
+ * gutted in 0.2.5. The user triggers refreshes explicitly via the
+ * "DimFort: Refresh Workspace Coverage" command.
  *
- *   - **disabled**: never request workspace data. WS segment shows "—".
- *   - **manual** *(default)*: request only when explicitly triggered
- *     (palette command or click on the WS segment). Marks workspace
- *     stale on every diagnostic-change signal but does not auto-fetch.
- *   - **automatic**: request on every diagnostic-change signal,
- *     2 s debounce. Bar updates live.
- *
- * File-scope is always live regardless of the mode setting; it's
- * cheap and the user always wants to know what their cursor is on.
- *
- * Fires `onDidChange` whenever any state shifts; the panel
+ * Fires ``onDidChange`` whenever any state shifts; the panel
  * subscribes and re-renders its footer.
  */
 export class CoverageStatsProvider implements vscode.Disposable {
@@ -103,10 +82,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
   private readonly fileStats = new Map<string, FileCoverage>();
   private workspace: WorkspaceCoverage | null = null;
   private wsStale = false;
-  private mode: WorkspaceStatsMode = "disabled";
-  private wsDebounceTimer: NodeJS.Timeout | undefined;
-  private wsPollTimer: NodeJS.Timeout | undefined;
-  private wsPollCount = 0;
+  private wsRefreshing = false;
   private wsRequestSeq = 0;
   private fileRequestSeq = new Map<string, number>();
   private readonly emitter = new vscode.EventEmitter<void>();
@@ -114,19 +90,13 @@ export class CoverageStatsProvider implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor() {
-    this.mode = this.readModeFromConfig();
     this.disposables.push(
       vscode.languages.onDidChangeDiagnostics(this.handleDiagChange.bind(this)),
       vscode.window.onDidChangeActiveTextEditor(() => {
         // Active editor changed: emit so the bar shows the new file's
-        // numbers (or "—" if we haven't fetched them yet). Then fetch.
+        // numbers (or "–" if we haven't fetched them yet). Then fetch.
         this.emitter.fire();
         void this.refreshActiveFile();
-      }),
-      vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration("dimfort.coverage.workspace_stats")) {
-          this.applyMode(this.readModeFromConfig());
-        }
       }),
     );
   }
@@ -136,16 +106,14 @@ export class CoverageStatsProvider implements vscode.Disposable {
     this.fileStats.clear();
     this.workspace = null;
     this.wsStale = false;
+    this.wsRefreshing = false;
     this.emitter.fire();
     if (client) {
       // File-scope is always live; fetch on connect so the bar
-      // populates without waiting for the first edit.
+      // populates without waiting for the first edit. Workspace-scope
+      // is intentionally not fetched — it waits for the user's
+      // explicit refresh command.
       void this.refreshActiveFile();
-      // Workspace-scope: kick off only in automatic mode. Manual
-      // and disabled wait for explicit user action (or never).
-      if (this.mode === "automatic") {
-        this.scheduleWorkspaceRefresh();
-      }
     }
   }
 
@@ -154,51 +122,53 @@ export class CoverageStatsProvider implements vscode.Disposable {
       file: uri ? this.fileStats.get(uri) ?? null : null,
       workspace: this.workspace,
       wsStale: this.wsStale,
-      mode: this.mode,
+      wsRefreshing: this.wsRefreshing,
     };
   }
 
   /**
-   * Trigger an immediate workspace-scope refresh, bypassing the
-   * mode setting. Called from the palette command + WS-segment
-   * click handler. In `disabled` mode this still respects the
-   * user's opt-out and no-ops.
+   * Trigger a workspace coverage refresh.
+   *
+   * Sends ``workspace/executeCommand`` with the server-side command
+   * id ``dimfort.checkWorkspace``. The server runs
+   * ``check_files`` synchronously over the full workspace (with the
+   * 0.2.5 caches engaged — typically ~1-2 s on a warm session) and
+   * returns the fresh aggregate directly.
+   *
+   * Called from the palette command. Bar click is intentionally NOT
+   * wired to this; the bar is purely a display surface.
    */
-  forceWorkspaceRefresh(): void {
-    if (this.mode === "disabled") return;
-    void this.refreshWorkspace(/* force */ true);
-  }
-
-  private readModeFromConfig(): WorkspaceStatsMode {
-    const raw = vscode.workspace
-      .getConfiguration("dimfort")
-      .get<string>("coverage.workspace_stats", "disabled");
-    if (raw === "disabled" || raw === "manual" || raw === "automatic") {
-      return raw;
+  async refreshWorkspace(): Promise<void> {
+    if (!this.client) return;
+    if (this.wsRefreshing) return;  // already in flight
+    const seq = ++this.wsRequestSeq;
+    this.wsRefreshing = true;
+    this.emitter.fire();
+    let resp: StatsResponse | null = null;
+    try {
+      resp = await this.client.sendRequest<StatsResponse | null>(
+        "workspace/executeCommand",
+        {
+          command: "dimfort.checkWorkspace",
+          arguments: [],
+        },
+      );
+    } catch {
+      // Swallow LSP errors silently — the bar staying on its old
+      // state is better UX than a popup.
     }
-    return "disabled";
-  }
-
-  private applyMode(next: WorkspaceStatsMode): void {
-    if (next === this.mode) return;
-    const previous = this.mode;
-    this.mode = next;
-    if (next === "disabled") {
-      // Clear any in-flight refresh timer; suppress the WS segment.
-      if (this.wsDebounceTimer) {
-        clearTimeout(this.wsDebounceTimer);
-        this.wsDebounceTimer = undefined;
-      }
-      this.cancelPoll();
-      this.workspace = null;
+    if (seq !== this.wsRequestSeq) return;  // raced with another refresh
+    this.wsRefreshing = false;
+    if (resp) {
+      this.workspace = {
+        ok: resp.total.ok,
+        warn: resp.total.warn,
+        fire: resp.total.fire,
+        unparsed: resp.total.unparsed,
+        coveragePct: resp.total.coverage_pct,
+      };
       this.wsStale = false;
-    } else if (next === "automatic" && previous !== "automatic") {
-      // Just turned on live updates — kick off a refresh so the
-      // user sees data without waiting for the next edit.
-      this.scheduleWorkspaceRefresh();
     }
-    // Manual mode: leave existing workspace data in place; user
-    // controls when to refresh via command / click.
     this.emitter.fire();
   }
 
@@ -219,19 +189,13 @@ export class CoverageStatsProvider implements vscode.Disposable {
     if (activeAffected && active) {
       void this.refreshFile(active);
     }
-    // Workspace-scope:
-    //   - disabled: no-op.
-    //   - manual: mark stale so the bar shows the cached value as
-    //     dim, but don't auto-fetch — the user controls when.
-    //   - automatic: mark stale + schedule a debounced refetch.
-    if (this.mode === "disabled") {
-      return;
+    // Workspace-scope: only mark stale once we've ever had a workspace
+    // snapshot. Pre-first-refresh, the WS segment shows "–" anyway —
+    // setting wsStale wouldn't change the render.
+    if (this.workspace !== null && !this.wsStale) {
+      this.wsStale = true;
+      this.emitter.fire();
     }
-    this.wsStale = true;
-    if (this.mode === "automatic") {
-      this.scheduleWorkspaceRefresh();
-    }
-    this.emitter.fire();
   }
 
   private async refreshActiveFile(): Promise<void> {
@@ -268,78 +232,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
     this.emitter.fire();
   }
 
-  private scheduleWorkspaceRefresh(): void {
-    if (this.wsDebounceTimer) clearTimeout(this.wsDebounceTimer);
-    this.wsDebounceTimer = setTimeout(() => {
-      this.wsDebounceTimer = undefined;
-      void this.refreshWorkspace();
-    }, WS_DEBOUNCE_MS);
-  }
-
-  private async refreshWorkspace(force = false): Promise<void> {
-    if (!this.client) return;
-    if (this.mode === "disabled") return;
-    const seq = ++this.wsRequestSeq;
-    let resp: StatsResponse;
-    try {
-      resp = await this.client.sendRequest<StatsResponse>(
-        "dimfort/coverageStats",
-        force ? { force_refresh: true } : {},
-      );
-    } catch {
-      return;
-    }
-    if (seq !== this.wsRequestSeq) return;
-    this.workspace = {
-      ok: resp.total.ok, warn: resp.total.warn, fire: resp.total.fire,
-      unparsed: resp.total.unparsed, coveragePct: resp.total.coverage_pct,
-    };
-    // Trust the server's stale flag when present (post-0.2.4 servers);
-    // older servers omit the field, so default to false on absence.
-    this.wsStale = resp.ws_stale ?? false;
-    this.emitter.fire();
-    // The server runs the actual check_files on a background thread.
-    // If it told us the result is stale (a worker is in flight or
-    // dirty bit is set), we need to keep polling until fresh stats
-    // arrive — otherwise we'd display the empty cold-cache numbers
-    // forever after a manual refresh. Each poll is cheap server-side.
-    if (this.wsStale) {
-      this.schedulePoll();
-    } else {
-      this.cancelPoll();
-    }
-  }
-
-  private schedulePoll(): void {
-    if (this.wsPollTimer) return;  // already polling
-    this.wsPollCount = 0;
-    this.wsPollTimer = setTimeout(() => this.pollTick(), WS_POLL_INTERVAL_MS);
-  }
-
-  private cancelPoll(): void {
-    if (this.wsPollTimer) {
-      clearTimeout(this.wsPollTimer);
-      this.wsPollTimer = undefined;
-    }
-    this.wsPollCount = 0;
-  }
-
-  private async pollTick(): Promise<void> {
-    this.wsPollTimer = undefined;
-    this.wsPollCount++;
-    if (this.wsPollCount > WS_POLL_MAX) {
-      // Safety cap: stop the loop if the server stays stale for too
-      // long. The user can click "refresh" again to restart.
-      return;
-    }
-    if (this.mode === "disabled" || !this.client) return;
-    await this.refreshWorkspace(/* force */ false);
-    // refreshWorkspace reschedules via schedulePoll if still stale.
-  }
-
   dispose(): void {
-    if (this.wsDebounceTimer) clearTimeout(this.wsDebounceTimer);
-    this.cancelPoll();
     this.emitter.dispose();
     for (const d of this.disposables) d.dispose();
   }

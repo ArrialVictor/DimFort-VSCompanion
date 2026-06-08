@@ -170,11 +170,6 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
         void vscode.window.showTextDocument(editor.document, editor.viewColumn);
       } else if (msg?.command === "action" && typeof msg.index === "number") {
         void this.applyAction(msg.index);
-      } else if (msg?.command === "refreshCoverageStats") {
-        // WS-segment click in manual mode (and any explicit refresh
-        // from the bar in automatic mode). Routes through the
-        // command so palette + click share the same path.
-        void vscode.commands.executeCommand("dimfort.refreshCoverageStats");
       }
     });
     // Render whatever the cursor is on as soon as the view appears.
@@ -407,16 +402,27 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .footer { margin-top: auto; padding: 0.4em 0 0.1em;
             border-top: 1px solid var(--vscode-panel-border);
             color: var(--vscode-descriptionForeground); font-size: 0.9em; }
-  /* WS segment renders in a more-muted foreground between a
-     diagnostic-change signal and the arrival of the corresponding
-     dimfort/coverageStats response. Cleared when fresh stats land. */
+  /* WS / File segments in a more-muted foreground when the value
+     may not reflect current state — pre-first-refresh, during an
+     in-flight refresh, after edits since the last refresh, or
+     (file) when no Fortran editor is active. Cleared when fresh
+     data lands. */
   .ws-stale { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
               font-style: italic; }
-  /* Manual-mode WS segment: hint-text foreground + cursor pointer
-     so users notice the affordance. Hover underlines the segment
-     like every other clickable bit of the panel. */
-  .ws-clickable { color: var(--vscode-textLink-foreground); cursor: pointer; }
-  .ws-clickable:hover { text-decoration: underline; }
+  /* Pure-CSS spinner that replaces the WS value during a refresh:
+     reads as "WS: ◐". ~0.7em outline circle with one transparent
+     border edge, rotated continuously. */
+  .ws-spinner {
+    display: inline-block;
+    width: 0.7em; height: 0.7em;
+    border: 1.5px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    margin-right: 0.35em;
+    vertical-align: -0.1em;
+    animation: ws-spin 0.8s linear infinite;
+  }
+  @keyframes ws-spin { to { transform: rotate(360deg); } }
   .section-body { padding-left: 0.8em; }
   .group-label { color: var(--vscode-descriptionForeground); font-weight: 600;
             margin: 0.5em 0 0.15em; }
@@ -533,90 +539,69 @@ function renderActions(titles) {
 function renderFooter(stats) {
   const f = document.createElement("div");
   f.className = "footer";
-  if (!stats) {
-    f.textContent = "File: —  ·  WS: —";
-    return f;
-  }
-  // File segment: always live (cheap), shows "—" only when there's
-  // no active Fortran file.
+  // Defensive default: stats is null before the provider's first
+  // emit. Render the placeholder shape so the footer takes up its
+  // usual space rather than briefly collapsing.
+  const s = stats || { file: null, workspace: null, wsStale: false, wsRefreshing: false };
+
+  // File segment: always live (cheap). Shows "File: –" dimmed when
+  // there's no active Fortran file (matches the WS segment's
+  // pre-data shape so the footer reads "File: – · WS: –" instead
+  // of a half-rendered "File: —" with normal coloring).
   const fileSpan = document.createElement("span");
-  fileSpan.textContent = stats.file
-    ? "File: " + stats.file.coveragePct + "% (🟡 " + stats.file.warn + " 🔴 " + stats.file.fire + ")"
-    : "File: —";
+  if (s.file) {
+    fileSpan.textContent =
+      "File: " + s.file.coveragePct + "% (🟡 " + s.file.warn + " 🔴 " + s.file.fire + ")";
+  } else {
+    fileSpan.textContent = "File: –";
+    fileSpan.classList.add("ws-stale");
+    fileSpan.title = "No active Fortran file";
+  }
   f.appendChild(fileSpan);
 
-  // WS segment: rendering depends on workspace_stats mode plus
-  // whether the cached aggregate is empty (cold-start sentinel)
-  // vs. a real numeric workspace.
+  // WS segment: manual-only since 0.2.5. The user triggers a
+  // refresh via the "DimFort: Refresh Workspace Coverage" palette
+  // command; the bar is purely a display surface with no click
+  // handler. Three render states:
   //
-  //   disabled            → segment omitted entirely (default).
-  //                          The underlying workspace check holds
-  //                          the LSP check lock for seconds at a
-  //                          time on larger codebases, freezing
-  //                          other interactive work; the bar opts
-  //                          out by default until a future release
-  //                          ships an incremental check that's
-  //                          cheap enough to enable by default.
-  //   manual + no data    → "WS: ?" (clickable, prompts compute)
-  //   manual + empty cold-cache + stale → "WS: …" (computing,
-  //                          poll loop running, clickable to
-  //                          re-trigger if needed)
-  //   any + data          → numbers (may be marked stale)
-  //   automatic + no data → "WS: —" until first refresh lands
-  //
-  // "Empty cold-cache" means server returned zeros for every tier
-  // — distinguishable from real 0% because real 0% has at least
-  // one warn or fire (otherwise the file has no checkable lines
-  // and wouldn't show 0).
-  const mode = stats.mode || "disabled";
-  if (mode === "disabled") {
-    // Omit the segment entirely — no "WS: —" text, no separator,
-    // bar reads as just "File: …".
-    return f;
-  }
-
-  // From here on we're either manual or automatic; emit the
-  // separator and a WS span.
+  //   no refresh yet (workspace === null)  → "WS: –" (em-dash placeholder)
+  //   refresh in flight                    → spinner + "WS: computing…" (dimmed)
+  //   have data                            → "WS: <pct>% (🟡 N 🔴 M)"
+  //                                          dimmed when wsStale is set
+  //                                          (files edited since the last
+  //                                          successful refresh).
   f.appendChild(document.createTextNode("  ·  "));
   const wsSpan = document.createElement("span");
-  const ws = stats.workspace;
-  const wsEmpty =
-    !ws ||
-    ((ws.ok | 0) + (ws.warn | 0) + (ws.fire | 0) + (ws.unparsed | 0)) === 0;
+  const ws = s.workspace;
 
-  function attachManualClick(label) {
-    wsSpan.classList.add("ws-clickable");
-    wsSpan.title = label;
-    wsSpan.addEventListener("click", () =>
-      vscodeApi.postMessage({ command: "refreshCoverageStats" }),
-    );
-  }
-
-  if (!ws) {
-    // No data at all yet.
-    if (mode === "manual") {
-      wsSpan.textContent = "WS: ?";
-      attachManualClick("Click to compute workspace coverage");
-    } else {
-      // automatic — first refresh in flight or not yet scheduled.
-      wsSpan.textContent = "WS: —";
-      if (stats.wsStale) wsSpan.classList.add("ws-stale");
-    }
-  } else if (wsEmpty && stats.wsStale) {
-    // Cold-cache placeholder while the server's background worker
-    // computes. Poll loop will replace this with real numbers when
-    // they arrive.
-    wsSpan.textContent = "WS: …";
+  if (s.wsRefreshing) {
+    // Spinner WHERE THE VALUE WOULD GO so it reads "WS: ◐" — the
+    // visual indicator replaces the missing value rather than
+    // decorating a "computing…" word. Same shape Nvim/Emacs use
+    // (different animation machinery; same semantics). The
+    // tooltip carries the explicit text for accessibility /
+    // screen readers.
+    wsSpan.appendChild(document.createTextNode("WS: "));
+    const spinner = document.createElement("span");
+    spinner.className = "ws-spinner";
+    wsSpan.appendChild(spinner);
     wsSpan.classList.add("ws-stale");
-    if (mode === "manual") {
-      attachManualClick("Computing workspace coverage…");
-    }
+    wsSpan.title = "Workspace coverage refresh in progress";
+  } else if (!ws) {
+    wsSpan.textContent = "WS: –";
+    wsSpan.classList.add("ws-stale");
+    wsSpan.title =
+      "Run 'DimFort: Refresh Workspace Coverage' to compute";
   } else {
     wsSpan.textContent =
       "WS: " + ws.coveragePct + "% (🟡 " + ws.warn + " 🔴 " + ws.fire + ")";
-    if (stats.wsStale) wsSpan.classList.add("ws-stale");
-    if (mode === "manual") {
-      attachManualClick("Click to refresh workspace coverage");
+    if (s.wsStale) {
+      wsSpan.classList.add("ws-stale");
+      wsSpan.title =
+        "Files have changed since this refresh — run "
+        + "'DimFort: Refresh Workspace Coverage' to update";
+    } else {
+      wsSpan.title = "Last refresh result";
     }
   }
   f.appendChild(wsSpan);
@@ -1078,6 +1063,10 @@ function repaint() {
     e.className = "empty";
     e.textContent = emptyReason || "";
     root.appendChild(e);
+    // Always include the footer — even when there's no active
+    // Fortran file, workspace coverage stats are still useful (and
+    // file segment shows a dimmed "File: –" placeholder).
+    root.appendChild(renderFooter(lastStats));
     return;
   }
   render(lastPayload, lastActions, lastInteractions);
@@ -1094,11 +1083,10 @@ window.addEventListener("message", (ev) => {
     repaint();
   } else if (msg.kind === "stats") {
     lastStats = msg.stats;
-    // Only the footer changed — but render() rebuilds the whole panel
-    // off cached state, which is fast (no DOM measurement, no
-    // network), so the simplest path is a full repaint. Skipped
-    // entirely while the panel is in its empty state.
-    if (!isEmpty) repaint();
+    // Re-render whether or not the panel is in its empty state —
+    // the footer is now visible in both, so a stats arrival should
+    // always refresh the WS segment.
+    repaint();
   } else if (msg.kind === "empty") {
     isEmpty = true;
     emptyReason = msg.reason || "";
