@@ -179,7 +179,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
       // from cross-client triggers) never reaches us because we never
       // sent the request — so the user-feedback responsibility lives
       // here on the client.
-      void vscode.window.showWarningMessage(
+      void vscode.window.showInformationMessage(
         "DimFort: workspace check already in progress",
       );
       return;
