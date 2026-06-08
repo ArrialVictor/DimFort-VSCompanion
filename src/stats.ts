@@ -173,7 +173,17 @@ export class CoverageStatsProvider implements vscode.Disposable {
    */
   async refreshWorkspace(): Promise<void> {
     if (!this.client) return;
-    if (this.wsRefreshing) return;  // already in flight
+    if (this.wsRefreshing) {
+      // Local coalesce: don't send a duplicate executeCommand, but
+      // do tell the user. The server-side coalesce toast (kicked off
+      // from cross-client triggers) never reaches us because we never
+      // sent the request — so the user-feedback responsibility lives
+      // here on the client.
+      void vscode.window.showWarningMessage(
+        "DimFort: workspace check already in progress",
+      );
+      return;
+    }
     this.wsRefreshing = true;
     this.emitter.fire();
     let ack: { started: boolean; reason?: string } | null = null;
