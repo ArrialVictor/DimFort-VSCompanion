@@ -21,19 +21,20 @@ commands, packaging).
   painted yellow / red), not W/E counts. New file `src/stats.ts`
   carries the provider; requires DimFort 0.2.4+.
 
-- **Workspace stats segment (opt-in)** — new
-  `dimfort.coverage.workspace_stats` setting (`disabled` |
-  `manual` | `automatic`, default **`disabled`**) controls a
-  second segment that aggregates coverage across the whole
-  workspace. Default is `disabled` because the underlying
-  workspace check holds the LSP check lock for seconds at a time
-  on larger codebases — squiggles and panel updates freeze for
-  the duration. Opt-in users get `manual` (click `WS: ?` or run
-  the palette command to compute on demand) or `automatic` (live
-  updates). A future release will ship an incremental workspace
-  check that's cheap enough to enable by default. Palette command
-  **DimFort: Refresh Workspace Coverage Stats** forces a refresh
-  from `manual` / `automatic` mode (no-ops under `disabled`).
+- **Workspace stats segment (manual)** — the panel footer now
+  carries a `WS: …` segment alongside the per-file one. Shows
+  `WS: –` until the user triggers a refresh; dims while a
+  refresh is in flight (`WS: computing…`); dims again once
+  files have changed since the last refresh (signalling that
+  the displayed numbers may be stale). Trigger via the palette
+  command **DimFort: Refresh Workspace Coverage**. The bar itself
+  is a display-only surface — clicking it does nothing — so the
+  refresh cost is always explicitly opted into. Earlier 0.2.5
+  iterations had an auto-refresh option; in-editor testing on
+  a 2000-file codebase proved the manual-only model is the
+  better UX and the auto-refresh machinery was removed.
+  Requires DimFort 0.2.5+ for the server-side
+  `dimfort.refreshWorkspaceCoverage` command.
 
 - **Panel tab-switch flicker fix** — empty-state posts (`no Fortran
   file active`) now wait 200 ms before landing, so VSCode's brief

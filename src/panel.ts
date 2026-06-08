@@ -170,11 +170,6 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
         void vscode.window.showTextDocument(editor.document, editor.viewColumn);
       } else if (msg?.command === "action" && typeof msg.index === "number") {
         void this.applyAction(msg.index);
-      } else if (msg?.command === "refreshCoverageStats") {
-        // WS-segment click in manual mode (and any explicit refresh
-        // from the bar in automatic mode). Routes through the
-        // command so palette + click share the same path.
-        void vscode.commands.executeCommand("dimfort.refreshCoverageStats");
       }
     });
     // Render whatever the cursor is on as soon as the view appears.
@@ -407,16 +402,12 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .footer { margin-top: auto; padding: 0.4em 0 0.1em;
             border-top: 1px solid var(--vscode-panel-border);
             color: var(--vscode-descriptionForeground); font-size: 0.9em; }
-  /* WS segment renders in a more-muted foreground between a
-     diagnostic-change signal and the arrival of the corresponding
-     dimfort/coverageStats response. Cleared when fresh stats land. */
+  /* WS segment in a more-muted foreground when the workspace
+     coverage may not reflect current state — pre-first-refresh,
+     during an in-flight refresh, or after edits since the last
+     refresh. Cleared when fresh post-refresh stats land. */
   .ws-stale { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
               font-style: italic; }
-  /* Manual-mode WS segment: hint-text foreground + cursor pointer
-     so users notice the affordance. Hover underlines the segment
-     like every other clickable bit of the panel. */
-  .ws-clickable { color: var(--vscode-textLink-foreground); cursor: pointer; }
-  .ws-clickable:hover { text-decoration: underline; }
   .section-body { padding-left: 0.8em; }
   .group-label { color: var(--vscode-descriptionForeground); font-weight: 600;
             margin: 0.5em 0 0.15em; }
@@ -545,78 +536,40 @@ function renderFooter(stats) {
     : "File: —";
   f.appendChild(fileSpan);
 
-  // WS segment: rendering depends on workspace_stats mode plus
-  // whether the cached aggregate is empty (cold-start sentinel)
-  // vs. a real numeric workspace.
+  // WS segment: manual-only since 0.2.5. The user triggers a
+  // refresh via the "DimFort: Refresh Workspace Coverage" palette
+  // command; the bar is purely a display surface with no click
+  // handler. Three render states:
   //
-  //   disabled            → segment omitted entirely (default).
-  //                          The underlying workspace check holds
-  //                          the LSP check lock for seconds at a
-  //                          time on larger codebases, freezing
-  //                          other interactive work; the bar opts
-  //                          out by default until a future release
-  //                          ships an incremental check that's
-  //                          cheap enough to enable by default.
-  //   manual + no data    → "WS: ?" (clickable, prompts compute)
-  //   manual + empty cold-cache + stale → "WS: …" (computing,
-  //                          poll loop running, clickable to
-  //                          re-trigger if needed)
-  //   any + data          → numbers (may be marked stale)
-  //   automatic + no data → "WS: —" until first refresh lands
-  //
-  // "Empty cold-cache" means server returned zeros for every tier
-  // — distinguishable from real 0% because real 0% has at least
-  // one warn or fire (otherwise the file has no checkable lines
-  // and wouldn't show 0).
-  const mode = stats.mode || "disabled";
-  if (mode === "disabled") {
-    // Omit the segment entirely — no "WS: —" text, no separator,
-    // bar reads as just "File: …".
-    return f;
-  }
-
-  // From here on we're either manual or automatic; emit the
-  // separator and a WS span.
+  //   no refresh yet (workspace === null)  → "WS: –" (em-dash placeholder)
+  //   refresh in flight                    → "WS: computing…" (dimmed)
+  //   have data                            → "WS: <pct>% (🟡 N 🔴 M)"
+  //                                          dimmed when wsStale is set
+  //                                          (files edited since the last
+  //                                          successful refresh).
   f.appendChild(document.createTextNode("  ·  "));
   const wsSpan = document.createElement("span");
   const ws = stats.workspace;
-  const wsEmpty =
-    !ws ||
-    ((ws.ok | 0) + (ws.warn | 0) + (ws.fire | 0) + (ws.unparsed | 0)) === 0;
 
-  function attachManualClick(label) {
-    wsSpan.classList.add("ws-clickable");
-    wsSpan.title = label;
-    wsSpan.addEventListener("click", () =>
-      vscodeApi.postMessage({ command: "refreshCoverageStats" }),
-    );
-  }
-
-  if (!ws) {
-    // No data at all yet.
-    if (mode === "manual") {
-      wsSpan.textContent = "WS: ?";
-      attachManualClick("Click to compute workspace coverage");
-    } else {
-      // automatic — first refresh in flight or not yet scheduled.
-      wsSpan.textContent = "WS: —";
-      if (stats.wsStale) wsSpan.classList.add("ws-stale");
-    }
-  } else if (wsEmpty && stats.wsStale) {
-    // Cold-cache placeholder while the server's background worker
-    // computes. Poll loop will replace this with real numbers when
-    // they arrive.
-    wsSpan.textContent = "WS: …";
+  if (stats.wsRefreshing) {
+    wsSpan.textContent = "WS: computing…";
     wsSpan.classList.add("ws-stale");
-    if (mode === "manual") {
-      attachManualClick("Computing workspace coverage…");
-    }
+    wsSpan.title = "Workspace coverage refresh in progress";
+  } else if (!ws) {
+    wsSpan.textContent = "WS: –";
+    wsSpan.classList.add("ws-stale");
+    wsSpan.title =
+      "Run 'DimFort: Refresh Workspace Coverage' to compute";
   } else {
     wsSpan.textContent =
       "WS: " + ws.coveragePct + "% (🟡 " + ws.warn + " 🔴 " + ws.fire + ")";
-    if (stats.wsStale) wsSpan.classList.add("ws-stale");
-    if (mode === "manual") {
-      attachManualClick("Click to refresh workspace coverage");
+    if (stats.wsStale) {
+      wsSpan.classList.add("ws-stale");
+      wsSpan.title =
+        "Files have changed since this refresh — run "
+        + "'DimFort: Refresh Workspace Coverage' to update";
+    } else {
+      wsSpan.title = "Last refresh result";
     }
   }
   f.appendChild(wsSpan);

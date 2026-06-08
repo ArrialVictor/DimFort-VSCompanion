@@ -465,17 +465,17 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Refresh workspace coverage stats on demand. Drives the bar's
-  // `manual` mode and gives users in `automatic` mode an escape
-  // hatch when they want fresh numbers without waiting for the
-  // next diagnostic-change debounce.
+  // Manual workspace coverage refresh. The companion's VSCode
+  // command (this one) wraps the LSP call so we can manage
+  // bar UI state (wsRefreshing → dimmed + "computing…") around
+  // it. The server-side command ``dimfort.refreshWorkspaceCoverage``
+  // also exists and is auto-registered by vscode-languageclient,
+  // but it doesn't drive the bar UI on its own — hence the
+  // separate companion-side id (avoids the registration collision
+  // and gives us a place to hook the dimming logic).
   context.subscriptions.push(
-    vscode.commands.registerCommand("dimfort.refreshCoverageStats", () => {
-      statsProvider?.forceWorkspaceRefresh();
-      vscode.window.setStatusBarMessage(
-        "DimFort: refreshing workspace coverage…",
-        2000,
-      );
+    vscode.commands.registerCommand("dimfort.refreshCoverage", () => {
+      void statsProvider?.refreshWorkspace();
     }),
   );
 }
