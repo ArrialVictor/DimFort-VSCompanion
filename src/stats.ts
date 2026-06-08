@@ -83,7 +83,6 @@ export class CoverageStatsProvider implements vscode.Disposable {
   private workspace: WorkspaceCoverage | null = null;
   private wsStale = false;
   private wsRefreshing = false;
-  private wsRequestSeq = 0;
   private fileRequestSeq = new Map<string, number>();
   private readonly emitter = new vscode.EventEmitter<void>();
   readonly onDidChange = this.emitter.event;
@@ -114,7 +113,40 @@ export class CoverageStatsProvider implements vscode.Disposable {
       // is intentionally not fetched — it waits for the user's
       // explicit refresh command.
       void this.refreshActiveFile();
+      // Async workspace check (server 0.2.5+): the executeCommand
+      // returns an ack immediately and the actual coverage payload
+      // arrives later via this notification. The handler updates the
+      // workspace snapshot and clears the in-flight flag.
+      this.disposables.push(
+        client.onNotification(
+          "dimfort/workspaceCheckCompleted",
+          (params: StatsResponse | { failed: true }) => {
+            this.handleWorkspaceCheckCompleted(params);
+          },
+        ),
+      );
     }
+  }
+
+  private handleWorkspaceCheckCompleted(
+    params: StatsResponse | { failed: true },
+  ): void {
+    this.wsRefreshing = false;
+    if ("failed" in params) {
+      // Server-side worker crashed or no workspace index. Keep the
+      // prior payload visible (just unstick the spinner).
+      this.emitter.fire();
+      return;
+    }
+    this.workspace = {
+      ok: params.total.ok,
+      warn: params.total.warn,
+      fire: params.total.fire,
+      unparsed: params.total.unparsed,
+      coveragePct: params.total.coverage_pct,
+    };
+    this.wsStale = false;
+    this.emitter.fire();
   }
 
   snapshot(uri: string | undefined): StatsSnapshot {
@@ -130,10 +162,11 @@ export class CoverageStatsProvider implements vscode.Disposable {
    * Trigger a workspace coverage refresh.
    *
    * Sends ``workspace/executeCommand`` with the server-side command
-   * id ``dimfort.checkWorkspace``. The server runs
-   * ``check_files`` synchronously over the full workspace (with the
-   * 0.2.5 caches engaged — typically ~1-2 s on a warm session) and
-   * returns the fresh aggregate directly.
+   * id ``dimfort.checkWorkspace``. Since DimFort 0.2.5, the server
+   * spawns a daemon worker and the executeCommand returns an ack
+   * immediately. The fresh aggregate arrives later via
+   * ``dimfort/workspaceCheckCompleted`` (see
+   * ``handleWorkspaceCheckCompleted``).
    *
    * Called from the palette command. Bar click is intentionally NOT
    * wired to this; the bar is purely a display surface.
@@ -141,12 +174,11 @@ export class CoverageStatsProvider implements vscode.Disposable {
   async refreshWorkspace(): Promise<void> {
     if (!this.client) return;
     if (this.wsRefreshing) return;  // already in flight
-    const seq = ++this.wsRequestSeq;
     this.wsRefreshing = true;
     this.emitter.fire();
-    let resp: StatsResponse | null = null;
+    let ack: { started: boolean; reason?: string } | null = null;
     try {
-      resp = await this.client.sendRequest<StatsResponse | null>(
+      ack = await this.client.sendRequest<{ started: boolean; reason?: string }>(
         "workspace/executeCommand",
         {
           command: "dimfort.checkWorkspace",
@@ -157,19 +189,15 @@ export class CoverageStatsProvider implements vscode.Disposable {
       // Swallow LSP errors silently — the bar staying on its old
       // state is better UX than a popup.
     }
-    if (seq !== this.wsRequestSeq) return;  // raced with another refresh
-    this.wsRefreshing = false;
-    if (resp) {
-      this.workspace = {
-        ok: resp.total.ok,
-        warn: resp.total.warn,
-        fire: resp.total.fire,
-        unparsed: resp.total.unparsed,
-        coveragePct: resp.total.coverage_pct,
-      };
-      this.wsStale = false;
+    if (!ack || !ack.started) {
+      // Server refused to start (already in flight, or no index).
+      // Clear the spinner; nothing further to wait for.
+      this.wsRefreshing = false;
+      this.emitter.fire();
     }
-    this.emitter.fire();
+    // ``wsRefreshing`` stays true until the
+    // ``dimfort/workspaceCheckCompleted`` notification arrives and
+    // ``handleWorkspaceCheckCompleted`` clears it.
   }
 
   private handleDiagChange(event: vscode.DiagnosticChangeEvent): void {
