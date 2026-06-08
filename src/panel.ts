@@ -409,10 +409,9 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
      data lands. */
   .ws-stale { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
               font-style: italic; }
-  /* Pure-CSS spinner placed before "WS: computing…" so the user
-     gets an in-progress signal more obvious than just the dimmed
-     text. ~0.7em outline circle with one transparent border edge,
-     rotated continuously. */
+  /* Pure-CSS spinner that replaces the WS value during a refresh:
+     reads as "WS: ◐". ~0.7em outline circle with one transparent
+     border edge, rotated continuously. */
   .ws-spinner {
     display: inline-block;
     width: 0.7em; height: 0.7em;
@@ -576,11 +575,16 @@ function renderFooter(stats) {
   const ws = s.workspace;
 
   if (s.wsRefreshing) {
-    // Spinner before the text so it reads "⟳ WS: computing…".
+    // Spinner WHERE THE VALUE WOULD GO so it reads "WS: ◐" — the
+    // visual indicator replaces the missing value rather than
+    // decorating a "computing…" word. Same shape Nvim/Emacs use
+    // (different animation machinery; same semantics). The
+    // tooltip carries the explicit text for accessibility /
+    // screen readers.
+    wsSpan.appendChild(document.createTextNode("WS: "));
     const spinner = document.createElement("span");
     spinner.className = "ws-spinner";
     wsSpan.appendChild(spinner);
-    wsSpan.appendChild(document.createTextNode("WS: computing…"));
     wsSpan.classList.add("ws-stale");
     wsSpan.title = "Workspace coverage refresh in progress";
   } else if (!ws) {
