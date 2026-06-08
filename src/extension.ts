@@ -370,11 +370,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Workspace-wide check: the language client AUTOMATICALLY registers
   // `dimfort.checkWorkspace` (and every other command the server lists
-  // in initialize's executeCommandProvider.commands), so we do NOT
-  // register it here — that would collide and abort activation. The
-  // package.json `contributes.commands` entry is what makes it visible
-  // in the palette; clicking it goes through the language client to
-  // the server's `@server.command` handler via workspace/executeCommand.
+  // in initialize's executeCommandProvider.commands) — so DO NOT
+  // ``registerCommand`` it again here (would collide and abort
+  // activation). The auto-registered command exists in VSCode's
+  // command registry and can be invoked programmatically, but the
+  // user-facing palette entry points instead at the companion-side
+  // ``dimfort.refreshWorkspace`` command below — that wrapper drives
+  // the bar's dimmed "computing…" state around the call.
 
   // Per-feature toggles. Each one flips the corresponding setting and
   // *rebuilds* the language client so the new value reaches the LSP.
@@ -465,16 +467,18 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Manual workspace coverage refresh. The companion's VSCode
-  // command (this one) wraps the LSP call so we can manage
-  // bar UI state (wsRefreshing → dimmed + "computing…") around
-  // it. The server-side command ``dimfort.refreshWorkspaceCoverage``
-  // also exists and is auto-registered by vscode-languageclient,
-  // but it doesn't drive the bar UI on its own — hence the
-  // separate companion-side id (avoids the registration collision
-  // and gives us a place to hook the dimming logic).
+  // Manual workspace refresh. The companion's VSCode command (this
+  // one) wraps the LSP call so we can manage bar UI state
+  // (wsRefreshing → dimmed + spinner + "computing…") around it.
+  // The server-side command ``dimfort.checkWorkspace`` also exists
+  // and is auto-registered by vscode-languageclient as a VSCode
+  // command, but it doesn't drive the bar UI on its own — hence
+  // the separate companion-side id. Since the server's command
+  // also publishes diagnostics + seeds the workspace coverage
+  // cache + returns the payload, one invocation now refreshes
+  // *both* squiggles and the bar.
   context.subscriptions.push(
-    vscode.commands.registerCommand("dimfort.refreshCoverage", () => {
+    vscode.commands.registerCommand("dimfort.refreshWorkspace", () => {
       void statsProvider?.refreshWorkspace();
     }),
   );

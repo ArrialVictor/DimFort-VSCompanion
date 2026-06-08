@@ -23,18 +23,30 @@ commands, packaging).
 
 - **Workspace stats segment (manual)** — the panel footer now
   carries a `WS: …` segment alongside the per-file one. Shows
-  `WS: –` until the user triggers a refresh; dims while a
-  refresh is in flight (`WS: computing…`); dims again once
-  files have changed since the last refresh (signalling that
-  the displayed numbers may be stale). Trigger via the palette
-  command **DimFort: Refresh Workspace Coverage**. The bar itself
-  is a display-only surface — clicking it does nothing — so the
-  refresh cost is always explicitly opted into. Earlier 0.2.5
-  iterations had an auto-refresh option; in-editor testing on
-  a 2000-file codebase proved the manual-only model is the
-  better UX and the auto-refresh machinery was removed.
-  Requires DimFort 0.2.5+ for the server-side
-  `dimfort.refreshWorkspaceCoverage` command.
+  `WS: –` until the user triggers a refresh; spinner + dimmed
+  `WS: computing…` while a refresh is in flight; dims again
+  once files have changed since the last refresh (signalling
+  that the displayed numbers may be stale). The footer is also
+  visible when no Fortran file is active — `File: – · WS: <last>`
+  — so workspace coverage stays visible across tab switches.
+  Trigger via the palette command **DimFort: Check Whole
+  Workspace**. The bar itself is a display-only surface —
+  clicking it does nothing — so the refresh cost is always
+  explicitly opted into. Earlier 0.2.5 iterations had an
+  auto-refresh option; in-editor testing on a 2000-file
+  codebase proved the manual-only model is the better UX and
+  the auto-refresh machinery was removed.
+
+- **Unified workspace refresh** — the legacy
+  **DimFort: Check Whole Workspace** palette entry now routes
+  through the same path as the (formerly separate) workspace
+  coverage refresh: ONE invocation publishes diagnostics,
+  updates per-file coverage, AND refreshes the workspace
+  coverage bar. Previously the diagnostics path and the
+  workspace stats path were separate commands running
+  `check_files` independently, doubling the cost when the user
+  wanted both. Requires DimFort 0.2.5+ for the merged
+  server-side `dimfort.checkWorkspace` command.
 
 - **Panel tab-switch flicker fix** — empty-state posts (`no Fortran
   file active`) now wait 200 ms before landing, so VSCode's brief

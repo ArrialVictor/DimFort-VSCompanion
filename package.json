@@ -58,11 +58,6 @@
         "category": "DimFort"
       },
       {
-        "command": "dimfort.checkWorkspace",
-        "title": "Check Whole Workspace",
-        "category": "DimFort"
-      },
-      {
         "command": "dimfort.toggleCache",
         "title": "Toggle Content-Hash Cache",
         "category": "DimFort"
@@ -88,8 +83,8 @@
         "category": "DimFort"
       },
       {
-        "command": "dimfort.refreshCoverage",
-        "title": "Refresh Workspace Coverage",
+        "command": "dimfort.refreshWorkspace",
+        "title": "Check Whole Workspace",
         "category": "DimFort"
       }
     ],

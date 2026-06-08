@@ -402,12 +402,28 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .footer { margin-top: auto; padding: 0.4em 0 0.1em;
             border-top: 1px solid var(--vscode-panel-border);
             color: var(--vscode-descriptionForeground); font-size: 0.9em; }
-  /* WS segment in a more-muted foreground when the workspace
-     coverage may not reflect current state — pre-first-refresh,
-     during an in-flight refresh, or after edits since the last
-     refresh. Cleared when fresh post-refresh stats land. */
+  /* WS / File segments in a more-muted foreground when the value
+     may not reflect current state — pre-first-refresh, during an
+     in-flight refresh, after edits since the last refresh, or
+     (file) when no Fortran editor is active. Cleared when fresh
+     data lands. */
   .ws-stale { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
               font-style: italic; }
+  /* Pure-CSS spinner placed before "WS: computing…" so the user
+     gets an in-progress signal more obvious than just the dimmed
+     text. ~0.7em outline circle with one transparent border edge,
+     rotated continuously. */
+  .ws-spinner {
+    display: inline-block;
+    width: 0.7em; height: 0.7em;
+    border: 1.5px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    margin-right: 0.35em;
+    vertical-align: -0.1em;
+    animation: ws-spin 0.8s linear infinite;
+  }
+  @keyframes ws-spin { to { transform: rotate(360deg); } }
   .section-body { padding-left: 0.8em; }
   .group-label { color: var(--vscode-descriptionForeground); font-weight: 600;
             margin: 0.5em 0 0.15em; }
@@ -524,16 +540,24 @@ function renderActions(titles) {
 function renderFooter(stats) {
   const f = document.createElement("div");
   f.className = "footer";
-  if (!stats) {
-    f.textContent = "File: —  ·  WS: —";
-    return f;
-  }
-  // File segment: always live (cheap), shows "—" only when there's
-  // no active Fortran file.
+  // Defensive default: stats is null before the provider's first
+  // emit. Render the placeholder shape so the footer takes up its
+  // usual space rather than briefly collapsing.
+  const s = stats || { file: null, workspace: null, wsStale: false, wsRefreshing: false };
+
+  // File segment: always live (cheap). Shows "File: –" dimmed when
+  // there's no active Fortran file (matches the WS segment's
+  // pre-data shape so the footer reads "File: – · WS: –" instead
+  // of a half-rendered "File: —" with normal coloring).
   const fileSpan = document.createElement("span");
-  fileSpan.textContent = stats.file
-    ? "File: " + stats.file.coveragePct + "% (🟡 " + stats.file.warn + " 🔴 " + stats.file.fire + ")"
-    : "File: —";
+  if (s.file) {
+    fileSpan.textContent =
+      "File: " + s.file.coveragePct + "% (🟡 " + s.file.warn + " 🔴 " + s.file.fire + ")";
+  } else {
+    fileSpan.textContent = "File: –";
+    fileSpan.classList.add("ws-stale");
+    fileSpan.title = "No active Fortran file";
+  }
   f.appendChild(fileSpan);
 
   // WS segment: manual-only since 0.2.5. The user triggers a
@@ -542,17 +566,21 @@ function renderFooter(stats) {
   // handler. Three render states:
   //
   //   no refresh yet (workspace === null)  → "WS: –" (em-dash placeholder)
-  //   refresh in flight                    → "WS: computing…" (dimmed)
+  //   refresh in flight                    → spinner + "WS: computing…" (dimmed)
   //   have data                            → "WS: <pct>% (🟡 N 🔴 M)"
   //                                          dimmed when wsStale is set
   //                                          (files edited since the last
   //                                          successful refresh).
   f.appendChild(document.createTextNode("  ·  "));
   const wsSpan = document.createElement("span");
-  const ws = stats.workspace;
+  const ws = s.workspace;
 
-  if (stats.wsRefreshing) {
-    wsSpan.textContent = "WS: computing…";
+  if (s.wsRefreshing) {
+    // Spinner before the text so it reads "⟳ WS: computing…".
+    const spinner = document.createElement("span");
+    spinner.className = "ws-spinner";
+    wsSpan.appendChild(spinner);
+    wsSpan.appendChild(document.createTextNode("WS: computing…"));
     wsSpan.classList.add("ws-stale");
     wsSpan.title = "Workspace coverage refresh in progress";
   } else if (!ws) {
@@ -563,7 +591,7 @@ function renderFooter(stats) {
   } else {
     wsSpan.textContent =
       "WS: " + ws.coveragePct + "% (🟡 " + ws.warn + " 🔴 " + ws.fire + ")";
-    if (stats.wsStale) {
+    if (s.wsStale) {
       wsSpan.classList.add("ws-stale");
       wsSpan.title =
         "Files have changed since this refresh — run "
@@ -1031,6 +1059,10 @@ function repaint() {
     e.className = "empty";
     e.textContent = emptyReason || "";
     root.appendChild(e);
+    // Always include the footer — even when there's no active
+    // Fortran file, workspace coverage stats are still useful (and
+    // file segment shows a dimmed "File: –" placeholder).
+    root.appendChild(renderFooter(lastStats));
     return;
   }
   render(lastPayload, lastActions, lastInteractions);
@@ -1047,11 +1079,10 @@ window.addEventListener("message", (ev) => {
     repaint();
   } else if (msg.kind === "stats") {
     lastStats = msg.stats;
-    // Only the footer changed — but render() rebuilds the whole panel
-    // off cached state, which is fast (no DOM measurement, no
-    // network), so the simplest path is a full repaint. Skipped
-    // entirely while the panel is in its empty state.
-    if (!isEmpty) repaint();
+    // Re-render whether or not the panel is in its empty state —
+    // the footer is now visible in both, so a stats arrival should
+    // always refresh the WS segment.
+    repaint();
   } else if (msg.kind === "empty") {
     isEmpty = true;
     emptyReason = msg.reason || "";
