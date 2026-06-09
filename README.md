@@ -2,6 +2,7 @@
 
 ![preview](https://raw.githubusercontent.com/ArrialVictor/DimFort-VSCompanion/main/social_preview.png)
 
+[![CI](https://github.com/ArrialVictor/DimFort-VSCompanion/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ArrialVictor/DimFort-VSCompanion/actions/workflows/ci.yml)
 [![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/arrialvictor.dimfort-vscode?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=arrialvictor.dimfort-vscode)
 [![Open VSX](https://img.shields.io/open-vsx/v/dimfort/dimfort-vscode?label=Open%20VSX)](https://open-vsx.org/extension/dimfort/dimfort-vscode)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/ArrialVictor/DimFort-VSCompanion/blob/main/LICENSE)
@@ -80,7 +81,7 @@ Open any `.f90` file — DimFort lights up. Settings → search
   The header marker aggregates the worst row: 🔴 mismatch, 🟡 partial,
   🟢 clean. Cycle the level with **DimFort: Cycle Hover Verbosity**;
   the side panel is unaffected (always detailed). The full layout
-  spec lives in [DimFort's hover-ui.md](https://github.com/ArrialVictor/DimFort/blob/main/docs/hover-ui.md).
+  spec lives in [DimFort's hover-ui.md](https://github.com/ArrialVictor/DimFort/blob/main/docs/editor-integration/hover-ui.md).
 
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/hover-call-short_dark.png">
