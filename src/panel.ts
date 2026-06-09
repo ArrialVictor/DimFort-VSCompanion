@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { LanguageClient } from "vscode-languageclient/node";
+import { LanguageClient, State } from "vscode-languageclient/node";
 import { CoverageStatsProvider, StatsSnapshot } from "./stats";
 
 // VSCode's tab-switch can briefly leave activeTextEditor undefined
@@ -134,9 +134,31 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
     // A scale-mode / cache / feature-toggle change goes through a
     // full LSP restart; without a forced refresh the panel keeps
     // showing the prior server's payload until the user moves the
-    // cursor. Schedule one update so the panel reflects the new
-    // server state immediately.
-    if (client) this.scheduleUpdate(0);
+    // cursor.
+    //
+    // setClient() is called BEFORE await client.start() in the
+    // extension's rebuildClient() path, so an immediate
+    // scheduleUpdate(0) would send dimfort/panelInfo before the
+    // client is running — the request goes to nothing and the
+    // panel rebuilds against null. Poll for client.state === Running
+    // before firing, with a 10 s deadline as a safety net.
+    if (client) void this.waitForRunningAndRefresh(client, Date.now() + 10000);
+  }
+
+  /** Poll until the new client is Running, then schedule one panel update. */
+  private async waitForRunningAndRefresh(
+    client: LanguageClient,
+    deadline: number,
+  ): Promise<void> {
+    // Guard: another setClient() may have superseded us mid-wait.
+    if (this.client !== client) return;
+    if (client.state === State.Running) {
+      this.scheduleUpdate(0);
+      return;
+    }
+    if (Date.now() >= deadline) return;
+    await new Promise((r) => setTimeout(r, 300));
+    void this.waitForRunningAndRefresh(client, deadline);
   }
 
   resolveWebviewView(view: vscode.WebviewView): void {
