@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { LanguageClient } from "vscode-languageclient/node";
+import { LanguageClient, State } from "vscode-languageclient/node";
 
 // Wire-format mirror of the server's dimfort/lineStatus response.
 // See DimFort/docs/design/future/coverage-visualization.md §7.
@@ -99,9 +99,31 @@ export class CoverageProvider implements vscode.Disposable {
 
   setClient(client: LanguageClient | undefined): void {
     this.client = client;
-    if (this.mode !== "disabled") {
-      this.refreshAll();
+    if (client && this.mode !== "disabled") {
+      // setClient() is called BEFORE await client.start() in the
+      // extension's rebuildClient() path, so a synchronous
+      // refreshAll() would send dimfort/lineStatus to a Starting-
+      // state client — the requests go to nothing and the gutter /
+      // background tint stays empty until the user touches a buffer.
+      // Poll for State.Running before firing. Same pattern as
+      // panel.ts and stats.ts.
+      void this.waitForRunningAndRefreshAll(client, Date.now() + 10000);
     }
+  }
+
+  /** Poll until ``client`` reaches ``State.Running``, then refreshAll. */
+  private async waitForRunningAndRefreshAll(
+    client: LanguageClient,
+    deadline: number,
+  ): Promise<void> {
+    if (this.client !== client) return;  // another setClient superseded
+    if (client.state === State.Running) {
+      this.refreshAll();
+      return;
+    }
+    if (Date.now() >= deadline) return;
+    await new Promise((r) => setTimeout(r, 300));
+    void this.waitForRunningAndRefreshAll(client, deadline);
   }
 
   setMode(mode: CoverageMode): void {
