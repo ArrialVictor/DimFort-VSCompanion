@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { LanguageClient } from "vscode-languageclient/node";
+import { LanguageClient, State } from "vscode-languageclient/node";
 
 // Wire-format mirror of the server's dimfort/coverageStats response.
 // File-scope is served live by the read-only stats endpoint;
@@ -138,7 +138,14 @@ export class CoverageStatsProvider implements vscode.Disposable {
       // populates without waiting for the first edit. Workspace-scope
       // is intentionally not fetched — it waits for the user's
       // explicit refresh command.
-      void this.refreshActiveFile();
+      //
+      // setClient() is called BEFORE await client.start() in the
+      // extension's rebuildClient() path, so a synchronous
+      // refreshActiveFile() would send dimfort/coverageStats to a
+      // Starting-state client — the request goes to nothing and the
+      // bar stays on "File: –" until the user edits. Poll for
+      // State.Running before firing. Same pattern as panel.ts.
+      void this.waitForRunningAndRefreshActive(client, Date.now() + 10000);
       // Async workspace check (server 0.2.5+): the executeCommand
       // returns an ack immediately and the actual coverage payload
       // arrives later via this notification. The handler updates the
@@ -251,6 +258,21 @@ export class CoverageStatsProvider implements vscode.Disposable {
     if (activeAffected && active) {
       void this.refreshFile(active);
     }
+  }
+
+  /** Poll until ``client`` reaches ``State.Running``, then refresh active. */
+  private async waitForRunningAndRefreshActive(
+    client: LanguageClient,
+    deadline: number,
+  ): Promise<void> {
+    if (this.client !== client) return;  // another setClient superseded
+    if (client.state === State.Running) {
+      void this.refreshActiveFile();
+      return;
+    }
+    if (Date.now() >= deadline) return;
+    await new Promise((r) => setTimeout(r, 300));
+    void this.waitForRunningAndRefreshActive(client, deadline);
   }
 
   private async refreshActiveFile(): Promise<void> {
