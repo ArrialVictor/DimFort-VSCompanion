@@ -10,7 +10,7 @@ import { CoverageStatsProvider, StatsSnapshot } from "./stats";
 const EMPTY_POST_DELAY_MS = 200;
 
 // Wire-format mirror of the server's dimfort/panelInfo response.
-// See DimFort/docs/design/panel-info.md.
+// See DimFort/docs/design/shipped/panel-info.md.
 interface ExpressionNode {
   label: string;
   unit: string | null;
@@ -66,7 +66,7 @@ interface PanelInfo {
 }
 
 // Wire-format mirror of the server's dimfort/interactions response.
-// See DimFort/docs/design/interaction-points.md.
+// See DimFort/docs/design/shipped/interaction-points.md.
 interface InteractionPoint {
   file: string;
   line: number;
