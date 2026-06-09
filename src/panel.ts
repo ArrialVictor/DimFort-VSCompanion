@@ -446,6 +446,22 @@ const MARK = { ok: "🟢", assumed: "🔵", warn: "🟡", error: "🔴" };
 const root = document.getElementById("root");
 const vscodeApi = acquireVsCodeApi();
 
+// Format a count for the footer bar's parenthetical counts (🟡 / 🔴).
+// Three-tier abbreviation chosen so big projects (e.g. 50k+ U-diagnostics
+// at workspace scale on a real codebase) don't blow the footer width:
+//
+//   ≤ 999         → full integer ("52", "999")        — actionable detail
+//   1000-9999     → one decimal kilo ("1.2k", "9.9k") — order-of-magnitude
+//   10000+        → integer kilo ("12k", "100k")      — coarse signal
+//
+// Matches the GitHub-stars / Twitter-followers conventions; familiar
+// enough that no in-bar legend is needed.
+function fmtCount(n) {
+  if (n <= 999) return String(n);
+  if (n < 10000) return (n / 1000).toFixed(1) + "k";
+  return Math.floor(n / 1000) + "k";
+}
+
 function esc(s) {
   return String(s).replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
 }
@@ -551,7 +567,8 @@ function renderFooter(stats) {
   const fileSpan = document.createElement("span");
   if (s.file) {
     fileSpan.textContent =
-      "File: " + s.file.coveragePct + "% (🟡 " + s.file.warn + " 🔴 " + s.file.fire + ")";
+      "File: " + s.file.coveragePct + "% (🟡 " + fmtCount(s.file.warn)
+      + " 🔴 " + fmtCount(s.file.fire) + ")";
   } else {
     fileSpan.textContent = "File: –";
     fileSpan.classList.add("ws-stale");
@@ -594,7 +611,8 @@ function renderFooter(stats) {
       "Run 'DimFort: Refresh Workspace Coverage' to compute";
   } else {
     wsSpan.textContent =
-      "Project: " + ws.coveragePct + "% (🟡 " + ws.warn + " 🔴 " + ws.fire + ")";
+      "Project: " + ws.coveragePct + "% (🟡 " + fmtCount(ws.warn)
+      + " 🔴 " + fmtCount(ws.fire) + ")";
     if (s.wsStale) {
       wsSpan.classList.add("ws-stale");
       wsSpan.title =
