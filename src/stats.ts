@@ -87,6 +87,10 @@ export class CoverageStatsProvider implements vscode.Disposable {
   private readonly emitter = new vscode.EventEmitter<void>();
   readonly onDidChange = this.emitter.event;
   private readonly disposables: vscode.Disposable[] = [];
+  // Per-client notification subscription. Tracked separately from
+  // ``disposables`` so a setClient() call can replace it cleanly
+  // instead of stacking subscriptions across LSP restarts.
+  private notificationSub: vscode.Disposable | undefined;
 
   constructor() {
     this.disposables.push(
@@ -101,6 +105,13 @@ export class CoverageStatsProvider implements vscode.Disposable {
   }
 
   setClient(client: LanguageClient | undefined): void {
+    // Replace the prior client's notification subscription. Without
+    // this, every dimfort.restart accumulated a fresh subscription
+    // for the same notification, so a single
+    // ``dimfort/workspaceCheckCompleted`` would invoke the handler
+    // N times after N restarts.
+    this.notificationSub?.dispose();
+    this.notificationSub = undefined;
     this.client = client;
     this.fileStats.clear();
     this.workspace = null;
@@ -117,13 +128,11 @@ export class CoverageStatsProvider implements vscode.Disposable {
       // returns an ack immediately and the actual coverage payload
       // arrives later via this notification. The handler updates the
       // workspace snapshot and clears the in-flight flag.
-      this.disposables.push(
-        client.onNotification(
-          "dimfort/workspaceCheckCompleted",
-          (params: StatsResponse | { failed: true }) => {
-            this.handleWorkspaceCheckCompleted(params);
-          },
-        ),
+      this.notificationSub = client.onNotification(
+        "dimfort/workspaceCheckCompleted",
+        (params: StatsResponse | { failed: true }) => {
+          this.handleWorkspaceCheckCompleted(params);
+        },
       );
     }
   }
@@ -272,6 +281,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
 
   dispose(): void {
     this.emitter.dispose();
+    this.notificationSub?.dispose();
     for (const d of this.disposables) d.dispose();
   }
 }

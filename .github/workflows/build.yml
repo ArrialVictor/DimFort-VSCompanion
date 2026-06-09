@@ -1,13 +1,13 @@
 name: build
 
-# Tag-gated for now (pre-public; private repos have limited CI
-# minutes). Once the repo is public, add a `pull_request:` trigger
-# and `push: branches: [main]` so every contribution runs through.
-#
 # This workflow compiles the TypeScript and packages the .vsix.
 # A failure here means the extension won't load, period — that's
 # the strongest signal we can get from a thin LSP client without
 # spinning up a VSCode test instance.
+#
+# Per-PR + per-push compile signal lives in ci.yml; build.yml only
+# runs on tags so an unnecessary .vsix artefact isn't produced on
+# every commit.
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Node
         uses: actions/setup-node@v4

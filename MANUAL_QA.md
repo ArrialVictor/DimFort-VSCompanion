@@ -499,15 +499,21 @@ shows the data; column alignment is done in the webview, not ASCII.
         flash the panel to "no Fortran file active" — the empty
         message is delayed 200 ms to absorb VSCode's tab-switch
         transition.
-      - **Opt-in workspace segment** via `dimfort.coverage
-        .workspace_stats` (default `disabled`; opt-ins are
-        `manual` and `automatic`). When enabled, a `· WS: …`
-        segment appears with per-mode behaviour. Carries a
-        documented performance caveat: workspace aggregation
-        holds the LSP check lock for seconds at a time on
-        larger codebases, which freezes other interactive work
-        (squiggles, panel updates). Disabled by default until
-        a future release ships an incremental workspace check.
+      - **Workspace segment** — appears in the same footer line
+        next to `File:`. Reads `WS: –` (dimmed) until the user
+        triggers `DimFort: Check Whole Workspace`; spinner while
+        the server-side daemon worker runs; settles to
+        `WS: <pct>% (🟡 N 🔴 M)` after. Dims once any buffer
+        edits fire so the user knows the snapshot may be stale.
+        Trigger again to refresh. Async since 0.2.5: the bar
+        update lands when the
+        `dimfort/workspaceCheckCompleted` notification arrives,
+        not when the executeCommand returns (which only acks
+        that the daemon worker spawned).
+      - **Duplicate trigger**: invoke the command twice in
+        quick succession. The second invocation surfaces an
+        info popup "DimFort: workspace check already in
+        progress" instead of spawning a second worker.
 
 - [ ] **Cursor-follow** — move between line 10 (function) and line 25
       (subroutine); the Scope section switches between `Function:

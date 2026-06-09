@@ -45,7 +45,7 @@ behavioural QA is `MANUAL_QA.md`.
   scheme.
 - Match the surface of the Nvim and Emacs companions where it makes sense — the
   three are intentionally feature-parallel. Cross-companion design notes live
-  in the DimFort server repo's `docs/design/panel-info.md`.
+  in the DimFort server repo's `docs/design/shipped/panel-info.md`.
 
 ## Publishing
 

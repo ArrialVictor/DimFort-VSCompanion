@@ -10,6 +10,14 @@ commands, packaging).
 
 ## [Unreleased]
 
+### Recommended server version
+
+Pair this companion with DimFort **0.2.5+**. The workspace bar
+listens for the new server-fired `dimfort/workspaceCheckCompleted`
+notification (introduced by DimFort 0.2.5's async workspace check
+refactor). Earlier servers don't emit it; the bar would stay on
+the spinner state forever after a refresh trigger.
+
 ### Added
 
 - **Coverage stats bar (File segment)** — the side-panel footer now
@@ -47,6 +55,16 @@ commands, packaging).
   `check_files` independently, doubling the cost when the user
   wanted both. Requires DimFort 0.2.5+ for the merged
   server-side `dimfort.checkWorkspace` command.
+
+- **Async workspace check** — the executeCommand response now arrives
+  as a `{started, reason?}` ack and the workspace coverage payload
+  comes via the new `dimfort/workspaceCheckCompleted` LSP
+  notification. The status-bar progress + bar update remain in real
+  time during the check (the previous sync handler had
+  workDoneProgress events buffered until return, so the bar was
+  invisible). A duplicate trigger while a check is in flight surfaces
+  a popup notification instead of silently coalescing — both the
+  client-side gate and the server-side gate emit one.
 
 - **Panel tab-switch flicker fix** — empty-state posts (`no Fortran
   file active`) now wait 200 ms before landing, so VSCode's brief
