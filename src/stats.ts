@@ -94,7 +94,22 @@ export class CoverageStatsProvider implements vscode.Disposable {
 
   constructor() {
     this.disposables.push(
+      // File-scope: refresh active-file stats on any diagnostic-change
+      // signal, even server-published ones.
       vscode.languages.onDidChangeDiagnostics(this.handleDiagChange.bind(this)),
+      // Workspace-scope stale flag: only user edits trigger this.
+      // Diagnostic-change events also fire from the server's own post-
+      // check publishDiagnostics fan-out, so using them for the stale
+      // mark caused the bar to dim immediately after every workspace
+      // check completed (the fresh notification arrived first, then
+      // ~2435 publish events flipped wsStale back to true).
+      vscode.workspace.onDidChangeTextDocument((e) => {
+        if (e.document.languageId !== "fortran") return;
+        if (this.workspace !== null && !this.wsStale) {
+          this.wsStale = true;
+          this.emitter.fire();
+        }
+      }),
       vscode.window.onDidChangeActiveTextEditor(() => {
         // Active editor changed: emit so the bar shows the new file's
         // numbers (or "–" if we haven't fetched them yet). Then fetch.
@@ -235,13 +250,6 @@ export class CoverageStatsProvider implements vscode.Disposable {
     }
     if (activeAffected && active) {
       void this.refreshFile(active);
-    }
-    // Workspace-scope: only mark stale once we've ever had a workspace
-    // snapshot. Pre-first-refresh, the WS segment shows "–" anyway —
-    // setting wsStale wouldn't change the render.
-    if (this.workspace !== null && !this.wsStale) {
-      this.wsStale = true;
-      this.emitter.fire();
     }
   }
 

@@ -131,6 +131,12 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
 
   setClient(client: LanguageClient | undefined): void {
     this.client = client;
+    // A scale-mode / cache / feature-toggle change goes through a
+    // full LSP restart; without a forced refresh the panel keeps
+    // showing the prior server's payload until the user moves the
+    // cursor. Schedule one update so the panel reflects the new
+    // server state immediately.
+    if (client) this.scheduleUpdate(0);
   }
 
   resolveWebviewView(view: vscode.WebviewView): void {
