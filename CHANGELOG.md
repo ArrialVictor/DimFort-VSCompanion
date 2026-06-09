@@ -30,12 +30,12 @@ the spinner state forever after a refresh trigger.
   carries the provider; requires DimFort 0.2.4+.
 
 - **Workspace stats segment (manual)** — the panel footer now
-  carries a `WS: …` segment alongside the per-file one. Shows
-  `WS: –` until the user triggers a refresh; spinner + dimmed
-  `WS: computing…` while a refresh is in flight; dims again
+  carries a `Project: …` segment alongside the per-file one. Shows
+  `Project: –` until the user triggers a refresh; spinner + dimmed
+  `Project: computing…` while a refresh is in flight; dims again
   once files have changed since the last refresh (signalling
   that the displayed numbers may be stale). The footer is also
-  visible when no Fortran file is active — `File: – · WS: <last>`
+  visible when no Fortran file is active — `File: – · Project: <last>`
   — so workspace coverage stays visible across tab switches.
   Trigger via the palette command **DimFort: Check Whole
   Workspace**. The bar itself is a display-only surface —
