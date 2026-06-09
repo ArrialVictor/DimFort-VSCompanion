@@ -410,7 +410,7 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   .ws-stale { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
               font-style: italic; }
   /* Pure-CSS spinner that replaces the WS value during a refresh:
-     reads as "WS: ◐". ~0.7em outline circle with one transparent
+     reads as "Project: ◐". ~0.7em outline circle with one transparent
      border edge, rotated continuously. */
   .ws-spinner {
     display: inline-block;
@@ -532,7 +532,7 @@ function renderActions(titles) {
 // counts) was the original notation conflict that motivated this
 // design.
 //
-// Collapses to "File: —  ·  WS: —" when the snapshot has nothing
+// Collapses to "File: —  ·  Project: —" when the snapshot has nothing
 // for the active file and no workspace data yet (snapshot fields are
 // all null) — rather than rendering "0% (🟡 0 🔴 0)", which would
 // read as "everything is broken."
@@ -546,7 +546,7 @@ function renderFooter(stats) {
 
   // File segment: always live (cheap). Shows "File: –" dimmed when
   // there's no active Fortran file (matches the WS segment's
-  // pre-data shape so the footer reads "File: – · WS: –" instead
+  // pre-data shape so the footer reads "File: – · Project: –" instead
   // of a half-rendered "File: —" with normal coloring).
   const fileSpan = document.createElement("span");
   if (s.file) {
@@ -564,9 +564,9 @@ function renderFooter(stats) {
   // command; the bar is purely a display surface with no click
   // handler. Three render states:
   //
-  //   no refresh yet (workspace === null)  → "WS: –" (em-dash placeholder)
-  //   refresh in flight                    → spinner + "WS: computing…" (dimmed)
-  //   have data                            → "WS: <pct>% (🟡 N 🔴 M)"
+  //   no refresh yet (workspace === null)  → "Project: –" (em-dash placeholder)
+  //   refresh in flight                    → spinner + "Project: computing…" (dimmed)
+  //   have data                            → "Project: <pct>% (🟡 N 🔴 M)"
   //                                          dimmed when wsStale is set
   //                                          (files edited since the last
   //                                          successful refresh).
@@ -575,26 +575,26 @@ function renderFooter(stats) {
   const ws = s.workspace;
 
   if (s.wsRefreshing) {
-    // Spinner WHERE THE VALUE WOULD GO so it reads "WS: ◐" — the
+    // Spinner WHERE THE VALUE WOULD GO so it reads "Project: ◐" — the
     // visual indicator replaces the missing value rather than
     // decorating a "computing…" word. Same shape Nvim/Emacs use
     // (different animation machinery; same semantics). The
     // tooltip carries the explicit text for accessibility /
     // screen readers.
-    wsSpan.appendChild(document.createTextNode("WS: "));
+    wsSpan.appendChild(document.createTextNode("Project: "));
     const spinner = document.createElement("span");
     spinner.className = "ws-spinner";
     wsSpan.appendChild(spinner);
     wsSpan.classList.add("ws-stale");
     wsSpan.title = "Workspace coverage refresh in progress";
   } else if (!ws) {
-    wsSpan.textContent = "WS: –";
+    wsSpan.textContent = "Project: –";
     wsSpan.classList.add("ws-stale");
     wsSpan.title =
       "Run 'DimFort: Refresh Workspace Coverage' to compute";
   } else {
     wsSpan.textContent =
-      "WS: " + ws.coveragePct + "% (🟡 " + ws.warn + " 🔴 " + ws.fire + ")";
+      "Project: " + ws.coveragePct + "% (🟡 " + ws.warn + " 🔴 " + ws.fire + ")";
     if (s.wsStale) {
       wsSpan.classList.add("ws-stale");
       wsSpan.title =

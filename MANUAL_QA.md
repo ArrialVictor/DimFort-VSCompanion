@@ -500,10 +500,10 @@ shows the data; column alignment is done in the webview, not ASCII.
         message is delayed 200 ms to absorb VSCode's tab-switch
         transition.
       - **Workspace segment** — appears in the same footer line
-        next to `File:`. Reads `WS: –` (dimmed) until the user
+        next to `File:`. Reads `Project: –` (dimmed) until the user
         triggers `DimFort: Check Whole Workspace`; spinner while
         the server-side daemon worker runs; settles to
-        `WS: <pct>% (🟡 N 🔴 M)` after. Dims once any buffer
+        `Project: <pct>% (🟡 N 🔴 M)` after. Dims once any buffer
         edits fire so the user knows the snapshot may be stale.
         Trigger again to refresh. Async since 0.2.5: the bar
         update lands when the
