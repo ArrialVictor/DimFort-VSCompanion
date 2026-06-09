@@ -5,7 +5,7 @@ import { LanguageClient, State } from "vscode-languageclient/node";
 // File-scope is served live by the read-only stats endpoint;
 // workspace-scope is populated only by the explicit
 // `dimfort.checkWorkspace` command (see
-// `DimFort/docs/design/future/coverage-visualization.md` §13.2).
+// `DimFort/docs/design/shipped/coverage-visualization.md` §13.2).
 interface StatsRow {
   uri: string;
   ok: number;

@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { LanguageClient, State } from "vscode-languageclient/node";
 
 // Wire-format mirror of the server's dimfort/lineStatus response.
-// See DimFort/docs/design/future/coverage-visualization.md §7.
+// See DimFort/docs/design/shipped/coverage-visualization.md §7.
 type CoverageTier = "green" | "yellow" | "red" | "blue";
 type CoverageMode = "disabled" | "gutter" | "background";
 
