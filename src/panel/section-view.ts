@@ -169,10 +169,9 @@ export abstract class SectionView
   .empty { color: var(--vscode-descriptionForeground); font-style: italic; }
   .tree { white-space: pre; }
   .diag { margin: 0.2em 0; }
-  .diag-error   { color: var(--vscode-errorForeground); }
-  .diag-warning { color: var(--vscode-editorWarning-foreground); }
-  .diag-info    { color: var(--vscode-editorInfo-foreground); }
-  .diag-hint    { color: var(--vscode-editorInfo-foreground); }
+  .diag-error { color: var(--vscode-editorError-foreground, var(--vscode-errorForeground)); }
+  .diag-warning { color: var(--vscode-editorWarning-foreground, var(--vscode-foreground)); }
+  .diag-info, .diag-hint { color: var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)); }
   .panel-action {
     display: block; width: 100%; margin: 0.15em 0;
     padding: 0.25em 0.45em; text-align: left;

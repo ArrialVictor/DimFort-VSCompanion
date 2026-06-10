@@ -7,6 +7,7 @@ import {
 import { CoverageProvider } from "./coverage";
 import { DimFortPanelProvider } from "./panel";
 import { PanelCoordinator } from "./panel/coordinator";
+import { CoverageStatusFooter } from "./panel/coverage-status";
 import { CursorView } from "./panel/cursor-view";
 import { ImportsView } from "./panel/imports-view";
 import { ScopeView } from "./panel/scope-view";
@@ -170,6 +171,10 @@ export function activate(context: vscode.ExtensionContext): void {
       ImportsView.viewType, importsView,
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
+    // Coverage as a real status-bar footer rather than an in-webview
+    // section. Always visible at the bottom of the VSCode window across
+    // any editor, with full per-file + workspace breakdown on hover.
+    new CoverageStatusFooter(statsProvider),
   );
 
   // Title-bar cycle for the Scope view's sort mode. The three menu
