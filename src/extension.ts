@@ -165,20 +165,37 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // Title-bar cycle for the Scope view's sort mode. Cycles through
-  // line → alphabetic → status; the existing onDidChangeConfiguration
-  // listener (panel.scopeSortMode) re-broadcasts to all views.
+  // Title-bar cycle for the Scope view's sort mode. The three menu
+  // entries in package.json show different icons depending on the
+  // current mode (list-ordered / case-sensitive / symbol-color) so the
+  // user can tell at a glance which sort is active. All three commands
+  // do the same thing: cycle to the next mode. The icon switch happens
+  // via the dimfort.scopeSortMode context key (updated below).
+  const cycleScopeSort = async () => {
+    const cfg = vscode.workspace.getConfiguration("dimfort");
+    const cur = cfg.get<string>("panel.scopeSortMode", "line");
+    const next = cur === "line" ? "alphabetic"
+      : cur === "alphabetic" ? "status" : "line";
+    await cfg.update(
+      "panel.scopeSortMode", next, vscode.ConfigurationTarget.Global,
+    );
+  };
   context.subscriptions.push(
-    vscode.commands.registerCommand("dimfort.cycleScopeSort", async () => {
-      const cfg = vscode.workspace.getConfiguration("dimfort");
-      const cur = cfg.get<string>("panel.scopeSortMode", "line");
-      const next = cur === "line" ? "alphabetic"
-        : cur === "alphabetic" ? "status" : "line";
-      await cfg.update(
-        "panel.scopeSortMode", next, vscode.ConfigurationTarget.Global,
-      );
-    }),
+    vscode.commands.registerCommand("dimfort.cycleScopeSort", cycleScopeSort),
+    vscode.commands.registerCommand("dimfort.cycleScopeSort.alpha", cycleScopeSort),
+    vscode.commands.registerCommand("dimfort.cycleScopeSort.status", cycleScopeSort),
   );
+  // Set the initial context key so the icon picks the right variant
+  // on activation — without this, the title bar starts with the
+  // 'line' icon regardless of the persisted setting.
+  const setSortContext = () => {
+    const cfg = vscode.workspace.getConfiguration("dimfort");
+    void vscode.commands.executeCommand(
+      "setContext", "dimfort.scopeSortMode",
+      cfg.get<string>("panel.scopeSortMode", "line"),
+    );
+  };
+  setSortContext();
 
   // Cursor-follow: refresh the panel (debounced) as the selection moves
   // or the active editor changes.
@@ -319,6 +336,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (sortOnly) {
         panelProvider?.applySortModesFromConfig();
         panelCoordinator?.applySortModesFromConfig();
+        setSortContext();
         return;
       }
       const coverageOnly =

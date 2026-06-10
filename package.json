@@ -91,7 +91,19 @@
         "command": "dimfort.cycleScopeSort",
         "title": "Cycle Scope Sort (By line / Alphabetic / By status)",
         "category": "DimFort",
-        "icon": "$(sort-precedence)"
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "dimfort.cycleScopeSort.alpha",
+        "title": "Cycle Scope Sort (currently: Alphabetic)",
+        "category": "DimFort",
+        "icon": "$(case-sensitive)"
+      },
+      {
+        "command": "dimfort.cycleScopeSort.status",
+        "title": "Cycle Scope Sort (currently: By status)",
+        "category": "DimFort",
+        "icon": "$(symbol-color)"
       }
     ],
     "viewsContainers": {
@@ -126,7 +138,17 @@
       "view/title": [
         {
           "command": "dimfort.cycleScopeSort",
-          "when": "view == dimfort.scope",
+          "when": "view == dimfort.scope && dimfort.scopeSortMode == 'line'",
+          "group": "navigation"
+        },
+        {
+          "command": "dimfort.cycleScopeSort.alpha",
+          "when": "view == dimfort.scope && dimfort.scopeSortMode == 'alphabetic'",
+          "group": "navigation"
+        },
+        {
+          "command": "dimfort.cycleScopeSort.status",
+          "when": "view == dimfort.scope && dimfort.scopeSortMode == 'status'",
           "group": "navigation"
         }
       ]
