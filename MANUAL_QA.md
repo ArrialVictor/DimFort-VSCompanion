@@ -713,6 +713,15 @@ end module solver
       diagnostics update **without** running *DimFort: Restart* manually.
 - [ ] **Clear cache** — run **DimFort: Clear Content-Hash Cache**; the
       status bar confirms and the server restarts (diagnostics repopulate).
+- [ ] **Restart drift check (perf-PR sanity)** — quit + reopen VSCode,
+      then re-run **DimFort: Refresh Workspace Coverage** on the same
+      `qa.f90`. The H-diag and U-diag counts in the toast must match
+      the pre-restart counts **exactly**. Any drift = a disk-cache codec
+      is producing a different result than a from-scratch run; revert
+      whatever PR introduced it. (This catches the silent-data-loss
+      bug a single-file workset can surface even without a perf bench.
+      Full perf-PR procedure: see
+      [perf-pr-validation.md](https://github.com/ArrialVictor/DimFort/blob/main/docs/design/contributor/perf-pr-validation.md).)
 
 ## Configurable comment delimiters (0.2.2)
 
