@@ -53,13 +53,11 @@ export class CoverageStatusFooter implements vscode.Disposable {
     const snap = this.statsProvider.snapshot(active!.document.uri.toString());
     this.item.text = this.formatText(snap);
     this.item.tooltip = this.formatTooltip(snap);
-    this.item.backgroundColor = snap.wsStale
-      ? new vscode.ThemeColor("statusBarItem.warningBackground")
-      : undefined;
-    // Closest VSCode gives us to "dim the dashes": tint the whole item
-    // muted when nothing has been computed yet. The "(File 92% · Project
-    // –)" case keeps full color so 92% pops; only the all-empty state
-    // dims, signalling "no data here yet" at a glance.
+    // Background tint was too loud for a stale signal — staleness is
+    // informational, not a real warning. The $(warning) codicon next
+    // to "Project" carries the at-a-glance message; tooltip italics
+    // dim the affected numbers; that's enough.
+    this.item.backgroundColor = undefined;
     this.item.color = (snap.file === null && snap.workspace === null)
       ? new vscode.ThemeColor("descriptionForeground")
       : undefined;
@@ -97,33 +95,41 @@ export class CoverageStatusFooter implements vscode.Disposable {
     md.supportThemeIcons = true;
     md.appendMarkdown("**DimFort coverage**\n\n");
 
-    // One combined table with File and Project as columns. Headers
-    // carry the coverage %; rows are the four tiers. Not-yet-computed
-    // scopes get italicised "–" so absence reads dim — the markdown
-    // equivalent of the status-bar item's null-state dim.
-    const fileHead = s.file
-      ? `File ${s.file.coveragePct}%`
-      : "_File –_";
-    const projHead = s.workspace
-      ? `Project ${s.workspace.coveragePct}%${s.wsStale ? " ⚠️" : ""}`
-      : "_Project –_";
-    md.appendMarkdown(`| | ${fileHead} | ${projHead} |\n`);
-    md.appendMarkdown("|---|---|---|\n");
+    // One combined table. Headers stay clean ("File" / "Project"); the
+    // % moves to its own "Coverage" row at the top, so the % reads as
+    // a metric like every tier row below. Project column dims via
+    // italics when stale — the visual equivalent of "this number may
+    // be old" without yelling at the user. ``  `` (two spaces) padding
+    // inside each cell widens the column-gutter a touch since markdown
+    // doesn't expose padding directly.
+    const projDim = s.workspace !== null && s.wsStale;
+    const dim = (txt: string): string => projDim ? `_${txt}_` : txt;
+    // Right-align the numeric columns; first column stays default-left.
+    md.appendMarkdown("|  | File | Project |\n");
+    md.appendMarkdown("|---|---:|---:|\n");
+    const filePct = s.file ? `${s.file.coveragePct}%` : "_–_";
+    const projPct = s.workspace ? dim(`${s.workspace.coveragePct}%`) : "_–_";
+    md.appendMarkdown(`| Coverage |  ${filePct}  |  ${projPct}  |\n`);
     const cell = (
       scope: { ok: number; warn: number; fire: number; unparsed: number } | null,
       field: "ok" | "warn" | "fire" | "unparsed",
-    ): string => scope ? fmtLoc(scope[field]) : "_–_";
+      stale: boolean,
+    ): string => {
+      if (scope === null) return "_–_";
+      const text = fmtLoc(scope[field]);
+      return stale ? `_${text}_` : text;
+    };
     md.appendMarkdown(
-      `| 🟢 Verified | ${cell(s.file, "ok")} | ${cell(s.workspace, "ok")} |\n`,
+      `| 🟢 Verified |  ${cell(s.file, "ok", false)}  |  ${cell(s.workspace, "ok", projDim)}  |\n`,
     );
     md.appendMarkdown(
-      `| 🟡 Unverified | ${cell(s.file, "warn")} | ${cell(s.workspace, "warn")} |\n`,
+      `| 🟡 Unverified |  ${cell(s.file, "warn", false)}  |  ${cell(s.workspace, "warn", projDim)}  |\n`,
     );
     md.appendMarkdown(
-      `| 🔴 Violation | ${cell(s.file, "fire")} | ${cell(s.workspace, "fire")} |\n`,
+      `| 🔴 Violation |  ${cell(s.file, "fire", false)}  |  ${cell(s.workspace, "fire", projDim)}  |\n`,
     );
     md.appendMarkdown(
-      `| 🔵 Unparsed | ${cell(s.file, "unparsed")} | ${cell(s.workspace, "unparsed")} |\n\n`,
+      `| 🔵 Unparsed |  ${cell(s.file, "unparsed", false)}  |  ${cell(s.workspace, "unparsed", projDim)}  |\n\n`,
     );
 
     if (!s.workspace) {
@@ -132,7 +138,7 @@ export class CoverageStatusFooter implements vscode.Disposable {
       );
     } else if (s.wsStale) {
       md.appendMarkdown(
-        "⚠️ _Project numbers are stale — files changed since last "
+        "_Project numbers are stale — files changed since last "
         + "refresh._ **Click to refresh.**",
       );
     } else {
