@@ -103,6 +103,16 @@ interface InteractionsReport {
  */
 type SortMode = "line" | "alphabetic" | "status";
 
+/** Subscriber that mirrors every main-panel webview message.
+ *
+ * Used by the multi-view experiment ([0.2.6 plan #10]) so split-out
+ * section views render the same payloads the main panel does without
+ * an independent LSP fetch.
+ */
+export interface PanelSubscriber {
+  onPanelMessage(msg: unknown): void;
+}
+
 function readSortModes(): { scope: SortMode; imports: SortMode } {
   const cfg = vscode.workspace.getConfiguration("dimfort");
   return {
@@ -373,6 +383,20 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
 
   private post(msg: unknown): void {
     void this.view?.webview.postMessage(msg);
+    // Broadcast to any POC subscribers (multi-view experiment).
+    for (const s of this.subscribers) s.onPanelMessage(msg);
+  }
+
+  private subscribers: PanelSubscriber[] = [];
+
+  /** Register a subscriber that mirrors every panel webview message.
+   *
+   * Used by the multi-view POC so the new ``dimfort.scope`` /
+   * ``dimfort.diagnostics`` views render against the same payloads the
+   * main panel does, without a separate LSP request cycle.
+   */
+  addSubscriber(s: PanelSubscriber): void {
+    this.subscribers.push(s);
   }
 
   /**

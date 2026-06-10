@@ -6,6 +6,10 @@ import {
 } from "vscode-languageclient/node";
 import { CoverageProvider } from "./coverage";
 import { DimFortPanelProvider } from "./panel";
+import {
+  DimFortDiagnosticsViewProvider,
+  DimFortScopeViewProvider,
+} from "./multiview";
 import { CoverageStatsProvider } from "./stats";
 
 let client: LanguageClient | undefined;
@@ -131,6 +135,28 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider(
       DimFortPanelProvider.viewType,
       panelProvider,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
+
+  // 0.2.6 plan #10 — multi-view panel POC. Two extra views registered
+  // alongside the main panel: each subscribes to the main provider's
+  // payload broadcasts so they render the same cursor-driven data
+  // without a separate LSP request. The main panel still renders its
+  // own Scope + Diagnostics so smoke testing can compare side-by-side.
+  const scopeView = new DimFortScopeViewProvider();
+  const diagnosticsView = new DimFortDiagnosticsViewProvider();
+  panelProvider.addSubscriber(scopeView);
+  panelProvider.addSubscriber(diagnosticsView);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      DimFortScopeViewProvider.viewType,
+      scopeView,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+    vscode.window.registerWebviewViewProvider(
+      DimFortDiagnosticsViewProvider.viewType,
+      diagnosticsView,
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
   );

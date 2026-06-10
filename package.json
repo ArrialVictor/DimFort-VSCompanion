@@ -103,6 +103,16 @@
           "id": "dimfort.panel",
           "name": "Units",
           "type": "webview"
+        },
+        {
+          "id": "dimfort.scope",
+          "name": "Scope (POC)",
+          "type": "webview"
+        },
+        {
+          "id": "dimfort.diagnostics",
+          "name": "Diagnostics (POC)",
+          "type": "webview"
         }
       ]
     },
