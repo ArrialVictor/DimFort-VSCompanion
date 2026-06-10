@@ -86,6 +86,42 @@
         "command": "dimfort.refreshWorkspace",
         "title": "Check Whole Workspace",
         "category": "DimFort"
+      },
+      {
+        "command": "dimfort.cycleSortMode",
+        "title": "Cycle Sort Mode (currently: By line)",
+        "category": "DimFort",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "dimfort.cycleSortMode.alpha",
+        "title": "Cycle Sort Mode (currently: Alphabetic)",
+        "category": "DimFort",
+        "icon": "$(case-sensitive)"
+      },
+      {
+        "command": "dimfort.cycleSortMode.status",
+        "title": "Cycle Sort Mode (currently: By status)",
+        "category": "DimFort",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "dimfort.cycleUnitDisplay",
+        "title": "Cycle Unit Display (currently: Input only)",
+        "category": "DimFort",
+        "icon": "$(star-empty)"
+      },
+      {
+        "command": "dimfort.cycleUnitDisplay.canonical",
+        "title": "Cycle Unit Display (currently: Canonical only)",
+        "category": "DimFort",
+        "icon": "$(star-half)"
+      },
+      {
+        "command": "dimfort.cycleUnitDisplay.both",
+        "title": "Cycle Unit Display (currently: Both)",
+        "category": "DimFort",
+        "icon": "$(star-full)"
       }
     ],
     "viewsContainers": {
@@ -100,9 +136,53 @@
     "views": {
       "dimfort": [
         {
-          "id": "dimfort.panel",
-          "name": "Units",
+          "id": "dimfort.cursor",
+          "name": "Cursor",
           "type": "webview"
+        },
+        {
+          "id": "dimfort.scope",
+          "name": "Scope",
+          "type": "webview"
+        },
+        {
+          "id": "dimfort.imports",
+          "name": "Imports",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "dimfort.cycleSortMode",
+          "when": "view =~ /^dimfort\\.(scope|imports)$/ && dimfort.sortMode == 'line'",
+          "group": "navigation"
+        },
+        {
+          "command": "dimfort.cycleSortMode.alpha",
+          "when": "view =~ /^dimfort\\.(scope|imports)$/ && dimfort.sortMode == 'alphabetic'",
+          "group": "navigation"
+        },
+        {
+          "command": "dimfort.cycleSortMode.status",
+          "when": "view =~ /^dimfort\\.(scope|imports)$/ && dimfort.sortMode == 'status'",
+          "group": "navigation"
+        },
+        {
+          "command": "dimfort.cycleUnitDisplay",
+          "when": "view =~ /^dimfort\\.(scope|imports)$/ && dimfort.unitDisplayMode == 'input'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "dimfort.cycleUnitDisplay.canonical",
+          "when": "view =~ /^dimfort\\.(scope|imports)$/ && dimfort.unitDisplayMode == 'canonical'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "dimfort.cycleUnitDisplay.both",
+          "when": "view =~ /^dimfort\\.(scope|imports)$/ && dimfort.unitDisplayMode == 'both'",
+          "group": "navigation@2"
         }
       ]
     },
@@ -213,29 +293,29 @@
           "minimum": 0,
           "description": "Debounce (milliseconds) for the side panel's cursor-follow refresh."
         },
-        "dimfort.panel.scopeSortMode": {
+        "dimfort.panel.sortMode": {
           "type": "string",
           "enum": ["line", "alphabetic", "status"],
           "enumItemLabels": ["By line", "Alphabetic", "By status"],
           "default": "line",
           "enumDescriptions": [
-            "Source order — the line each declaration sits on (default).",
-            "Lower-cased name compare.",
-            "Errors first, then unannotated, then annotated; ties broken by line."
+            "Source order — the line each declaration / `use` statement sits on (default).",
+            "Lower-cased name compare. Imports stay grouped by source module; sort applies within each group.",
+            "Errors first, then unannotated, then annotated; ties broken by line/name."
           ],
-          "description": "Sort order for the side panel's Scope section. Override per session via the right-click menu on a `Scope:` header."
+          "description": "Sort order shared by the side panel's Scope and Imports views. Toggle via the title-bar icon on either view."
         },
-        "dimfort.panel.importsSortMode": {
+        "dimfort.panel.unitDisplayMode": {
           "type": "string",
-          "enum": ["line", "alphabetic", "status"],
-          "enumItemLabels": ["By line", "Alphabetic", "By status"],
-          "default": "line",
+          "enum": ["input", "canonical", "both"],
+          "enumItemLabels": ["Input only", "Canonical only", "Both"],
+          "default": "canonical",
           "enumDescriptions": [
-            "Source order — the line of the `use` statement in the current file (default).",
-            "Lower-cased name compare within each module group.",
-            "Unannotated first, then annotated; ties broken by name."
+            "Show only the unit as it appears in source (e.g. `hPa`) — thinnest panel.",
+            "Show only the canonical base-SI form (e.g. `100×kg/m/s²`) — most visually consistent across declarations (default).",
+            "Show both, with the canonical column populated only when it differs from input (legacy display)."
           ],
-          "description": "Sort order within each module group of the side panel's Imports section. Override per session via the right-click menu on the `from <module>` header."
+          "description": "Which unit column(s) the Scope and Imports views render. Toggle via the title-bar icon on either view."
         },
         "dimfort.coverage.mode": {
           "type": "string",

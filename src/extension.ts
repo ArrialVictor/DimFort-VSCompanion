@@ -5,11 +5,15 @@ import {
   ServerOptions,
 } from "vscode-languageclient/node";
 import { CoverageProvider } from "./coverage";
-import { DimFortPanelProvider } from "./panel";
+import { PanelCoordinator } from "./panel/coordinator";
+import { CoverageStatusFooter } from "./panel/coverage-status";
+import { CursorView } from "./panel/cursor-view";
+import { ImportsView } from "./panel/imports-view";
+import { ScopeView } from "./panel/scope-view";
 import { CoverageStatsProvider } from "./stats";
 
 let client: LanguageClient | undefined;
-let panelProvider: DimFortPanelProvider | undefined;
+let panelCoordinator: PanelCoordinator | undefined;
 let coverageProvider: CoverageProvider | undefined;
 let statsProvider: CoverageStatsProvider | undefined;
 
@@ -101,7 +105,7 @@ async function doRebuildClient(): Promise<void> {
     }
   }
   client = buildClient();
-  panelProvider?.setClient(client);
+  panelCoordinator?.setClient(client);
   coverageProvider?.setClient(client);
   statsProvider?.setClient(client);
   await client.start();
@@ -124,16 +128,83 @@ export function activate(context: vscode.ExtensionContext): void {
   statsProvider.setClient(client);
   context.subscriptions.push(statsProvider);
 
-  // Side panel — a webview view fed by the dimfort/panelInfo request.
-  panelProvider = new DimFortPanelProvider(context.extensionUri, statsProvider);
-  panelProvider.setClient(client);
+  // Multi-view panel. Coordinator owns the cursor-driven LSP loop;
+  // each section view (Cursor / Scope / Imports) subscribes to its
+  // broadcasts so they share one LSP request cycle per cursor event.
+  // Coverage lives in the VSCode status bar instead — see
+  // CoverageStatusFooter below.
+  panelCoordinator = new PanelCoordinator(statsProvider);
+  panelCoordinator.setClient(client);
+  const cursorView = new CursorView();
+  cursorView.actionHandler = (index) => void panelCoordinator?.applyAction(index);
+  panelCoordinator.addSubscriber(cursorView);
+  const scopeView = new ScopeView();
+  panelCoordinator.addSubscriber(scopeView);
+  const importsView = new ImportsView();
+  panelCoordinator.addSubscriber(importsView);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
-      DimFortPanelProvider.viewType,
-      panelProvider,
+      CursorView.viewType, cursorView,
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
+    vscode.window.registerWebviewViewProvider(
+      ScopeView.viewType, scopeView,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+    vscode.window.registerWebviewViewProvider(
+      ImportsView.viewType, importsView,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+    // Coverage as a real status-bar footer rather than an in-webview
+    // section. Always visible at the bottom of the VSCode window across
+    // any editor, with full per-file + workspace breakdown on hover.
+    new CoverageStatusFooter(statsProvider),
   );
+
+  // Title-bar cycle commands. Three menu entries per cycle show
+  // different icons (mode-aware) so the active mode is visible at a
+  // glance. All three command variants per cycle do the same thing.
+  // Sort mode applies to BOTH Scope and Imports views (unified — see
+  // the .when clauses in package.json).
+  const cycleSortMode = async () => {
+    const cfg = vscode.workspace.getConfiguration("dimfort");
+    const cur = cfg.get<string>("panel.sortMode", "line");
+    const next = cur === "line" ? "alphabetic"
+      : cur === "alphabetic" ? "status" : "line";
+    await cfg.update(
+      "panel.sortMode", next, vscode.ConfigurationTarget.Global,
+    );
+  };
+  const cycleUnitDisplay = async () => {
+    const cfg = vscode.workspace.getConfiguration("dimfort");
+    const cur = cfg.get<string>("panel.unitDisplayMode", "canonical");
+    const next = cur === "input" ? "canonical"
+      : cur === "canonical" ? "both" : "input";
+    await cfg.update(
+      "panel.unitDisplayMode", next, vscode.ConfigurationTarget.Global,
+    );
+  };
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.cycleSortMode", cycleSortMode),
+    vscode.commands.registerCommand("dimfort.cycleSortMode.alpha", cycleSortMode),
+    vscode.commands.registerCommand("dimfort.cycleSortMode.status", cycleSortMode),
+    vscode.commands.registerCommand("dimfort.cycleUnitDisplay", cycleUnitDisplay),
+    vscode.commands.registerCommand("dimfort.cycleUnitDisplay.canonical", cycleUnitDisplay),
+    vscode.commands.registerCommand("dimfort.cycleUnitDisplay.both", cycleUnitDisplay),
+  );
+  const setSortContext = () => {
+    const cfg = vscode.workspace.getConfiguration("dimfort");
+    void vscode.commands.executeCommand(
+      "setContext", "dimfort.sortMode",
+      cfg.get<string>("panel.sortMode", "line"),
+    );
+    void vscode.commands.executeCommand(
+      "setContext", "dimfort.unitDisplayMode",
+      cfg.get<string>("panel.unitDisplayMode", "canonical"),
+    );
+  };
+  setSortContext();
+
   // Cursor-follow: refresh the panel (debounced) as the selection moves
   // or the active editor changes.
   const debounceMs = vscode.workspace
@@ -141,25 +212,24 @@ export function activate(context: vscode.ExtensionContext): void {
     .get<number>("panel.debounceMs", 200);
   context.subscriptions.push(
     vscode.window.onDidChangeTextEditorSelection(() =>
-      panelProvider?.scheduleUpdate(debounceMs),
+      panelCoordinator?.scheduleUpdate(debounceMs),
     ),
     vscode.window.onDidChangeActiveTextEditor(() =>
-      panelProvider?.scheduleUpdate(0),
+      panelCoordinator?.scheduleUpdate(0),
     ),
   );
-  // Toggle / focus command.
+  // Toggle / focus command. The Cursor view is the primary surface, so
+  // ``DimFort: Show Side Panel`` focuses it; users can drag the other
+  // views (Scope / Imports) to wherever they like.
   context.subscriptions.push(
     vscode.commands.registerCommand("dimfort.togglePanel", () => {
-      void vscode.commands.executeCommand("dimfort.panel.focus");
+      void vscode.commands.executeCommand("dimfort.cursor.focus");
     }),
   );
-  // Panel shown by default (package.json `panel.enabled` defaults to
-  // true): reveal the DimFort view container on activation unless the
-  // user opted out.
   if (
     vscode.workspace.getConfiguration("dimfort").get<boolean>("panel.enabled", true)
   ) {
-    void vscode.commands.executeCommand("dimfort.panel.focus");
+    void vscode.commands.executeCommand("dimfort.cursor.focus");
   }
 
   // Coverage layer — per-line green/yellow/red/blue decoration driven by
@@ -260,16 +330,18 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(async (event) => {
       if (!event.affectsConfiguration("dimfort")) return;
-      // Panel sort changes are pure UI — push to the webview, never
-      // restart the language server.
-      const sortOnly =
-        (event.affectsConfiguration("dimfort.panel.scopeSortMode") ||
-          event.affectsConfiguration("dimfort.panel.importsSortMode")) &&
+      // Panel sort + unit-display changes are pure UI — push to the
+      // webview, never restart the language server.
+      const uiOnly =
+        (event.affectsConfiguration("dimfort.panel.sortMode") ||
+          event.affectsConfiguration("dimfort.panel.unitDisplayMode")) &&
         !affectsOtherDimfortSettings(event) &&
         !event.affectsConfiguration("dimfort.coverage.mode") &&
         !event.affectsConfiguration("dimfort.coverage.debounceMs");
-      if (sortOnly) {
-        panelProvider?.applySortModesFromConfig();
+      if (uiOnly) {
+        panelCoordinator?.applySortModeFromConfig();
+        panelCoordinator?.applyUnitDisplayFromConfig();
+        setSortContext();
         return;
       }
       const coverageOnly =

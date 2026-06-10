@@ -185,6 +185,16 @@ does the same.
 **Filters**: the Scope and Imports sections each carry an inline
 filter box (name / unit / module).
 
+**Restoring panel layout**: each view (Cursor / Scope / Imports) can
+be independently dragged to the bottom panel or secondary sidebar,
+collapsed, or hidden via right-click on its title bar. If you drag a
+view out and can't get it back via right-click menus, run the
+command palette **`View: Reset View Locations`** — it restores all
+DimFort views (and every other extension's views) to their default
+positions. The "+ Add View" affordance only re-adds *hidden* views,
+not views moved to another location, so dragged-out views need
+either a manual drag back or the reset command.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/panel-vscode-hero_dark.png">
   <img width="640" src="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/panel-vscode-hero_light.png" alt="DimFort side panel in VSCode — the unit-algebra tree for q = 0.5 * rho * v * v with the stacked module/function scope below">
