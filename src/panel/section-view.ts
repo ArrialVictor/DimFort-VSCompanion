@@ -34,7 +34,7 @@ export interface PanelSubscriber {
   onData(payload: PanelPayload): void;
   onEmpty(reason: string): void;
   onStats(snapshot: unknown): void;
-  onSortModes(modes: { scope: SortMode; imports: SortMode }): void;
+  onSortMode(mode: SortMode): void;
   onUnitDisplay(mode: UnitDisplayMode): void;
 }
 
@@ -109,8 +109,8 @@ export abstract class SectionView
     this.post({ kind: "stats", stats: snapshot });
   }
 
-  onSortModes(modes: { scope: SortMode; imports: SortMode }): void {
-    this.post({ kind: "sortModes", scope: modes.scope, imports: modes.imports });
+  onSortMode(mode: SortMode): void {
+    this.post({ kind: "sortMode", mode });
   }
 
   onUnitDisplay(mode: UnitDisplayMode): void {

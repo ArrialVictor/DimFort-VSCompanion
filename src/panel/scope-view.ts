@@ -21,7 +21,7 @@ export class ScopeView extends SectionView {
 
   protected sectionScript(): string {
     return /* js */ `
-let scopeSortMode = getState().scopeSortMode || "line";
+let sortMode = getState().sortMode || "line";
 let scopeFilterValue = getState().scopeFilter || "";
 let unitDisplay = getState().unitDisplay || "canonical";
 let lastScopes = [];
@@ -58,7 +58,7 @@ function renderScope(sc, depth) {
   head.className = "scope-head";
   head.textContent = titlecase(sc.kind) + ": " + sc.name;
   wrap.appendChild(head);
-  const vars = sortScopeVars(sc.vars || [], scopeSortMode);
+  const vars = sortScopeVars(sc.vars || [], sortMode);
   if (vars.length === 0) {
     const e = document.createElement("div");
     e.className = "muted";
@@ -179,10 +179,10 @@ window.addEventListener("message", (ev) => {
     emptyReason = m.reason || "";
     lastScopes = [];
     repaint();
-  } else if (m.kind === "sortModes") {
-    if (typeof m.scope === "string") {
-      scopeSortMode = m.scope;
-      patchState({ scopeSortMode: scopeSortMode });
+  } else if (m.kind === "sortMode") {
+    if (typeof m.mode === "string") {
+      sortMode = m.mode;
+      patchState({ sortMode: sortMode });
       refilter();
     }
   } else if (m.kind === "unitDisplay") {

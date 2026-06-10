@@ -22,7 +22,7 @@ export class ImportsView extends SectionView {
 
   protected sectionScript(): string {
     return /* js */ `
-let importsSortMode = getState().importsSortMode || "line";
+let sortMode = getState().sortMode || "line";
 let importsFilterValue = getState().importsFilter || "";
 let unitDisplay = getState().unitDisplay || "canonical";
 let lastImports = [];
@@ -119,7 +119,7 @@ function renderList() {
     list.appendChild(head);
     const table = document.createElement("table");
     table.style.marginLeft = "14px";
-    const sortedItems = sortImportsList(byModule[mod], importsSortMode);
+    const sortedItems = sortImportsList(byModule[mod], sortMode);
     for (const im of sortedItems) {
       const tr = document.createElement("tr");
       tr.className = "clickable";
@@ -173,10 +173,10 @@ window.addEventListener("message", (ev) => {
     emptyReason = m.reason || "";
     lastImports = [];
     repaint();
-  } else if (m.kind === "sortModes") {
-    if (typeof m.imports === "string") {
-      importsSortMode = m.imports;
-      patchState({ importsSortMode: importsSortMode });
+  } else if (m.kind === "sortMode") {
+    if (typeof m.mode === "string") {
+      sortMode = m.mode;
+      patchState({ sortMode: sortMode });
       renderList();
     }
   } else if (m.kind === "unitDisplay") {

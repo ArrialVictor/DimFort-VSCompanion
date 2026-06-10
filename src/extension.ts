@@ -161,33 +161,23 @@ export function activate(context: vscode.ExtensionContext): void {
     new CoverageStatusFooter(statsProvider),
   );
 
-  // Title-bar cycle for the Scope view's sort mode. The three menu
-  // entries in package.json show different icons depending on the
-  // current mode (list-ordered / case-sensitive / symbol-color) so the
-  // user can tell at a glance which sort is active. All three commands
-  // do the same thing: cycle to the next mode. The icon switch happens
-  // via the dimfort.scopeSortMode context key (updated below).
-  const cycleScopeSort = async () => {
+  // Title-bar cycle commands. Three menu entries per cycle show
+  // different icons (mode-aware) so the active mode is visible at a
+  // glance. All three command variants per cycle do the same thing.
+  // Sort mode applies to BOTH Scope and Imports views (unified — see
+  // the .when clauses in package.json).
+  const cycleSortMode = async () => {
     const cfg = vscode.workspace.getConfiguration("dimfort");
-    const cur = cfg.get<string>("panel.scopeSortMode", "line");
+    const cur = cfg.get<string>("panel.sortMode", "line");
     const next = cur === "line" ? "alphabetic"
       : cur === "alphabetic" ? "status" : "line";
     await cfg.update(
-      "panel.scopeSortMode", next, vscode.ConfigurationTarget.Global,
-    );
-  };
-  const cycleImportsSort = async () => {
-    const cfg = vscode.workspace.getConfiguration("dimfort");
-    const cur = cfg.get<string>("panel.importsSortMode", "line");
-    const next = cur === "line" ? "alphabetic"
-      : cur === "alphabetic" ? "status" : "line";
-    await cfg.update(
-      "panel.importsSortMode", next, vscode.ConfigurationTarget.Global,
+      "panel.sortMode", next, vscode.ConfigurationTarget.Global,
     );
   };
   const cycleUnitDisplay = async () => {
     const cfg = vscode.workspace.getConfiguration("dimfort");
-    const cur = cfg.get<string>("panel.unitDisplayMode", "input");
+    const cur = cfg.get<string>("panel.unitDisplayMode", "canonical");
     const next = cur === "input" ? "canonical"
       : cur === "canonical" ? "both" : "input";
     await cfg.update(
@@ -195,28 +185,18 @@ export function activate(context: vscode.ExtensionContext): void {
     );
   };
   context.subscriptions.push(
-    vscode.commands.registerCommand("dimfort.cycleScopeSort", cycleScopeSort),
-    vscode.commands.registerCommand("dimfort.cycleScopeSort.alpha", cycleScopeSort),
-    vscode.commands.registerCommand("dimfort.cycleScopeSort.status", cycleScopeSort),
-    vscode.commands.registerCommand("dimfort.cycleImportsSort", cycleImportsSort),
-    vscode.commands.registerCommand("dimfort.cycleImportsSort.alpha", cycleImportsSort),
-    vscode.commands.registerCommand("dimfort.cycleImportsSort.status", cycleImportsSort),
+    vscode.commands.registerCommand("dimfort.cycleSortMode", cycleSortMode),
+    vscode.commands.registerCommand("dimfort.cycleSortMode.alpha", cycleSortMode),
+    vscode.commands.registerCommand("dimfort.cycleSortMode.status", cycleSortMode),
     vscode.commands.registerCommand("dimfort.cycleUnitDisplay", cycleUnitDisplay),
     vscode.commands.registerCommand("dimfort.cycleUnitDisplay.canonical", cycleUnitDisplay),
     vscode.commands.registerCommand("dimfort.cycleUnitDisplay.both", cycleUnitDisplay),
   );
-  // Set the initial context keys so the icons pick the right variant
-  // on activation — without this, the title bars start with the
-  // 'line' icon regardless of the persisted settings.
   const setSortContext = () => {
     const cfg = vscode.workspace.getConfiguration("dimfort");
     void vscode.commands.executeCommand(
-      "setContext", "dimfort.scopeSortMode",
-      cfg.get<string>("panel.scopeSortMode", "line"),
-    );
-    void vscode.commands.executeCommand(
-      "setContext", "dimfort.importsSortMode",
-      cfg.get<string>("panel.importsSortMode", "line"),
+      "setContext", "dimfort.sortMode",
+      cfg.get<string>("panel.sortMode", "line"),
     );
     void vscode.commands.executeCommand(
       "setContext", "dimfort.unitDisplayMode",
@@ -353,14 +333,13 @@ export function activate(context: vscode.ExtensionContext): void {
       // Panel sort + unit-display changes are pure UI — push to the
       // webview, never restart the language server.
       const uiOnly =
-        (event.affectsConfiguration("dimfort.panel.scopeSortMode") ||
-          event.affectsConfiguration("dimfort.panel.importsSortMode") ||
+        (event.affectsConfiguration("dimfort.panel.sortMode") ||
           event.affectsConfiguration("dimfort.panel.unitDisplayMode")) &&
         !affectsOtherDimfortSettings(event) &&
         !event.affectsConfiguration("dimfort.coverage.mode") &&
         !event.affectsConfiguration("dimfort.coverage.debounceMs");
       if (uiOnly) {
-        panelCoordinator?.applySortModesFromConfig();
+        panelCoordinator?.applySortModeFromConfig();
         panelCoordinator?.applyUnitDisplayFromConfig();
         setSortContext();
         return;

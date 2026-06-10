@@ -34,12 +34,9 @@ import type {
 const EMPTY_POST_DELAY_MS = 200;
 
 
-function readSortModes(): { scope: SortMode; imports: SortMode } {
+function readSortMode(): SortMode {
   const cfg = vscode.workspace.getConfiguration("dimfort");
-  return {
-    scope: cfg.get<SortMode>("panel.scopeSortMode", "line"),
-    imports: cfg.get<SortMode>("panel.importsSortMode", "line"),
-  };
+  return cfg.get<SortMode>("panel.sortMode", "line");
 }
 
 function readUnitDisplay(): UnitDisplayMode {
@@ -72,7 +69,7 @@ export class PanelCoordinator {
     // Seed the new view with persisted modes so it doesn't sit on
     // whatever its own getState() had cached from a prior session.
     // The first cursor-driven ``update()`` will replay data.
-    s.onSortModes(readSortModes());
+    s.onSortMode(readSortMode());
     s.onUnitDisplay(readUnitDisplay());
   }
 
@@ -144,9 +141,9 @@ export class PanelCoordinator {
     for (const s of this.subscribers) s.onStats(snap);
   }
 
-  applySortModesFromConfig(): void {
-    const modes = readSortModes();
-    for (const s of this.subscribers) s.onSortModes(modes);
+  applySortModeFromConfig(): void {
+    const mode = readSortMode();
+    for (const s of this.subscribers) s.onSortMode(mode);
   }
 
   applyUnitDisplayFromConfig(): void {
