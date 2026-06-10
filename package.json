@@ -127,19 +127,19 @@
         "command": "dimfort.cycleUnitDisplay",
         "title": "Cycle Unit Display (currently: Input only)",
         "category": "DimFort",
-        "icon": "$(symbol-string)"
+        "icon": "$(star-empty)"
       },
       {
         "command": "dimfort.cycleUnitDisplay.canonical",
         "title": "Cycle Unit Display (currently: Canonical only)",
         "category": "DimFort",
-        "icon": "$(symbol-ruler)"
+        "icon": "$(star-half)"
       },
       {
         "command": "dimfort.cycleUnitDisplay.both",
         "title": "Cycle Unit Display (currently: Both)",
         "category": "DimFort",
-        "icon": "$(split-horizontal)"
+        "icon": "$(star-full)"
       }
     ],
     "viewsContainers": {
