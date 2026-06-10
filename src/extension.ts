@@ -260,6 +260,18 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(async (event) => {
       if (!event.affectsConfiguration("dimfort")) return;
+      // Panel sort changes are pure UI — push to the webview, never
+      // restart the language server.
+      const sortOnly =
+        (event.affectsConfiguration("dimfort.panel.scopeSortMode") ||
+          event.affectsConfiguration("dimfort.panel.importsSortMode")) &&
+        !affectsOtherDimfortSettings(event) &&
+        !event.affectsConfiguration("dimfort.coverage.mode") &&
+        !event.affectsConfiguration("dimfort.coverage.debounceMs");
+      if (sortOnly) {
+        panelProvider?.applySortModesFromConfig();
+        return;
+      }
       const coverageOnly =
         (event.affectsConfiguration("dimfort.coverage.mode") ||
           event.affectsConfiguration("dimfort.coverage.debounceMs")) &&

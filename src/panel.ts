@@ -101,6 +101,16 @@ interface InteractionsReport {
  * in via setClient() on each (re)build, since the client is recreated
  * whenever a setting changes.
  */
+type SortMode = "line" | "alphabetic" | "status";
+
+function readSortModes(): { scope: SortMode; imports: SortMode } {
+  const cfg = vscode.workspace.getConfiguration("dimfort");
+  return {
+    scope: cfg.get<SortMode>("panel.scopeSortMode", "line"),
+    imports: cfg.get<SortMode>("panel.importsSortMode", "line"),
+  };
+}
+
 export class DimFortPanelProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "dimfort.panel";
 
@@ -165,6 +175,9 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
     this.view = view;
     view.webview.options = { enableScripts: true };
     view.webview.html = this.html(view.webview);
+    // Seed the webview with the persisted sort modes — see
+    // `setSortModes` for the round-trip on user changes.
+    this.post({ kind: "sortModes", ...readSortModes() });
     // Click-to-navigate: a row in the panel posts {command:"reveal", line}
     // → move the active editor's cursor to that 1-based line and reveal it.
     view.webview.onDidReceiveMessage(async (msg) => {
@@ -198,6 +211,16 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
         void vscode.window.showTextDocument(editor.document, editor.viewColumn);
       } else if (msg?.command === "action" && typeof msg.index === "number") {
         void this.applyAction(msg.index);
+      } else if (
+        msg?.command === "setSortMode" &&
+        (msg.section === "scope" || msg.section === "imports") &&
+        (msg.mode === "line" || msg.mode === "alphabetic" || msg.mode === "status")
+      ) {
+        const key = msg.section === "scope"
+          ? "panel.scopeSortMode" : "panel.importsSortMode";
+        await vscode.workspace.getConfiguration("dimfort").update(
+          key, msg.mode, vscode.ConfigurationTarget.Global,
+        );
       }
     });
     // Render whatever the cursor is on as soon as the view appears.
@@ -352,6 +375,19 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
     void this.view?.webview.postMessage(msg);
   }
 
+  /**
+   * Push the current sort-mode configuration to the webview.
+   *
+   * Called by the extension's `onDidChangeConfiguration` listener so a
+   * user edit to `dimfort.panel.scopeSortMode` / `importsSortMode` in
+   * `settings.json` propagates without a panel reload. The right-click
+   * menu sets the same keys via `setSortMode` → `dimfort.update`, which
+   * loops back through this method.
+   */
+  applySortModesFromConfig(): void {
+    this.post({ kind: "sortModes", ...readSortModes() });
+  }
+
   private html(webview: vscode.Webview): string {
     const nonce = String(Math.random()).slice(2);
     const csp =
@@ -403,7 +439,20 @@ export class DimFortPanelProvider implements vscode.WebviewViewProvider {
      (one class), so its colour would otherwise win on a td that has
      both classes. Match it with a type+class selector so muted applies. */
   td.muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
-  .scope-head { font-weight: 600; margin-top: 0.6em; }
+  .scope-head { font-weight: 600; margin-top: 0.6em; cursor: context-menu; }
+  .dimfort-sort-menu {
+    position: fixed; z-index: 10000;
+    background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+    color: var(--vscode-menu-foreground, var(--vscode-foreground));
+    border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    padding: 0.2em 0; min-width: 9em; font-size: 0.95em;
+  }
+  .dimfort-sort-item { padding: 0.25em 0.7em; cursor: pointer; white-space: pre; }
+  .dimfort-sort-item:hover {
+    background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground));
+    color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground));
+  }
   .scope-filter { width: 100%; box-sizing: border-box; margin: 0.1em 0 0.5em;
             padding: 0.25em 0.45em; font-family: inherit; font-size: 0.95em;
             color: var(--vscode-input-foreground, var(--vscode-foreground));
@@ -528,6 +577,94 @@ const foldState = getState().fold || {};
 function setFold(title, open) {
   foldState[title] = open;
   patchState({ fold: foldState });
+}
+
+// Sort modes for the Scope and Imports sections. Defaults to "line"
+// (source order — original behavior). Hydrated from getState first so a
+// reload mid-session restores the choice; the host pushes a {kind:"sortModes"}
+// message right after the webview boots, which carries the persisted
+// settings.json values and overrides the in-session state on first arrival.
+let scopeSortMode = getState().scopeSortMode || "line";
+let importsSortMode = getState().importsSortMode || "line";
+
+function statusRank(kind) {
+  // Order: error → unannotated → annotated. Errors first so the
+  // "what's broken" pops to the top of the table.
+  return kind === "error" ? 0 : kind === "unannotated" ? 1 : 2;
+}
+function sortScopeVars(vars, mode) {
+  const out = vars.slice();
+  if (mode === "alphabetic") {
+    out.sort((a, b) =>
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  } else if (mode === "status") {
+    out.sort((a, b) =>
+      (statusRank(a.kind) - statusRank(b.kind)) || (a.line - b.line));
+  } else {
+    out.sort((a, b) => a.line - b.line);
+  }
+  return out;
+}
+function sortImportsList(vars, mode) {
+  // Imports carry no source line in the wire schema, but the server
+  // emits them in a stable use-clause order; "line" preserves that.
+  const out = vars.slice();
+  if (mode === "alphabetic") {
+    out.sort((a, b) =>
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  } else if (mode === "status") {
+    // Unannotated first (the squeaky wheel — the @unit{} that's
+    // missing is more useful than the ones already done).
+    out.sort((a, b) =>
+      ((a.kind === "unannotated" ? 0 : 1) - (b.kind === "unannotated" ? 0 : 1)) ||
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  } else {
+    out.sort((a, b) => (a.line || 0) - (b.line || 0));
+  }
+  return out;
+}
+
+const SORT_MODE_LABELS = {
+  line: "By line",
+  alphabetic: "Alphabetic",
+  status: "By status",
+};
+// Section-header context menu. Right-clicking a "Scope:" or "from <mod>"
+// header pops this small list so the user can pick a sort order. The
+// choice round-trips to the host via {command:"setSortMode"} so it
+// persists across sessions (settings.json).
+function showSortMenu(anchor, section, current) {
+  document.querySelectorAll(".dimfort-sort-menu").forEach((m) => m.remove());
+  const menu = document.createElement("div");
+  menu.className = "dimfort-sort-menu";
+  const rect = anchor.getBoundingClientRect();
+  menu.style.left = rect.left + "px";
+  menu.style.top = (rect.bottom + 2) + "px";
+  Object.keys(SORT_MODE_LABELS).forEach((mode) => {
+    const item = document.createElement("div");
+    item.className = "dimfort-sort-item";
+    item.textContent = (mode === current ? "✓ " : "  ") + SORT_MODE_LABELS[mode];
+    item.addEventListener("click", () => {
+      menu.remove();
+      if (section === "scope") scopeSortMode = mode;
+      else importsSortMode = mode;
+      patchState({
+        scopeSortMode: scopeSortMode,
+        importsSortMode: importsSortMode,
+      });
+      vscodeApi.postMessage({ command: "setSortMode", section: section, mode: mode });
+      repaint();
+    });
+    menu.appendChild(item);
+  });
+  document.body.appendChild(menu);
+  const dismiss = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      document.removeEventListener("click", dismiss);
+    }
+  };
+  setTimeout(() => document.addEventListener("click", dismiss), 0);
 }
 
 // A foldable section: <details><summary>TITLE</summary> content </details>.
@@ -728,8 +865,13 @@ function renderScope(sc, depth) {
   const head = document.createElement("div");
   head.className = "scope-head";
   head.textContent = titlecase(sc.kind) + ": " + sc.name;
+  head.title = "Right-click to change sort order";
+  head.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    showSortMenu(head, "scope", scopeSortMode);
+  });
   wrap.appendChild(head);
-  const vars = sc.vars || [];
+  const vars = sortScopeVars(sc.vars || [], scopeSortMode);
   if (vars.length === 0) {
     const e = document.createElement("div");
     e.className = "muted";
@@ -803,20 +945,35 @@ function renderImportsList(container) {
     container.appendChild(e);
     return;
   }
+  // Bucket imports by source module. Track the first-seen order
+  // separately so the module headers stay in source 'use'-statement
+  // order regardless of the current sort mode (the sort applies
+  // WITHIN each group; modules themselves remain in source order).
   const byModule = {};
+  const moduleOrder = [];
   for (const im of imports) {
-    (byModule[im.module] = byModule[im.module] || []).push(im);
+    if (!byModule[im.module]) {
+      byModule[im.module] = [];
+      moduleOrder.push(im.module);
+    }
+    byModule[im.module].push(im);
   }
-  for (const mod of Object.keys(byModule)) {
+  for (const mod of moduleOrder) {
     const head = document.createElement("div");
     head.className = "scope-head";
     head.textContent = "from " + mod;
+    head.title = "Right-click to change sort order";
+    head.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      showSortMenu(head, "imports", importsSortMode);
+    });
     container.appendChild(head);
     // Indent the module's items under its header so the grouping reads
     // as a tree (the "tabulation" of the module's content).
     const table = document.createElement("table");
     table.style.marginLeft = "14px";
-    for (const im of byModule[mod]) {
+    const sortedItems = sortImportsList(byModule[mod], importsSortMode);
+    for (const im of sortedItems) {
       const tr = document.createElement("tr");
       tr.className = "clickable";
       tr.title = "Go to declaration"
@@ -1137,6 +1294,17 @@ window.addEventListener("message", (ev) => {
     isEmpty = true;
     emptyReason = msg.reason || "";
     repaint();
+  } else if (msg.kind === "sortModes") {
+    // First arrival wins as the source of truth for the persisted
+    // settings.json values; subsequent arrivals (settings.json edits)
+    // also propagate immediately. In both cases keep getState in sync.
+    if (typeof msg.scope === "string") scopeSortMode = msg.scope;
+    if (typeof msg.imports === "string") importsSortMode = msg.imports;
+    patchState({
+      scopeSortMode: scopeSortMode,
+      importsSortMode: importsSortMode,
+    });
+    if (lastPayload) repaint();
   }
 });
 </script>

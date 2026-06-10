@@ -213,6 +213,30 @@
           "minimum": 0,
           "description": "Debounce (milliseconds) for the side panel's cursor-follow refresh."
         },
+        "dimfort.panel.scopeSortMode": {
+          "type": "string",
+          "enum": ["line", "alphabetic", "status"],
+          "enumItemLabels": ["By line", "Alphabetic", "By status"],
+          "default": "line",
+          "enumDescriptions": [
+            "Source order — the line each declaration sits on (default).",
+            "Lower-cased name compare.",
+            "Errors first, then unannotated, then annotated; ties broken by line."
+          ],
+          "description": "Sort order for the side panel's Scope section. Override per session via the right-click menu on a `Scope:` header."
+        },
+        "dimfort.panel.importsSortMode": {
+          "type": "string",
+          "enum": ["line", "alphabetic", "status"],
+          "enumItemLabels": ["By line", "Alphabetic", "By status"],
+          "default": "line",
+          "enumDescriptions": [
+            "Source order — the line of the `use` statement in the current file (default).",
+            "Lower-cased name compare within each module group.",
+            "Unannotated first, then annotated; ties broken by name."
+          ],
+          "description": "Sort order within each module group of the side panel's Imports section. Override per session via the right-click menu on the `from <module>` header."
+        },
         "dimfort.coverage.mode": {
           "type": "string",
           "enum": ["disabled", "gutter", "background"],
