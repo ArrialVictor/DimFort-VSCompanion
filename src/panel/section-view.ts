@@ -25,6 +25,7 @@ import * as vscode from "vscode";
 import type {
   PanelPayload,
   SortMode,
+  UnitDisplayMode,
 } from "./types";
 
 
@@ -34,6 +35,7 @@ export interface PanelSubscriber {
   onEmpty(reason: string): void;
   onStats(snapshot: unknown): void;
   onSortModes(modes: { scope: SortMode; imports: SortMode }): void;
+  onUnitDisplay(mode: UnitDisplayMode): void;
 }
 
 
@@ -109,6 +111,10 @@ export abstract class SectionView
 
   onSortModes(modes: { scope: SortMode; imports: SortMode }): void {
     this.post({ kind: "sortModes", scope: modes.scope, imports: modes.imports });
+  }
+
+  onUnitDisplay(mode: UnitDisplayMode): void {
+    this.post({ kind: "unitDisplay", mode });
   }
 
   // ---------------------------------------------------------------------

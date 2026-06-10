@@ -122,6 +122,24 @@
         "title": "Cycle Imports Sort (currently: By status)",
         "category": "DimFort",
         "icon": "$(symbol-color)"
+      },
+      {
+        "command": "dimfort.cycleUnitDisplay",
+        "title": "Cycle Unit Display (currently: Input only)",
+        "category": "DimFort",
+        "icon": "$(symbol-string)"
+      },
+      {
+        "command": "dimfort.cycleUnitDisplay.canonical",
+        "title": "Cycle Unit Display (currently: Canonical only)",
+        "category": "DimFort",
+        "icon": "$(symbol-ruler)"
+      },
+      {
+        "command": "dimfort.cycleUnitDisplay.both",
+        "title": "Cycle Unit Display (currently: Both)",
+        "category": "DimFort",
+        "icon": "$(split-horizontal)"
       }
     ],
     "viewsContainers": {
@@ -183,6 +201,21 @@
           "command": "dimfort.cycleImportsSort.status",
           "when": "view == dimfort.imports && dimfort.importsSortMode == 'status'",
           "group": "navigation"
+        },
+        {
+          "command": "dimfort.cycleUnitDisplay",
+          "when": "view =~ /^dimfort\\.(scope|imports)$/ && dimfort.unitDisplayMode == 'input'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "dimfort.cycleUnitDisplay.canonical",
+          "when": "view =~ /^dimfort\\.(scope|imports)$/ && dimfort.unitDisplayMode == 'canonical'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "dimfort.cycleUnitDisplay.both",
+          "when": "view =~ /^dimfort\\.(scope|imports)$/ && dimfort.unitDisplayMode == 'both'",
+          "group": "navigation@2"
         }
       ]
     },
@@ -316,6 +349,18 @@
             "Unannotated first, then annotated; ties broken by name."
           ],
           "description": "Sort order within each module group of the side panel's Imports section. Override per session via the right-click menu on the `from <module>` header."
+        },
+        "dimfort.panel.unitDisplayMode": {
+          "type": "string",
+          "enum": ["input", "canonical", "both"],
+          "enumItemLabels": ["Input only", "Canonical only", "Both"],
+          "default": "input",
+          "enumDescriptions": [
+            "Show only the unit as it appears in source (e.g. `hPa`) — thinnest panel.",
+            "Show only the canonical base-SI form (e.g. `100×kg/m/s²`).",
+            "Show both, with the canonical column populated only when it differs from input (legacy display)."
+          ],
+          "description": "Which unit column(s) the Scope and Imports views render. Toggle via the title-bar icon on either view."
         },
         "dimfort.coverage.mode": {
           "type": "string",

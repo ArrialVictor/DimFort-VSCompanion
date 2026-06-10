@@ -185,6 +185,15 @@ export function activate(context: vscode.ExtensionContext): void {
       "panel.importsSortMode", next, vscode.ConfigurationTarget.Global,
     );
   };
+  const cycleUnitDisplay = async () => {
+    const cfg = vscode.workspace.getConfiguration("dimfort");
+    const cur = cfg.get<string>("panel.unitDisplayMode", "input");
+    const next = cur === "input" ? "canonical"
+      : cur === "canonical" ? "both" : "input";
+    await cfg.update(
+      "panel.unitDisplayMode", next, vscode.ConfigurationTarget.Global,
+    );
+  };
   context.subscriptions.push(
     vscode.commands.registerCommand("dimfort.cycleScopeSort", cycleScopeSort),
     vscode.commands.registerCommand("dimfort.cycleScopeSort.alpha", cycleScopeSort),
@@ -192,6 +201,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("dimfort.cycleImportsSort", cycleImportsSort),
     vscode.commands.registerCommand("dimfort.cycleImportsSort.alpha", cycleImportsSort),
     vscode.commands.registerCommand("dimfort.cycleImportsSort.status", cycleImportsSort),
+    vscode.commands.registerCommand("dimfort.cycleUnitDisplay", cycleUnitDisplay),
+    vscode.commands.registerCommand("dimfort.cycleUnitDisplay.canonical", cycleUnitDisplay),
+    vscode.commands.registerCommand("dimfort.cycleUnitDisplay.both", cycleUnitDisplay),
   );
   // Set the initial context keys so the icons pick the right variant
   // on activation — without this, the title bars start with the
@@ -205,6 +217,10 @@ export function activate(context: vscode.ExtensionContext): void {
     void vscode.commands.executeCommand(
       "setContext", "dimfort.importsSortMode",
       cfg.get<string>("panel.importsSortMode", "line"),
+    );
+    void vscode.commands.executeCommand(
+      "setContext", "dimfort.unitDisplayMode",
+      cfg.get<string>("panel.unitDisplayMode", "input"),
     );
   };
   setSortContext();
@@ -334,16 +350,18 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(async (event) => {
       if (!event.affectsConfiguration("dimfort")) return;
-      // Panel sort changes are pure UI — push to the webview, never
-      // restart the language server.
-      const sortOnly =
+      // Panel sort + unit-display changes are pure UI — push to the
+      // webview, never restart the language server.
+      const uiOnly =
         (event.affectsConfiguration("dimfort.panel.scopeSortMode") ||
-          event.affectsConfiguration("dimfort.panel.importsSortMode")) &&
+          event.affectsConfiguration("dimfort.panel.importsSortMode") ||
+          event.affectsConfiguration("dimfort.panel.unitDisplayMode")) &&
         !affectsOtherDimfortSettings(event) &&
         !event.affectsConfiguration("dimfort.coverage.mode") &&
         !event.affectsConfiguration("dimfort.coverage.debounceMs");
-      if (sortOnly) {
+      if (uiOnly) {
         panelCoordinator?.applySortModesFromConfig();
+        panelCoordinator?.applyUnitDisplayFromConfig();
         setSortContext();
         return;
       }

@@ -22,6 +22,7 @@ import type {
   PanelInfo,
   PanelPayload,
   SortMode,
+  UnitDisplayMode,
 } from "./types";
 
 
@@ -39,6 +40,11 @@ function readSortModes(): { scope: SortMode; imports: SortMode } {
     scope: cfg.get<SortMode>("panel.scopeSortMode", "line"),
     imports: cfg.get<SortMode>("panel.importsSortMode", "line"),
   };
+}
+
+function readUnitDisplay(): UnitDisplayMode {
+  const cfg = vscode.workspace.getConfiguration("dimfort");
+  return cfg.get<UnitDisplayMode>("panel.unitDisplayMode", "input");
 }
 
 
@@ -63,10 +69,11 @@ export class PanelCoordinator {
 
   addSubscriber(s: PanelSubscriber): void {
     this.subscribers.push(s);
-    // Seed the new view with the persisted sort modes so it doesn't
-    // sit on whatever its own getState() had cached from a prior
-    // session. The first cursor-driven ``update()`` will replay data.
+    // Seed the new view with persisted modes so it doesn't sit on
+    // whatever its own getState() had cached from a prior session.
+    // The first cursor-driven ``update()`` will replay data.
     s.onSortModes(readSortModes());
+    s.onUnitDisplay(readUnitDisplay());
   }
 
   // -------------------------------------------------------------------
@@ -140,6 +147,11 @@ export class PanelCoordinator {
   applySortModesFromConfig(): void {
     const modes = readSortModes();
     for (const s of this.subscribers) s.onSortModes(modes);
+  }
+
+  applyUnitDisplayFromConfig(): void {
+    const mode = readUnitDisplay();
+    for (const s of this.subscribers) s.onUnitDisplay(mode);
   }
 
   // -------------------------------------------------------------------

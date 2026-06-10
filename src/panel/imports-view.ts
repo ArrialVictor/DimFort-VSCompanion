@@ -24,6 +24,7 @@ export class ImportsView extends SectionView {
     return /* js */ `
 let importsSortMode = getState().importsSortMode || "line";
 let importsFilterValue = getState().importsFilter || "";
+let unitDisplay = getState().unitDisplay || "input";
 let lastImports = [];
 let isEmpty = false;
 let emptyReason = "";
@@ -128,16 +129,23 @@ function renderList() {
         im.file ? revealAt(im.file, im.line, im.column)
                 : revealAt(undefined, im.line, im.column));
       const mark = im.kind === "unannotated" ? "\u{1F7E1}" : "\u{1F7E2}";
-      const normText =
-        im.unitNormalized && im.unitNormalized !== im.unit ? im.unitNormalized : "";
-      const unitText = im.unit != null ? im.unit
+      const inputUnit = im.unit != null ? im.unit
         : (im.callable && im.kind === "annotated" ? "-" : "?");
+      const canonicalUnit = im.unitNormalized || inputUnit;
       const cells = [
         ["name", im.callable ? im.name + (im.signature || "()") : im.name],
-        ["unit", unitText],
-        ["normalized", normText],
-        ["mark", mark],
       ];
+      if (unitDisplay === "input") {
+        cells.push(["unit", inputUnit]);
+      } else if (unitDisplay === "canonical") {
+        cells.push(["unit", canonicalUnit]);
+      } else {
+        const normText =
+          im.unitNormalized && im.unitNormalized !== im.unit ? im.unitNormalized : "";
+        cells.push(["unit", inputUnit]);
+        cells.push(["normalized", normText]);
+      }
+      cells.push(["mark", mark]);
       for (const [cls, txt] of cells) {
         const td = document.createElement("td");
         let className = cls;
@@ -169,6 +177,12 @@ window.addEventListener("message", (ev) => {
     if (typeof m.imports === "string") {
       importsSortMode = m.imports;
       patchState({ importsSortMode: importsSortMode });
+      renderList();
+    }
+  } else if (m.kind === "unitDisplay") {
+    if (typeof m.mode === "string") {
+      unitDisplay = m.mode;
+      patchState({ unitDisplay: unitDisplay });
       renderList();
     }
   }

@@ -23,6 +23,7 @@ export class ScopeView extends SectionView {
     return /* js */ `
 let scopeSortMode = getState().scopeSortMode || "line";
 let scopeFilterValue = getState().scopeFilter || "";
+let unitDisplay = getState().unitDisplay || "input";
 let lastScopes = [];
 let isEmpty = false;
 let emptyReason = "";
@@ -73,18 +74,25 @@ function renderScope(sc, depth) {
     tr.addEventListener("click", () => revealLine(v.line));
     const mark =
       v.kind === "unannotated" ? "\u{1F7E1}" : v.kind === "error" ? "\u{1F534}" : "\u{1F7E2}";
-    const normText =
-      v.unitNormalized && v.unitNormalized !== v.unit ? v.unitNormalized : "";
-    const unitText = v.unit != null ? v.unit : "?";
-    // Line number lives in the row tooltip ("Go to declaration (line N)")
-    // and the click action — no dedicated column. Brings Scope into
-    // visual parity with Imports.
-    const cells = [
-      ["name", v.name],
-      ["unit", unitText],
-      ["normalized", normText],
-      ["mark", mark],
-    ];
+    const inputUnit = v.unit != null ? v.unit : "?";
+    const canonicalUnit = v.unitNormalized || inputUnit;
+    // Cells assembled per unit-display mode:
+    //   input     → just the input column (thinnest)
+    //   canonical → just the canonical column
+    //   both      → input + a 'normalized' column shown only when it
+    //               differs from input (matches legacy behaviour)
+    const cells = [["name", v.name]];
+    if (unitDisplay === "input") {
+      cells.push(["unit", inputUnit]);
+    } else if (unitDisplay === "canonical") {
+      cells.push(["unit", canonicalUnit]);
+    } else {
+      const normText =
+        v.unitNormalized && v.unitNormalized !== v.unit ? v.unitNormalized : "";
+      cells.push(["unit", inputUnit]);
+      cells.push(["normalized", normText]);
+    }
+    cells.push(["mark", mark]);
     for (const [cls, txt] of cells) {
       const td = document.createElement("td");
       let className = cls;
@@ -175,6 +183,12 @@ window.addEventListener("message", (ev) => {
     if (typeof m.scope === "string") {
       scopeSortMode = m.scope;
       patchState({ scopeSortMode: scopeSortMode });
+      refilter();
+    }
+  } else if (m.kind === "unitDisplay") {
+    if (typeof m.mode === "string") {
+      unitDisplay = m.mode;
+      patchState({ unitDisplay: unitDisplay });
       refilter();
     }
   }

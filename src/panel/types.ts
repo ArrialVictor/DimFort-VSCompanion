@@ -105,6 +105,9 @@ export interface InteractionsReport {
 
 export type SortMode = "line" | "alphabetic" | "status";
 
+/** Which unit columns Scope/Imports views render. */
+export type UnitDisplayMode = "input" | "canonical" | "both";
+
 /** Snapshot the coordinator broadcasts to all subscribed views. */
 export interface PanelPayload {
   payload: PanelInfo;
