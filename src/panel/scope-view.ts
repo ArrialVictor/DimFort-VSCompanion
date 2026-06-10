@@ -76,8 +76,10 @@ function renderScope(sc, depth) {
     const normText =
       v.unitNormalized && v.unitNormalized !== v.unit ? v.unitNormalized : "";
     const unitText = v.unit != null ? v.unit : "?";
+    // Line number lives in the row tooltip ("Go to declaration (line N)")
+    // and the click action — no dedicated column. Brings Scope into
+    // visual parity with Imports.
     const cells = [
-      ["line", String(v.line)],
       ["name", v.name],
       ["unit", unitText],
       ["normalized", normText],
@@ -85,7 +87,7 @@ function renderScope(sc, depth) {
     ];
     for (const [cls, txt] of cells) {
       const td = document.createElement("td");
-      let className = cls === "line" ? "line clickable" : cls;
+      let className = cls;
       if (cls === "unit" && (txt === "?" || txt === "-")) {
         className += " muted";
       }
