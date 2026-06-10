@@ -90,9 +90,9 @@ export class CoverageStatusFooter implements vscode.Disposable {
     if (s.file) {
       md.appendMarkdown(`| File | ${s.file.coveragePct}% |\n`);
       md.appendMarkdown("|---|---|\n");
-      md.appendMarkdown(`| 🟢 OK | ${fmtLoc(s.file.ok)} |\n`);
+      md.appendMarkdown(`| 🟢 Verified | ${fmtLoc(s.file.ok)} |\n`);
       md.appendMarkdown(`| 🟡 Unverified | ${fmtLoc(s.file.warn)} |\n`);
-      md.appendMarkdown(`| 🔴 Fire | ${fmtLoc(s.file.fire)} |\n`);
+      md.appendMarkdown(`| 🔴 Violation | ${fmtLoc(s.file.fire)} |\n`);
       md.appendMarkdown(`| 🔵 Unparsed | ${fmtLoc(s.file.unparsed)} |\n\n`);
     } else {
       md.appendMarkdown("_File coverage not yet computed._\n\n");
@@ -100,9 +100,9 @@ export class CoverageStatusFooter implements vscode.Disposable {
     if (s.workspace) {
       md.appendMarkdown(`| Project | ${s.workspace.coveragePct}% |\n`);
       md.appendMarkdown("|---|---|\n");
-      md.appendMarkdown(`| 🟢 OK | ${fmtLoc(s.workspace.ok)} |\n`);
+      md.appendMarkdown(`| 🟢 Verified | ${fmtLoc(s.workspace.ok)} |\n`);
       md.appendMarkdown(`| 🟡 Unverified | ${fmtLoc(s.workspace.warn)} |\n`);
-      md.appendMarkdown(`| 🔴 Fire | ${fmtLoc(s.workspace.fire)} |\n`);
+      md.appendMarkdown(`| 🔴 Violation | ${fmtLoc(s.workspace.fire)} |\n`);
       md.appendMarkdown(`| 🔵 Unparsed | ${fmtLoc(s.workspace.unparsed)} |\n\n`);
       if (s.wsStale) {
         md.appendMarkdown(

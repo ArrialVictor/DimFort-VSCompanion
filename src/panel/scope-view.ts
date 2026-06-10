@@ -113,7 +113,7 @@ function repaint() {
   // Filter input
   const filter = document.createElement("input");
   filter.type = "text";
-  filter.placeholder = "Filter declarations…";
+  filter.placeholder = "Filter scope…";
   filter.className = "filter-input";
   filter.value = scopeFilterValue;
   filter.addEventListener("input", () => {
