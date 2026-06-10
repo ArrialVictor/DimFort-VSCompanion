@@ -8,6 +8,7 @@ import { CoverageProvider } from "./coverage";
 import { DimFortPanelProvider } from "./panel";
 import { PanelCoordinator } from "./panel/coordinator";
 import { CoverageStatusFooter } from "./panel/coverage-status";
+import { CoverageView } from "./panel/coverage-view";
 import { CursorView } from "./panel/cursor-view";
 import { ImportsView } from "./panel/imports-view";
 import { ScopeView } from "./panel/scope-view";
@@ -158,6 +159,10 @@ export function activate(context: vscode.ExtensionContext): void {
   panelCoordinator.addSubscriber(scopeView);
   const importsView = new ImportsView();
   panelCoordinator.addSubscriber(importsView);
+  const coverageView = new CoverageView();
+  coverageView.refreshWorkspace = () =>
+    void vscode.commands.executeCommand("dimfort.refreshWorkspace");
+  panelCoordinator.addSubscriber(coverageView);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       CursorView.viewType, cursorView,
@@ -169,6 +174,10 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.window.registerWebviewViewProvider(
       ImportsView.viewType, importsView,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+    vscode.window.registerWebviewViewProvider(
+      CoverageView.viewType, coverageView,
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
     // Coverage as a real status-bar footer rather than an in-webview

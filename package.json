@@ -151,6 +151,11 @@
           "type": "webview"
         },
         {
+          "id": "dimfort.coverage",
+          "name": "Coverage",
+          "type": "webview"
+        },
+        {
           "id": "dimfort.panel",
           "name": "Units (legacy)",
           "type": "webview"
