@@ -23,7 +23,7 @@ export class ScopeView extends SectionView {
     return /* js */ `
 let scopeSortMode = getState().scopeSortMode || "line";
 let scopeFilterValue = getState().scopeFilter || "";
-let unitDisplay = getState().unitDisplay || "input";
+let unitDisplay = getState().unitDisplay || "canonical";
 let lastScopes = [];
 let isEmpty = false;
 let emptyReason = "";

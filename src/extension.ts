@@ -220,7 +220,7 @@ export function activate(context: vscode.ExtensionContext): void {
     );
     void vscode.commands.executeCommand(
       "setContext", "dimfort.unitDisplayMode",
-      cfg.get<string>("panel.unitDisplayMode", "input"),
+      cfg.get<string>("panel.unitDisplayMode", "canonical"),
     );
   };
   setSortContext();

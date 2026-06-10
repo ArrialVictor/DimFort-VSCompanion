@@ -354,10 +354,10 @@
           "type": "string",
           "enum": ["input", "canonical", "both"],
           "enumItemLabels": ["Input only", "Canonical only", "Both"],
-          "default": "input",
+          "default": "canonical",
           "enumDescriptions": [
             "Show only the unit as it appears in source (e.g. `hPa`) — thinnest panel.",
-            "Show only the canonical base-SI form (e.g. `100×kg/m/s²`).",
+            "Show only the canonical base-SI form (e.g. `100×kg/m/s²`) — most visually consistent across declarations (default).",
             "Show both, with the canonical column populated only when it differs from input (legacy display)."
           ],
           "description": "Which unit column(s) the Scope and Imports views render. Toggle via the title-bar icon on either view."

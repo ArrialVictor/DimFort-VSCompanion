@@ -44,7 +44,7 @@ function readSortModes(): { scope: SortMode; imports: SortMode } {
 
 function readUnitDisplay(): UnitDisplayMode {
   const cfg = vscode.workspace.getConfiguration("dimfort");
-  return cfg.get<UnitDisplayMode>("panel.unitDisplayMode", "input");
+  return cfg.get<UnitDisplayMode>("panel.unitDisplayMode", "canonical");
 }
 
 

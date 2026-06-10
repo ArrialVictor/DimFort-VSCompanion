@@ -24,7 +24,7 @@ export class ImportsView extends SectionView {
     return /* js */ `
 let importsSortMode = getState().importsSortMode || "line";
 let importsFilterValue = getState().importsFilter || "";
-let unitDisplay = getState().unitDisplay || "input";
+let unitDisplay = getState().unitDisplay || "canonical";
 let lastImports = [];
 let isEmpty = false;
 let emptyReason = "";
