@@ -78,7 +78,12 @@ export class CoverageStatusFooter implements vscode.Disposable {
     const filePart = s.file
       ? `File ${s.file.coveragePct}% · `
       : "";
-    return `DimFort: ${filePart}Project ${ws.coveragePct}%`;
+    // Codicon prefix when stale: gives an at-a-glance "this number may
+    // be old" signal in addition to the warning background tint
+    // (which can be theme-subtle). Together they cover users on dark
+    // themes where the warning background blends in.
+    const stalePrefix = s.wsStale ? "$(warning) " : "";
+    return `${stalePrefix}DimFort: ${filePart}Project ${ws.coveragePct}%`;
   }
 
   /** Markdown tooltip with the full breakdown. */
@@ -104,19 +109,17 @@ export class CoverageStatusFooter implements vscode.Disposable {
       md.appendMarkdown(`| 🟡 Unverified | ${fmtLoc(s.workspace.warn)} |\n`);
       md.appendMarkdown(`| 🔴 Violation | ${fmtLoc(s.workspace.fire)} |\n`);
       md.appendMarkdown(`| 🔵 Unparsed | ${fmtLoc(s.workspace.unparsed)} |\n\n`);
-      if (s.wsStale) {
-        md.appendMarkdown(
-          "_Project numbers are stale — files have changed since the "
-          + "last refresh._\n\n",
-        );
-      }
+      md.appendMarkdown(
+        s.wsStale
+          ? "⚠️ _Project numbers are stale — files changed since last "
+            + "refresh._ **Click to refresh.**"
+          : "_Click to refresh project coverage._",
+      );
     } else {
       md.appendMarkdown(
-        "_Project coverage not yet computed. "
-        + "Click to run **DimFort: Refresh Workspace Coverage**._\n",
+        "_Project coverage not yet computed._ **Click to compute.**",
       );
     }
-    md.appendMarkdown("\n_Click to refresh project coverage._");
     return md;
   }
 }
