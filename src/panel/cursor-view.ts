@@ -226,18 +226,21 @@ function renderActions(titles) {
 }
 
 function section(title, contentEl) {
-  const d = document.createElement("details");
-  d.open = (getState().fold || {})[title] !== false;
-  const s = document.createElement("summary");
-  s.textContent = title;
-  d.appendChild(s);
-  d.appendChild(contentEl);
-  d.addEventListener("toggle", () => {
-    const fold = getState().fold || {};
-    fold[title] = d.open;
-    patchState({ fold: fold });
-  });
-  return d;
+  // The whole Cursor view collapses via the native VSCode chevron;
+  // nested foldables would just be visual noise. Render each
+  // subsection as a flat header + body — same heading style as the
+  // legacy panel's <summary> for visual continuity.
+  const wrap = document.createElement("div");
+  wrap.className = "subsection";
+  const head = document.createElement("div");
+  head.className = "subsection-head";
+  head.textContent = title;
+  wrap.appendChild(head);
+  const body = document.createElement("div");
+  body.className = "subsection-body";
+  body.appendChild(contentEl);
+  wrap.appendChild(body);
+  return wrap;
 }
 
 let lastPayload = null;
@@ -296,10 +299,11 @@ repaint();
   .site-loc { font-weight: 600; }
   .site-unit { margin-left: 0.6em; color: var(--vscode-symbolIcon-numberForeground, var(--vscode-foreground)); }
   .site-snip { color: var(--vscode-descriptionForeground); font-family: var(--vscode-editor-font-family); }
-  details { margin: 0.2em 0 0.5em; }
-  summary { cursor: pointer; font-weight: 600; text-transform: uppercase;
+  .subsection { margin: 0.2em 0 0.5em; }
+  .subsection-head { font-weight: 600; text-transform: uppercase;
     font-size: 0.85em; letter-spacing: 0.04em;
     color: var(--vscode-descriptionForeground); margin-bottom: 0.3em; }
+  .subsection-body { /* tight to its header */ }
     `;
   }
 }

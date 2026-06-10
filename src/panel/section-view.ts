@@ -161,7 +161,7 @@ export abstract class SectionView
     color: var(--vscode-foreground); }
   table { border-collapse: collapse; width: 100%; }
   td { padding: 1px 6px 1px 0; vertical-align: top; }
-  .muted { color: var(--vscode-descriptionForeground); }
+  .muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   td.muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   .scope-head { font-weight: 600; margin-top: 0.4em; }
   .clickable { cursor: pointer; }
