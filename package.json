@@ -149,11 +149,6 @@
           "id": "dimfort.imports",
           "name": "Imports",
           "type": "webview"
-        },
-        {
-          "id": "dimfort.panel",
-          "name": "Units (legacy)",
-          "type": "webview"
         }
       ]
     },

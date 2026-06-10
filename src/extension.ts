@@ -5,7 +5,6 @@ import {
   ServerOptions,
 } from "vscode-languageclient/node";
 import { CoverageProvider } from "./coverage";
-import { DimFortPanelProvider } from "./panel";
 import { PanelCoordinator } from "./panel/coordinator";
 import { CoverageStatusFooter } from "./panel/coverage-status";
 import { CursorView } from "./panel/cursor-view";
@@ -14,7 +13,6 @@ import { ScopeView } from "./panel/scope-view";
 import { CoverageStatsProvider } from "./stats";
 
 let client: LanguageClient | undefined;
-let panelProvider: DimFortPanelProvider | undefined;
 let panelCoordinator: PanelCoordinator | undefined;
 let coverageProvider: CoverageProvider | undefined;
 let statsProvider: CoverageStatsProvider | undefined;
@@ -107,7 +105,6 @@ async function doRebuildClient(): Promise<void> {
     }
   }
   client = buildClient();
-  panelProvider?.setClient(client);
   panelCoordinator?.setClient(client);
   coverageProvider?.setClient(client);
   statsProvider?.setClient(client);
@@ -131,24 +128,11 @@ export function activate(context: vscode.ExtensionContext): void {
   statsProvider.setClient(client);
   context.subscriptions.push(statsProvider);
 
-  // Side panel — a webview view fed by the dimfort/panelInfo request.
-  panelProvider = new DimFortPanelProvider(context.extensionUri, statsProvider);
-  panelProvider.setClient(client);
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      DimFortPanelProvider.viewType,
-      panelProvider,
-      { webviewOptions: { retainContextWhenHidden: true } },
-    ),
-  );
-
-  // Multi-view panel — production rollout, checkpoint #1.
-  // Coordinator owns the cursor-driven LSP loop; CursorView is the
-  // first section view (Expression + Diagnostics + Interactions +
-  // Actions, all cursor-pinned). Legacy ``dimfort.panel`` stays
-  // registered alongside it until Scope / Imports / Coverage views
-  // land in the next checkpoint, at which point the legacy panel is
-  // retired.
+  // Multi-view panel. Coordinator owns the cursor-driven LSP loop;
+  // each section view (Cursor / Scope / Imports) subscribes to its
+  // broadcasts so they share one LSP request cycle per cursor event.
+  // Coverage lives in the VSCode status bar instead — see
+  // CoverageStatusFooter below.
   panelCoordinator = new PanelCoordinator(statsProvider);
   panelCoordinator.setClient(client);
   const cursorView = new CursorView();
@@ -231,28 +215,25 @@ export function activate(context: vscode.ExtensionContext): void {
     .getConfiguration("dimfort")
     .get<number>("panel.debounceMs", 200);
   context.subscriptions.push(
-    vscode.window.onDidChangeTextEditorSelection(() => {
-      panelProvider?.scheduleUpdate(debounceMs);
-      panelCoordinator?.scheduleUpdate(debounceMs);
-    }),
-    vscode.window.onDidChangeActiveTextEditor(() => {
-      panelProvider?.scheduleUpdate(0);
-      panelCoordinator?.scheduleUpdate(0);
-    }),
+    vscode.window.onDidChangeTextEditorSelection(() =>
+      panelCoordinator?.scheduleUpdate(debounceMs),
+    ),
+    vscode.window.onDidChangeActiveTextEditor(() =>
+      panelCoordinator?.scheduleUpdate(0),
+    ),
   );
-  // Toggle / focus command.
+  // Toggle / focus command. The Cursor view is the primary surface, so
+  // ``DimFort: Show Side Panel`` focuses it; users can drag the other
+  // views (Scope / Imports) to wherever they like.
   context.subscriptions.push(
     vscode.commands.registerCommand("dimfort.togglePanel", () => {
-      void vscode.commands.executeCommand("dimfort.panel.focus");
+      void vscode.commands.executeCommand("dimfort.cursor.focus");
     }),
   );
-  // Panel shown by default (package.json `panel.enabled` defaults to
-  // true): reveal the DimFort view container on activation unless the
-  // user opted out.
   if (
     vscode.workspace.getConfiguration("dimfort").get<boolean>("panel.enabled", true)
   ) {
-    void vscode.commands.executeCommand("dimfort.panel.focus");
+    void vscode.commands.executeCommand("dimfort.cursor.focus");
   }
 
   // Coverage layer — per-line green/yellow/red/blue decoration driven by
@@ -362,7 +343,6 @@ export function activate(context: vscode.ExtensionContext): void {
         !event.affectsConfiguration("dimfort.coverage.mode") &&
         !event.affectsConfiguration("dimfort.coverage.debounceMs");
       if (sortOnly) {
-        panelProvider?.applySortModesFromConfig();
         panelCoordinator?.applySortModesFromConfig();
         setSortContext();
         return;
