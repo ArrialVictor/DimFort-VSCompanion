@@ -100,8 +100,13 @@
     "views": {
       "dimfort": [
         {
+          "id": "dimfort.cursor",
+          "name": "Cursor",
+          "type": "webview"
+        },
+        {
           "id": "dimfort.panel",
-          "name": "Units",
+          "name": "Units (legacy)",
           "type": "webview"
         }
       ]

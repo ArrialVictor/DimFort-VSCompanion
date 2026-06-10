@@ -6,10 +6,13 @@ import {
 } from "vscode-languageclient/node";
 import { CoverageProvider } from "./coverage";
 import { DimFortPanelProvider } from "./panel";
+import { PanelCoordinator } from "./panel/coordinator";
+import { CursorView } from "./panel/cursor-view";
 import { CoverageStatsProvider } from "./stats";
 
 let client: LanguageClient | undefined;
 let panelProvider: DimFortPanelProvider | undefined;
+let panelCoordinator: PanelCoordinator | undefined;
 let coverageProvider: CoverageProvider | undefined;
 let statsProvider: CoverageStatsProvider | undefined;
 
@@ -102,6 +105,7 @@ async function doRebuildClient(): Promise<void> {
   }
   client = buildClient();
   panelProvider?.setClient(client);
+  panelCoordinator?.setClient(client);
   coverageProvider?.setClient(client);
   statsProvider?.setClient(client);
   await client.start();
@@ -134,18 +138,40 @@ export function activate(context: vscode.ExtensionContext): void {
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
   );
+
+  // Multi-view panel — production rollout, checkpoint #1.
+  // Coordinator owns the cursor-driven LSP loop; CursorView is the
+  // first section view (Expression + Diagnostics + Interactions +
+  // Actions, all cursor-pinned). Legacy ``dimfort.panel`` stays
+  // registered alongside it until Scope / Imports / Coverage views
+  // land in the next checkpoint, at which point the legacy panel is
+  // retired.
+  panelCoordinator = new PanelCoordinator(statsProvider);
+  panelCoordinator.setClient(client);
+  const cursorView = new CursorView();
+  cursorView.actionHandler = (index) => void panelCoordinator?.applyAction(index);
+  panelCoordinator.addSubscriber(cursorView);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      CursorView.viewType, cursorView,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
+
   // Cursor-follow: refresh the panel (debounced) as the selection moves
   // or the active editor changes.
   const debounceMs = vscode.workspace
     .getConfiguration("dimfort")
     .get<number>("panel.debounceMs", 200);
   context.subscriptions.push(
-    vscode.window.onDidChangeTextEditorSelection(() =>
-      panelProvider?.scheduleUpdate(debounceMs),
-    ),
-    vscode.window.onDidChangeActiveTextEditor(() =>
-      panelProvider?.scheduleUpdate(0),
-    ),
+    vscode.window.onDidChangeTextEditorSelection(() => {
+      panelProvider?.scheduleUpdate(debounceMs);
+      panelCoordinator?.scheduleUpdate(debounceMs);
+    }),
+    vscode.window.onDidChangeActiveTextEditor(() => {
+      panelProvider?.scheduleUpdate(0);
+      panelCoordinator?.scheduleUpdate(0);
+    }),
   );
   // Toggle / focus command.
   context.subscriptions.push(
@@ -270,6 +296,7 @@ export function activate(context: vscode.ExtensionContext): void {
         !event.affectsConfiguration("dimfort.coverage.debounceMs");
       if (sortOnly) {
         panelProvider?.applySortModesFromConfig();
+        panelCoordinator?.applySortModesFromConfig();
         return;
       }
       const coverageOnly =
