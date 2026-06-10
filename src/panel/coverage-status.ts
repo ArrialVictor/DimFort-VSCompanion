@@ -56,6 +56,13 @@ export class CoverageStatusFooter implements vscode.Disposable {
     this.item.backgroundColor = snap.wsStale
       ? new vscode.ThemeColor("statusBarItem.warningBackground")
       : undefined;
+    // Closest VSCode gives us to "dim the dashes": tint the whole item
+    // muted when nothing has been computed yet. The "(File 92% · Project
+    // –)" case keeps full color so 92% pops; only the all-empty state
+    // dims, signalling "no data here yet" at a glance.
+    this.item.color = (snap.file === null && snap.workspace === null)
+      ? new vscode.ThemeColor("descriptionForeground")
+      : undefined;
     this.item.show();
   }
 
@@ -83,33 +90,40 @@ export class CoverageStatusFooter implements vscode.Disposable {
     if (s.file) {
       md.appendMarkdown(`| File | ${s.file.coveragePct}% |\n`);
       md.appendMarkdown("|---|---|\n");
-      md.appendMarkdown(`| 🟢 OK | ${s.file.ok} |\n`);
-      md.appendMarkdown(`| 🟡 Warn | ${s.file.warn} |\n`);
-      md.appendMarkdown(`| 🔴 Fire | ${s.file.fire} |\n`);
-      md.appendMarkdown(`| 🔵 Unparsed | ${s.file.unparsed} |\n\n`);
+      md.appendMarkdown(`| 🟢 OK | ${fmtLoc(s.file.ok)} |\n`);
+      md.appendMarkdown(`| 🟡 Unverified | ${fmtLoc(s.file.warn)} |\n`);
+      md.appendMarkdown(`| 🔴 Fire | ${fmtLoc(s.file.fire)} |\n`);
+      md.appendMarkdown(`| 🔵 Unparsed | ${fmtLoc(s.file.unparsed)} |\n\n`);
     } else {
       md.appendMarkdown("_File coverage not yet computed._\n\n");
     }
     if (s.workspace) {
-      md.appendMarkdown(`| Workspace | ${s.workspace.coveragePct}% |\n`);
+      md.appendMarkdown(`| Project | ${s.workspace.coveragePct}% |\n`);
       md.appendMarkdown("|---|---|\n");
-      md.appendMarkdown(`| 🟢 OK | ${s.workspace.ok} |\n`);
-      md.appendMarkdown(`| 🟡 Warn | ${s.workspace.warn} |\n`);
-      md.appendMarkdown(`| 🔴 Fire | ${s.workspace.fire} |\n`);
-      md.appendMarkdown(`| 🔵 Unparsed | ${s.workspace.unparsed} |\n\n`);
+      md.appendMarkdown(`| 🟢 OK | ${fmtLoc(s.workspace.ok)} |\n`);
+      md.appendMarkdown(`| 🟡 Unverified | ${fmtLoc(s.workspace.warn)} |\n`);
+      md.appendMarkdown(`| 🔴 Fire | ${fmtLoc(s.workspace.fire)} |\n`);
+      md.appendMarkdown(`| 🔵 Unparsed | ${fmtLoc(s.workspace.unparsed)} |\n\n`);
       if (s.wsStale) {
         md.appendMarkdown(
-          "_Workspace numbers are stale — files have changed since the "
+          "_Project numbers are stale — files have changed since the "
           + "last refresh._\n\n",
         );
       }
     } else {
       md.appendMarkdown(
-        "_Workspace coverage not yet computed. "
+        "_Project coverage not yet computed. "
         + "Click to run **DimFort: Refresh Workspace Coverage**._\n",
       );
     }
-    md.appendMarkdown("\n_Click to refresh workspace coverage._");
+    md.appendMarkdown("\n_Click to refresh project coverage._");
     return md;
   }
+}
+
+/** Format a line count with k-suffix when ≥1000 so tooltip stays readable. */
+function fmtLoc(n: number): string {
+  if (n < 1000) return `${n} LOC`;
+  if (n < 10000) return `${(n / 1000).toFixed(1)}k LOC`;
+  return `${Math.round(n / 1000)}k LOC`;
 }
