@@ -82,8 +82,12 @@ export class CoverageStatusFooter implements vscode.Disposable {
     // be old" signal in addition to the warning background tint
     // (which can be theme-subtle). Together they cover users on dark
     // themes where the warning background blends in.
-    const stalePrefix = s.wsStale ? "$(warning) " : "";
-    return `${stalePrefix}DimFort: ${filePart}Project ${ws.coveragePct}%`;
+    // Codicon attaches directly to "Project" — staleness targets the
+    // project number specifically, not "DimFort coverage overall", so
+    // anchor the warning right where it applies. Also still tints the
+    // whole item's background as a glance-level backup.
+    const projectWarning = s.wsStale ? "$(warning) " : "";
+    return `DimFort: ${filePart}${projectWarning}Project ${ws.coveragePct}%`;
   }
 
   /** Markdown tooltip with the full breakdown. */
@@ -92,33 +96,47 @@ export class CoverageStatusFooter implements vscode.Disposable {
     md.isTrusted = false;
     md.supportThemeIcons = true;
     md.appendMarkdown("**DimFort coverage**\n\n");
-    if (s.file) {
-      md.appendMarkdown(`| File | ${s.file.coveragePct}% |\n`);
-      md.appendMarkdown("|---|---|\n");
-      md.appendMarkdown(`| 🟢 Verified | ${fmtLoc(s.file.ok)} |\n`);
-      md.appendMarkdown(`| 🟡 Unverified | ${fmtLoc(s.file.warn)} |\n`);
-      md.appendMarkdown(`| 🔴 Violation | ${fmtLoc(s.file.fire)} |\n`);
-      md.appendMarkdown(`| 🔵 Unparsed | ${fmtLoc(s.file.unparsed)} |\n\n`);
-    } else {
-      md.appendMarkdown("_File coverage not yet computed._\n\n");
-    }
-    if (s.workspace) {
-      md.appendMarkdown(`| Project | ${s.workspace.coveragePct}% |\n`);
-      md.appendMarkdown("|---|---|\n");
-      md.appendMarkdown(`| 🟢 Verified | ${fmtLoc(s.workspace.ok)} |\n`);
-      md.appendMarkdown(`| 🟡 Unverified | ${fmtLoc(s.workspace.warn)} |\n`);
-      md.appendMarkdown(`| 🔴 Violation | ${fmtLoc(s.workspace.fire)} |\n`);
-      md.appendMarkdown(`| 🔵 Unparsed | ${fmtLoc(s.workspace.unparsed)} |\n\n`);
-      md.appendMarkdown(
-        s.wsStale
-          ? "⚠️ _Project numbers are stale — files changed since last "
-            + "refresh._ **Click to refresh.**"
-          : "_Click to refresh project coverage._",
-      );
-    } else {
+
+    // One combined table with File and Project as columns. Headers
+    // carry the coverage %; rows are the four tiers. Not-yet-computed
+    // scopes get italicised "–" so absence reads dim — the markdown
+    // equivalent of the status-bar item's null-state dim.
+    const fileHead = s.file
+      ? `File ${s.file.coveragePct}%`
+      : "_File –_";
+    const projHead = s.workspace
+      ? `Project ${s.workspace.coveragePct}%${s.wsStale ? " ⚠️" : ""}`
+      : "_Project –_";
+    md.appendMarkdown(`| | ${fileHead} | ${projHead} |\n`);
+    md.appendMarkdown("|---|---|---|\n");
+    const cell = (
+      scope: { ok: number; warn: number; fire: number; unparsed: number } | null,
+      field: "ok" | "warn" | "fire" | "unparsed",
+    ): string => scope ? fmtLoc(scope[field]) : "_–_";
+    md.appendMarkdown(
+      `| 🟢 Verified | ${cell(s.file, "ok")} | ${cell(s.workspace, "ok")} |\n`,
+    );
+    md.appendMarkdown(
+      `| 🟡 Unverified | ${cell(s.file, "warn")} | ${cell(s.workspace, "warn")} |\n`,
+    );
+    md.appendMarkdown(
+      `| 🔴 Violation | ${cell(s.file, "fire")} | ${cell(s.workspace, "fire")} |\n`,
+    );
+    md.appendMarkdown(
+      `| 🔵 Unparsed | ${cell(s.file, "unparsed")} | ${cell(s.workspace, "unparsed")} |\n\n`,
+    );
+
+    if (!s.workspace) {
       md.appendMarkdown(
         "_Project coverage not yet computed._ **Click to compute.**",
       );
+    } else if (s.wsStale) {
+      md.appendMarkdown(
+        "⚠️ _Project numbers are stale — files changed since last "
+        + "refresh._ **Click to refresh.**",
+      );
+    } else {
+      md.appendMarkdown("_Click to refresh project coverage._");
     }
     return md;
   }
