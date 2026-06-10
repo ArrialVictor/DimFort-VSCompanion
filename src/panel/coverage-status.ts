@@ -63,16 +63,15 @@ export class CoverageStatusFooter implements vscode.Disposable {
   private formatText(s: StatsSnapshot): string {
     if (s.wsRefreshing) return "$(sync~spin) DimFort: refreshing…";
     if (s.workspace === null) {
-      // Never refreshed yet — nudge user to run the command.
       return s.file
-        ? `$(graph) DimFort: file ${s.file.coveragePct}% / WS –`
-        : "$(graph) DimFort: WS –";
+        ? `DimFort: File ${s.file.coveragePct}% · Project –`
+        : "DimFort: Project –";
     }
     const ws = s.workspace;
     const filePart = s.file
-      ? `file ${s.file.coveragePct}% / `
+      ? `File ${s.file.coveragePct}% · `
       : "";
-    return `$(graph) DimFort: ${filePart}WS ${ws.coveragePct}%`;
+    return `DimFort: ${filePart}Project ${ws.coveragePct}%`;
   }
 
   /** Markdown tooltip with the full breakdown. */
