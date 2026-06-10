@@ -105,14 +105,16 @@ export class CoverageStatusFooter implements vscode.Disposable {
     const projDim = s.workspace !== null && s.wsStale;
     const dim = (txt: string): string => projDim ? `_${txt}_` : txt;
     const pad = (value: string): string => `&nbsp;&nbsp;&nbsp;${value}&nbsp;&nbsp;&nbsp;`;
-    // Center-align both numeric columns. Standard markdown tables share
-    // the alignment rule between header and body, and the user prefers
-    // centered headers over right-aligned content — so center wins.
-    md.appendMarkdown("|  | File | Project |\n");
-    md.appendMarkdown("|---|:---:|:---:|\n");
+    // Four columns: bullet | label | File | Project. Splitting the
+    // bullet into its own column means "Coverage" (no bullet) and the
+    // four tier rows all share the same label-column start position,
+    // instead of "Coverage" hanging left of the bulleted rows.
+    // Center-align numeric columns; headers and body share the rule.
+    md.appendMarkdown("|  |  | File | Project |\n");
+    md.appendMarkdown("|---|---|:---:|:---:|\n");
     const filePct = s.file ? `${s.file.coveragePct}%` : "_–_";
     const projPct = s.workspace ? dim(`${s.workspace.coveragePct}%`) : "_–_";
-    md.appendMarkdown(`| Coverage | ${pad(filePct)} | ${pad(projPct)} |\n`);
+    md.appendMarkdown(`|  | Coverage | ${pad(filePct)} | ${pad(projPct)} |\n`);
     const cell = (
       scope: { ok: number; warn: number; fire: number; unparsed: number } | null,
       field: "ok" | "warn" | "fire" | "unparsed",
@@ -123,16 +125,16 @@ export class CoverageStatusFooter implements vscode.Disposable {
       return stale ? `_${text}_` : text;
     };
     md.appendMarkdown(
-      `| 🟢 Verified | ${pad(cell(s.file, "ok", false))} | ${pad(cell(s.workspace, "ok", projDim))} |\n`,
+      `| 🟢 | Verified | ${pad(cell(s.file, "ok", false))} | ${pad(cell(s.workspace, "ok", projDim))} |\n`,
     );
     md.appendMarkdown(
-      `| 🟡 Unverified | ${pad(cell(s.file, "warn", false))} | ${pad(cell(s.workspace, "warn", projDim))} |\n`,
+      `| 🟡 | Unverified | ${pad(cell(s.file, "warn", false))} | ${pad(cell(s.workspace, "warn", projDim))} |\n`,
     );
     md.appendMarkdown(
-      `| 🔴 Violation | ${pad(cell(s.file, "fire", false))} | ${pad(cell(s.workspace, "fire", projDim))} |\n`,
+      `| 🔴 | Violation | ${pad(cell(s.file, "fire", false))} | ${pad(cell(s.workspace, "fire", projDim))} |\n`,
     );
     md.appendMarkdown(
-      `| 🔵 Unparsed | ${pad(cell(s.file, "unparsed", false))} | ${pad(cell(s.workspace, "unparsed", projDim))} |\n\n`,
+      `| 🔵 | Unparsed | ${pad(cell(s.file, "unparsed", false))} | ${pad(cell(s.workspace, "unparsed", projDim))} |\n\n`,
     );
 
     if (!s.workspace) {
