@@ -105,8 +105,11 @@ export class CoverageStatusFooter implements vscode.Disposable {
     const projDim = s.workspace !== null && s.wsStale;
     const dim = (txt: string): string => projDim ? `_${txt}_` : txt;
     const pad = (value: string): string => `&nbsp;&nbsp;&nbsp;${value}&nbsp;&nbsp;&nbsp;`;
+    // Center-align both numeric columns. Standard markdown tables share
+    // the alignment rule between header and body, and the user prefers
+    // centered headers over right-aligned content — so center wins.
     md.appendMarkdown("|  | File | Project |\n");
-    md.appendMarkdown("|---|---:|---:|\n");
+    md.appendMarkdown("|---|:---:|:---:|\n");
     const filePct = s.file ? `${s.file.coveragePct}%` : "_–_";
     const projPct = s.workspace ? dim(`${s.workspace.coveragePct}%`) : "_–_";
     md.appendMarkdown(`| Coverage | ${pad(filePct)} | ${pad(projPct)} |\n`);
@@ -137,10 +140,9 @@ export class CoverageStatusFooter implements vscode.Disposable {
         "_Project coverage not yet computed._ **Click to compute.**",
       );
     } else if (s.wsStale) {
-      // Split across two lines so the card stays narrow — the prose
-      // and the prompt don't have to fight for a single wide line.
+      // Short two-line prompt so the card stays narrow.
       md.appendMarkdown(
-        "_Project numbers are stale — files changed since last refresh._\n\n"
+        "_Files changed since last refresh._\n\n"
         + "**Click to refresh.**",
       );
     } else {
