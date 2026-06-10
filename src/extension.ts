@@ -8,6 +8,7 @@ import { CoverageProvider } from "./coverage";
 import { DimFortPanelProvider } from "./panel";
 import { PanelCoordinator } from "./panel/coordinator";
 import { CursorView } from "./panel/cursor-view";
+import { ImportsView } from "./panel/imports-view";
 import { ScopeView } from "./panel/scope-view";
 import { CoverageStatsProvider } from "./stats";
 
@@ -154,6 +155,8 @@ export function activate(context: vscode.ExtensionContext): void {
   panelCoordinator.addSubscriber(cursorView);
   const scopeView = new ScopeView();
   panelCoordinator.addSubscriber(scopeView);
+  const importsView = new ImportsView();
+  panelCoordinator.addSubscriber(importsView);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       CursorView.viewType, cursorView,
@@ -161,6 +164,10 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.window.registerWebviewViewProvider(
       ScopeView.viewType, scopeView,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+    vscode.window.registerWebviewViewProvider(
+      ImportsView.viewType, importsView,
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
   );
@@ -180,19 +187,35 @@ export function activate(context: vscode.ExtensionContext): void {
       "panel.scopeSortMode", next, vscode.ConfigurationTarget.Global,
     );
   };
+  const cycleImportsSort = async () => {
+    const cfg = vscode.workspace.getConfiguration("dimfort");
+    const cur = cfg.get<string>("panel.importsSortMode", "line");
+    const next = cur === "line" ? "alphabetic"
+      : cur === "alphabetic" ? "status" : "line";
+    await cfg.update(
+      "panel.importsSortMode", next, vscode.ConfigurationTarget.Global,
+    );
+  };
   context.subscriptions.push(
     vscode.commands.registerCommand("dimfort.cycleScopeSort", cycleScopeSort),
     vscode.commands.registerCommand("dimfort.cycleScopeSort.alpha", cycleScopeSort),
     vscode.commands.registerCommand("dimfort.cycleScopeSort.status", cycleScopeSort),
+    vscode.commands.registerCommand("dimfort.cycleImportsSort", cycleImportsSort),
+    vscode.commands.registerCommand("dimfort.cycleImportsSort.alpha", cycleImportsSort),
+    vscode.commands.registerCommand("dimfort.cycleImportsSort.status", cycleImportsSort),
   );
-  // Set the initial context key so the icon picks the right variant
-  // on activation — without this, the title bar starts with the
-  // 'line' icon regardless of the persisted setting.
+  // Set the initial context keys so the icons pick the right variant
+  // on activation — without this, the title bars start with the
+  // 'line' icon regardless of the persisted settings.
   const setSortContext = () => {
     const cfg = vscode.workspace.getConfiguration("dimfort");
     void vscode.commands.executeCommand(
       "setContext", "dimfort.scopeSortMode",
       cfg.get<string>("panel.scopeSortMode", "line"),
+    );
+    void vscode.commands.executeCommand(
+      "setContext", "dimfort.importsSortMode",
+      cfg.get<string>("panel.importsSortMode", "line"),
     );
   };
   setSortContext();

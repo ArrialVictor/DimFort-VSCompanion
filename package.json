@@ -104,6 +104,24 @@
         "title": "Cycle Scope Sort (currently: By status)",
         "category": "DimFort",
         "icon": "$(symbol-color)"
+      },
+      {
+        "command": "dimfort.cycleImportsSort",
+        "title": "Cycle Imports Sort (By line / Alphabetic / By status)",
+        "category": "DimFort",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "dimfort.cycleImportsSort.alpha",
+        "title": "Cycle Imports Sort (currently: Alphabetic)",
+        "category": "DimFort",
+        "icon": "$(case-sensitive)"
+      },
+      {
+        "command": "dimfort.cycleImportsSort.status",
+        "title": "Cycle Imports Sort (currently: By status)",
+        "category": "DimFort",
+        "icon": "$(symbol-color)"
       }
     ],
     "viewsContainers": {
@@ -128,6 +146,11 @@
           "type": "webview"
         },
         {
+          "id": "dimfort.imports",
+          "name": "Imports",
+          "type": "webview"
+        },
+        {
           "id": "dimfort.panel",
           "name": "Units (legacy)",
           "type": "webview"
@@ -149,6 +172,21 @@
         {
           "command": "dimfort.cycleScopeSort.status",
           "when": "view == dimfort.scope && dimfort.scopeSortMode == 'status'",
+          "group": "navigation"
+        },
+        {
+          "command": "dimfort.cycleImportsSort",
+          "when": "view == dimfort.imports && dimfort.importsSortMode == 'line'",
+          "group": "navigation"
+        },
+        {
+          "command": "dimfort.cycleImportsSort.alpha",
+          "when": "view == dimfort.imports && dimfort.importsSortMode == 'alphabetic'",
+          "group": "navigation"
+        },
+        {
+          "command": "dimfort.cycleImportsSort.status",
+          "when": "view == dimfort.imports && dimfort.importsSortMode == 'status'",
           "group": "navigation"
         }
       ]
