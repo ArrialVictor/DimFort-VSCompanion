@@ -96,40 +96,40 @@ export class CoverageStatusFooter implements vscode.Disposable {
     md.appendMarkdown("**DimFort coverage**\n\n");
 
     // One combined table. Headers stay clean ("File" / "Project"); the
-    // % moves to its own "Coverage" row at the top, so the % reads as
-    // a metric like every tier row below. Project column dims via
-    // italics when stale — the visual equivalent of "this number may
-    // be old" without yelling at the user. ``  `` (two spaces) padding
-    // inside each cell widens the column-gutter a touch since markdown
-    // doesn't expose padding directly.
+    // % moves to its own "Coverage" row so it reads as a metric like
+    // every tier row below. Project column dims via italics when stale.
+    // ``&nbsp;`` padding around values widens the column-gutter — VSCode
+    // markdown tables don't expose cell padding directly, so we pad the
+    // content. Triple non-breaking spaces sit visibly without growing
+    // the table unreasonably.
     const projDim = s.workspace !== null && s.wsStale;
     const dim = (txt: string): string => projDim ? `_${txt}_` : txt;
-    // Right-align the numeric columns; first column stays default-left.
+    const pad = (value: string): string => `&nbsp;&nbsp;&nbsp;${value}&nbsp;&nbsp;&nbsp;`;
     md.appendMarkdown("|  | File | Project |\n");
     md.appendMarkdown("|---|---:|---:|\n");
     const filePct = s.file ? `${s.file.coveragePct}%` : "_–_";
     const projPct = s.workspace ? dim(`${s.workspace.coveragePct}%`) : "_–_";
-    md.appendMarkdown(`| Coverage |  ${filePct}  |  ${projPct}  |\n`);
+    md.appendMarkdown(`| Coverage | ${pad(filePct)} | ${pad(projPct)} |\n`);
     const cell = (
       scope: { ok: number; warn: number; fire: number; unparsed: number } | null,
       field: "ok" | "warn" | "fire" | "unparsed",
       stale: boolean,
     ): string => {
       if (scope === null) return "_–_";
-      const text = fmtLoc(scope[field]);
+      const text = fmtCount(scope[field]);
       return stale ? `_${text}_` : text;
     };
     md.appendMarkdown(
-      `| 🟢 Verified |  ${cell(s.file, "ok", false)}  |  ${cell(s.workspace, "ok", projDim)}  |\n`,
+      `| 🟢 Verified | ${pad(cell(s.file, "ok", false))} | ${pad(cell(s.workspace, "ok", projDim))} |\n`,
     );
     md.appendMarkdown(
-      `| 🟡 Unverified |  ${cell(s.file, "warn", false)}  |  ${cell(s.workspace, "warn", projDim)}  |\n`,
+      `| 🟡 Unverified | ${pad(cell(s.file, "warn", false))} | ${pad(cell(s.workspace, "warn", projDim))} |\n`,
     );
     md.appendMarkdown(
-      `| 🔴 Violation |  ${cell(s.file, "fire", false)}  |  ${cell(s.workspace, "fire", projDim)}  |\n`,
+      `| 🔴 Violation | ${pad(cell(s.file, "fire", false))} | ${pad(cell(s.workspace, "fire", projDim))} |\n`,
     );
     md.appendMarkdown(
-      `| 🔵 Unparsed |  ${cell(s.file, "unparsed", false)}  |  ${cell(s.workspace, "unparsed", projDim)}  |\n\n`,
+      `| 🔵 Unparsed | ${pad(cell(s.file, "unparsed", false))} | ${pad(cell(s.workspace, "unparsed", projDim))} |\n\n`,
     );
 
     if (!s.workspace) {
@@ -137,9 +137,11 @@ export class CoverageStatusFooter implements vscode.Disposable {
         "_Project coverage not yet computed._ **Click to compute.**",
       );
     } else if (s.wsStale) {
+      // Split across two lines so the card stays narrow — the prose
+      // and the prompt don't have to fight for a single wide line.
       md.appendMarkdown(
-        "_Project numbers are stale — files changed since last "
-        + "refresh._ **Click to refresh.**",
+        "_Project numbers are stale — files changed since last refresh._\n\n"
+        + "**Click to refresh.**",
       );
     } else {
       md.appendMarkdown("_Click to refresh project coverage._");
@@ -149,8 +151,8 @@ export class CoverageStatusFooter implements vscode.Disposable {
 }
 
 /** Format a line count with k-suffix when ≥1000 so tooltip stays readable. */
-function fmtLoc(n: number): string {
-  if (n < 1000) return `${n} LOC`;
-  if (n < 10000) return `${(n / 1000).toFixed(1)}k LOC`;
-  return `${Math.round(n / 1000)}k LOC`;
+function fmtCount(n: number): string {
+  if (n < 1000) return `${n}`;
+  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
+  return `${Math.round(n / 1000)}k`;
 }
