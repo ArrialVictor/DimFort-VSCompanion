@@ -8,6 +8,7 @@ import { CoverageProvider } from "./coverage";
 import { DimFortPanelProvider } from "./panel";
 import { PanelCoordinator } from "./panel/coordinator";
 import { CursorView } from "./panel/cursor-view";
+import { ScopeView } from "./panel/scope-view";
 import { CoverageStatsProvider } from "./stats";
 
 let client: LanguageClient | undefined;
@@ -151,11 +152,32 @@ export function activate(context: vscode.ExtensionContext): void {
   const cursorView = new CursorView();
   cursorView.actionHandler = (index) => void panelCoordinator?.applyAction(index);
   panelCoordinator.addSubscriber(cursorView);
+  const scopeView = new ScopeView();
+  panelCoordinator.addSubscriber(scopeView);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       CursorView.viewType, cursorView,
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
+    vscode.window.registerWebviewViewProvider(
+      ScopeView.viewType, scopeView,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
+
+  // Title-bar cycle for the Scope view's sort mode. Cycles through
+  // line → alphabetic → status; the existing onDidChangeConfiguration
+  // listener (panel.scopeSortMode) re-broadcasts to all views.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.cycleScopeSort", async () => {
+      const cfg = vscode.workspace.getConfiguration("dimfort");
+      const cur = cfg.get<string>("panel.scopeSortMode", "line");
+      const next = cur === "line" ? "alphabetic"
+        : cur === "alphabetic" ? "status" : "line";
+      await cfg.update(
+        "panel.scopeSortMode", next, vscode.ConfigurationTarget.Global,
+      );
+    }),
   );
 
   // Cursor-follow: refresh the panel (debounced) as the selection moves

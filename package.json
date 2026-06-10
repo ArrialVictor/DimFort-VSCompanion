@@ -86,6 +86,12 @@
         "command": "dimfort.refreshWorkspace",
         "title": "Check Whole Workspace",
         "category": "DimFort"
+      },
+      {
+        "command": "dimfort.cycleScopeSort",
+        "title": "Cycle Scope Sort (By line / Alphabetic / By status)",
+        "category": "DimFort",
+        "icon": "$(sort-precedence)"
       }
     ],
     "viewsContainers": {
@@ -105,9 +111,23 @@
           "type": "webview"
         },
         {
+          "id": "dimfort.scope",
+          "name": "Scope",
+          "type": "webview"
+        },
+        {
           "id": "dimfort.panel",
           "name": "Units (legacy)",
           "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "dimfort.cycleScopeSort",
+          "when": "view == dimfort.scope",
+          "group": "navigation"
         }
       ]
     },
