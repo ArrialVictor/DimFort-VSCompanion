@@ -292,18 +292,24 @@ repaint();
 
   protected extraStyles(): string {
     return `
-  .group-label { font-style: italic; color: var(--vscode-descriptionForeground);
-    margin: 0.4em 0 0.1em; }
-  .group-body { margin-left: 8px; }
-  .site { margin: 0.2em 0; }
-  .site-loc { font-weight: 600; }
-  .site-unit { margin-left: 0.6em; color: var(--vscode-symbolIcon-numberForeground, var(--vscode-foreground)); }
-  .site-snip { color: var(--vscode-descriptionForeground); font-family: var(--vscode-editor-font-family); }
+  .diag { white-space: pre-wrap; margin: 0.15em 0; line-height: 1.3; }
+  .group-label { color: var(--vscode-descriptionForeground); font-weight: 600;
+    margin: 0.5em 0 0.15em; }
+  .group-body { padding-left: 1.2em; }
+  .site { margin: 0.1em 0 0.35em; }
+  .site.clickable:hover { background: var(--vscode-list-hoverBackground); }
+  .site-loc { color: var(--vscode-textLink-foreground); }
+  .site-unit { color: var(--vscode-symbolIcon-unitForeground, var(--vscode-foreground));
+    margin-left: 0.7em; }
+  /* .site-unit + .muted (same single-class specificity); the later
+     .site-unit rule would otherwise win — lift muted's specificity
+     via a compound selector so Interactions unit cells dim correctly. */
+  .site-unit.muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
+  .site-snip { opacity: 0.7; white-space: normal; }
   .subsection { margin: 0.2em 0 0.5em; }
   .subsection-head { font-weight: 600; text-transform: uppercase;
     font-size: 0.85em; letter-spacing: 0.04em;
     color: var(--vscode-descriptionForeground); margin-bottom: 0.3em; }
-  .subsection-body { /* tight to its header */ }
     `;
   }
 }

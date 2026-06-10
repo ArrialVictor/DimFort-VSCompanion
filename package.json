@@ -89,7 +89,7 @@
       },
       {
         "command": "dimfort.cycleScopeSort",
-        "title": "Cycle Scope Sort (By line / Alphabetic / By status)",
+        "title": "Cycle Scope Sort (currently: By line)",
         "category": "DimFort",
         "icon": "$(list-ordered)"
       },
@@ -107,7 +107,7 @@
       },
       {
         "command": "dimfort.cycleImportsSort",
-        "title": "Cycle Imports Sort (By line / Alphabetic / By status)",
+        "title": "Cycle Imports Sort (currently: By line)",
         "category": "DimFort",
         "icon": "$(list-ordered)"
       },
