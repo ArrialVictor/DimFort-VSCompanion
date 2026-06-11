@@ -118,7 +118,9 @@ function renderList() {
     head.textContent = "from " + mod;
     list.appendChild(head);
     const table = document.createElement("table");
-    table.style.marginLeft = "14px";
+    // (Indent now comes from the shared "scope-head + *" CSS rule in
+    // section-view.ts; previously this was an inline marginLeft 14px
+    // here, removed for parity with the scope-view fix.)
     const sortedItems = sortImportsList(byModule[mod], sortMode);
     for (const im of sortedItems) {
       const tr = document.createElement("tr");
