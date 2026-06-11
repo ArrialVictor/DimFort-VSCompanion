@@ -72,7 +72,7 @@ export interface StatsSnapshot {
  * Workspace stats are *manual-only* — the auto-refresh machinery the
  * 0.2.4 bar shipped with proved to be the wrong UX at scale and was
  * gutted in 0.2.5. The user triggers refreshes explicitly via the
- * "DimFort: Refresh Workspace Coverage" command.
+ * "DimFort: Check Whole Workspace" command.
  *
  * Fires ``onDidChange`` whenever any state shifts; the panel
  * subscribes and re-renders its footer.
@@ -202,7 +202,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
    * Called from the palette command. Bar click is intentionally NOT
    * wired to this; the bar is purely a display surface.
    */
-  async refreshWorkspace(): Promise<void> {
+  async checkWorkspace(): Promise<void> {
     if (!this.client) return;
     if (this.wsRefreshing) {
       // Local coalesce: don't send a duplicate executeCommand, but

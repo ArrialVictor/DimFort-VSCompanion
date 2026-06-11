@@ -143,8 +143,8 @@ Settings (under **DimFort** in the Settings UI):
   `read-write`, warm re-runs replay cached diagnostics for files
   whose source, includes, and dependencies haven't changed
   (a benchmark workspace measured ~33 s cold → ~20 s warm). Palette command
-  `DimFort: Toggle Content-Hash Cache` flips between `off` and
-  `read-write`. Invalidation triggers and the design are
+  `DimFort: Cycle Content-Hash Cache (Off / Read-only / Read-write)`
+  cycles all three modes. Invalidation triggers and the design are
   documented in
   [DimFort/docs/usage.md#content-hash-cache](https://github.com/ArrialVictor/DimFort/blob/main/docs/usage.md#content-hash-cache).
 - `dimfort.cache.dir` — optional override for the cache

@@ -547,6 +547,23 @@ With `qa.f90` open:
       Locations** (Command Palette). All three views return to the
       activity-bar dock in default order.
 
+- [ ] **Per-view toggle commands (0.2.6)** — three palette commands
+      hide / show each view by flipping the corresponding setting
+      (`dimfort.show.{cursor,scope,imports}`, default `true`):
+      - **`DimFort: Toggle Cursor View`** — flips `dimfort.show.cursor`;
+        the Cursor view disappears (when-clause re-evaluates) and the
+        status bar reads `DimFort: cursor view hidden`. Run again to
+        show it. The setting persists across reloads natively via
+        VS Code Settings.
+      - **`DimFort: Toggle Scope View`** — same shape for the Scope
+        view.
+      - **`DimFort: Toggle Imports View`** — same for Imports.
+
+      Cross-companion parity: Nvim's `:DimFortToggleCursor` /
+      `:DimFortToggleScope` / `:DimFortToggleImports` and Emacs's
+      `M-x dimfort-toggle-cursor` / `-scope` / `-imports` do the same
+      thing on their respective panel renderers.
+
 - [ ] **Subsection / scope-head indent (PR #30)** — with cursor in
       `qa.f90`:
       - **Cursor view**: the uppercase headers (**EXPRESSION**,
@@ -612,7 +629,7 @@ Coverage now lives as a native VS Code status-bar item on the right.
 - [ ] **Hover tooltip** — hovering the item opens a tooltip with a
       File / Project table (columns: Coverage, Verified, Unverified,
       Violation). Project row shows `–` (italic, dim) until the user
-      triggers **DimFort: Refresh Workspace Coverage**.
+      triggers **DimFort: Check Whole Workspace**.
 
 - [ ] **Refresh workspace coverage** — run the command. The Project
       row populates; the table tooltip updates async (lands on
@@ -820,8 +837,15 @@ end module solver
       diagnostics update **without** running *DimFort: Restart* manually.
 - [ ] **Clear cache** — run **DimFort: Clear Content-Hash Cache**; the
       status bar confirms and the server restarts (diagnostics repopulate).
+- [ ] **Cycle cache mode (0.2.6)** — run **DimFort: Cycle Content-Hash
+      Cache (Off / Read-only / Read-write)** repeatedly. The status bar
+      reports the new mode each tick (`DimFort: cache off` →
+      `DimFort: cache read-only` → `DimFort: cache read-write` → wrap).
+      Previously (0.2.5) the command was a 2-state toggle that skipped
+      `read-only`; it's now a 3-state cycle. The `dimfort.cache.mode`
+      setting in Settings UI also exposes all three values directly.
 - [ ] **Restart drift check (perf-PR sanity)** — quit + reopen VSCode,
-      then re-run **DimFort: Refresh Workspace Coverage** on the same
+      then re-run **DimFort: Check Whole Workspace** on the same
       `qa.f90`. The H-diag and U-diag counts in the toast must match
       the pre-restart counts **exactly**. Any drift = a disk-cache codec
       is producing a different result than a from-scratch run; revert
@@ -831,7 +855,7 @@ end module solver
       [perf-pr-validation.md](https://github.com/ArrialVictor/DimFort/blob/main/docs/design/contributor/perf-pr-validation.md).)
 
 - [ ] **`[N/5]` workspace-check phase counter (0.2.6)** — run **DimFort:
-      Refresh Workspace Coverage** on a workspace large enough to keep
+      Check Whole Workspace** on a workspace large enough to keep
       each phase visible for at least a second (a few hundred files+;
       `qa.f90` alone is too fast). The progress status bar walks
       through all five phases in order, every message prefixed with

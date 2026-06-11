@@ -58,8 +58,8 @@
         "category": "DimFort"
       },
       {
-        "command": "dimfort.toggleCache",
-        "title": "Toggle Content-Hash Cache",
+        "command": "dimfort.cycleCache",
+        "title": "Cycle Content-Hash Cache (Off / Read-only / Read-write)",
         "category": "DimFort"
       },
       {
@@ -83,7 +83,7 @@
         "category": "DimFort"
       },
       {
-        "command": "dimfort.refreshWorkspace",
+        "command": "dimfort.checkWorkspace",
         "title": "Check Whole Workspace",
         "category": "DimFort"
       },
@@ -122,6 +122,21 @@
         "title": "Cycle Unit Display (currently: Both)",
         "category": "DimFort",
         "icon": "$(star-full)"
+      },
+      {
+        "command": "dimfort.toggleCursor",
+        "title": "Toggle Cursor View",
+        "category": "DimFort"
+      },
+      {
+        "command": "dimfort.toggleScope",
+        "title": "Toggle Scope View",
+        "category": "DimFort"
+      },
+      {
+        "command": "dimfort.toggleImports",
+        "title": "Toggle Imports View",
+        "category": "DimFort"
       }
     ],
     "viewsContainers": {
@@ -138,17 +153,20 @@
         {
           "id": "dimfort.cursor",
           "name": "Cursor",
-          "type": "webview"
+          "type": "webview",
+          "when": "config.dimfort.show.cursor"
         },
         {
           "id": "dimfort.scope",
           "name": "Scope",
-          "type": "webview"
+          "type": "webview",
+          "when": "config.dimfort.show.scope"
         },
         {
           "id": "dimfort.imports",
           "name": "Imports",
-          "type": "webview"
+          "type": "webview",
+          "when": "config.dimfort.show.imports"
         }
       ]
     },
@@ -281,6 +299,21 @@
           "type": "string",
           "default": "",
           "description": "Optional override for the cache directory. Empty (default) means `.dimfort-cache/` under the first workspace folder."
+        },
+        "dimfort.show.cursor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the **Cursor** view (Expression / Diagnostics / Interactions / Actions, all cursor-pinned) in the DimFort side panel. Toggle from the palette with `DimFort: Toggle Cursor View`."
+        },
+        "dimfort.show.scope": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the **Scope** view (declarations in the enclosing scopes at the cursor) in the DimFort side panel. Toggle from the palette with `DimFort: Toggle Scope View`."
+        },
+        "dimfort.show.imports": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the **Imports** view (symbols brought in by the enclosing scope's `use` clauses) in the DimFort side panel. Toggle from the palette with `DimFort: Toggle Imports View`."
         },
         "dimfort.panel.enabled": {
           "type": "boolean",
