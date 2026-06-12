@@ -38,6 +38,11 @@
         "category": "DimFort"
       },
       {
+        "command": "dimfort.openConfig",
+        "title": "Open Config…",
+        "category": "DimFort"
+      },
+      {
         "command": "dimfort.toggleInlayHints",
         "title": "Toggle Inlay Hints",
         "category": "DimFort"
