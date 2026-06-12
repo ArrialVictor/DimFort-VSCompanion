@@ -832,33 +832,38 @@ end module solver
 
 ## Status command (0.2.6)
 
-- [ ] **Modal dialog** — run **DimFort: Status** from the Command
-      Palette. A modal information dialog pops up (centered) titled
-      `DimFort status` with the multi-line summary (executable,
-      inlay hints, completion, code actions, go-to-definition, hover,
-      cache mode, cache dir, scale checking, coverage layer, panel
-      enabled, show.cursor, show.scope, show.imports, sort mode, unit
-      display, language client). All rows reflect the **current**
-      runtime values (not the original defaults), so toggling any
-      setting and re-running the command updates the dialog.
+- [ ] **Output channel reveal** — run **DimFort: Status** from the
+      Command Palette. The bottom panel reveals the `DimFort
+      Status` Output channel (creating it on first invocation),
+      scrolled to a freshly-appended block titled
+      `[HH:MM:SS] DimFort status`. Editor focus stays in the source
+      file — the reveal uses `preserveFocus = true` so you can
+      glance at the bottom panel and keep editing.
 
-- [ ] **Copy to clipboard** — click the **Copy to clipboard** button
-      in the dialog; the multi-line text is copied verbatim. Paste
-      into any text field to verify.
+- [ ] **Full snapshot present** — the appended block has all 17 rows
+      (executable, inlay hints, completion, code actions,
+      go-to-definition, hover, cache mode, cache dir, scale
+      checking, coverage layer, panel enabled, show.cursor,
+      show.scope, show.imports, sort mode, unit display, language
+      client). Each row reflects the **current** runtime value
+      (not the original default), so toggling any setting and
+      re-running updates the new block.
 
-- [ ] **OK dismisses** — click **OK**; the dialog closes; no
-      lingering popup.
+- [ ] **Audit trail across invocations** — invoke `DimFort: Status`
+      a second time. The Output channel preserves the prior block
+      and appends a new one beneath, each with its own timestamp.
+      The channel survives editor reloads (per VS Code's Output
+      channel lifecycle).
 
-- [ ] **Output audit trail** — open `View → Output`, pick **DimFort
-      Status** from the channel dropdown. Each invocation of
-      `DimFort: Status` appended a `[HH:MM:SS] dimfort.status` block
-      followed by the same multi-line body. The channel persists
-      across command runs.
+- [ ] **Easy copy-paste** — in the Output channel, click anywhere
+      inside the block + `Cmd/Ctrl+A` then `Cmd/Ctrl+C` (or select
+      the block manually). The multi-line text pastes cleanly into
+      a support discussion / bug report.
 
 - [ ] **Language-client state** — invoke once with the server
-      running (reads `Running`). Run `DimFort: Restart Language
-      Server`, immediately invoke `DimFort: Status` — reads
-      `Starting`. Wait a few seconds, run `DimFort: Status` again —
+      running (block reads `Running`). Run `DimFort: Restart
+      Language Server`, immediately invoke `DimFort: Status` — the
+      new block reads `Starting`. Wait a few seconds, run again —
       reads `Running`.
 
 - [ ] **Cross-companion parity** — the output mirrors Nvim's

@@ -34,17 +34,7 @@
       },
       {
         "command": "dimfort.status",
-        "title": "Status (modal)",
-        "category": "DimFort"
-      },
-      {
-        "command": "dimfort.statusToast",
-        "title": "Status (toast)",
-        "category": "DimFort"
-      },
-      {
-        "command": "dimfort.statusWebview",
-        "title": "Status (webview)",
+        "title": "Status",
         "category": "DimFort"
       },
       {
