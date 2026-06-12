@@ -594,14 +594,17 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Status dump (0.2.6). Mirrors Nvim's `:DimFortStatus` and Emacs's
   // `M-x dimfort-status`. Appends a timestamped block to the
-  // `DimFort Status` Output channel and reveals it. The Output
-  // surface is multi-line, copy-paste-friendly, persistent across
-  // invocations (audit trail for support discussions), and
-  // non-disruptive (no modal blocking, no toast competing for
-  // attention). Same surface the LSP logs to, so the support story
-  // is "open Output → DimFort Status, paste".
-  const statusOutput = vscode.window.createOutputChannel("DimFort Status");
-  context.subscriptions.push(statusOutput);
+  // existing `DimFort` Output channel (the one the LSP client
+  // logs into) and reveals it. The Output surface is multi-line,
+  // copy-paste-friendly, persistent across invocations (audit
+  // trail for support discussions), and non-disruptive (no modal
+  // blocking, no toast competing for attention). Sharing the LSP
+  // channel keeps the support story to one place: "open Output →
+  // DimFort, paste."
+  //
+  // The channel is owned by ``vscode-languageclient`` and disposed
+  // when the client restarts, so we read ``client.outputChannel``
+  // at invocation time rather than capturing the reference.
   context.subscriptions.push(
     vscode.commands.registerCommand("dimfort.status", () => {
       const cfg = vscode.workspace.getConfiguration("dimfort");
@@ -640,11 +643,22 @@ export function activate(context: vscode.ExtensionContext): void {
         row("language client",     clientStateName(client?.state)),
       ].join("\n");
       const ts = new Date().toLocaleTimeString();
-      statusOutput.appendLine(`[${ts}] DimFort status\n${body}\n`);
+      const ch = client?.outputChannel;
+      if (ch === undefined) {
+        // Pre-activation race: client constructor hasn't run yet.
+        // Surface the snapshot to the palette caller anyway so
+        // they aren't left with nothing.
+        void vscode.window.showInformationMessage(
+          "DimFort: language client not yet started; status snapshot " +
+          "logged after restart.",
+        );
+        return;
+      }
+      ch.appendLine(`\n[${ts}] DimFort status\n${body}\n`);
       // ``preserveFocus = true`` so invoking from the palette
       // doesn't yank focus into the Output panel — the user can
       // glance at the bottom panel and keep editing.
-      statusOutput.show(true);
+      ch.show(true);
     }),
   );
 }

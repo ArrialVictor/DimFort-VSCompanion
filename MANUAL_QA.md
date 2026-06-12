@@ -833,8 +833,8 @@ end module solver
 ## Status command (0.2.6)
 
 - [ ] **Output channel reveal** — run **DimFort: Status** from the
-      Command Palette. The bottom panel reveals the `DimFort
-      Status` Output channel (creating it on first invocation),
+      Command Palette. The bottom panel reveals the **DimFort**
+      Output channel (the same one the LSP client logs into),
       scrolled to a freshly-appended block titled
       `[HH:MM:SS] DimFort status`. Editor focus stays in the source
       file — the reveal uses `preserveFocus = true` so you can
