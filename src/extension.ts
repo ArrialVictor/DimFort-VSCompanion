@@ -592,70 +592,168 @@ export function activate(context: vscode.ExtensionContext): void {
     );
   }
 
-  // Status dump (0.2.6). Mirrors Nvim's `:DimFortStatus` and Emacs's
-  // `M-x dimfort-status` — pop a modal summary the user can read at
-  // a glance, copy to clipboard, and also tee the same text to the
-  // Output channel so it's there for later debugging without
-  // re-running the command. Cross-companion table:
-  // DimFort/docs/editor-integration/commands.md.
+  // Status dump (0.2.6). Three UX flavours, registered side-by-side
+  // so the user can compare and pick one — modal dialog, toast
+  // notification, and webview tab. After the comparison the other
+  // two will be removed before this PR merges.
   const statusOutput = vscode.window.createOutputChannel("DimFort Status");
   context.subscriptions.push(statusOutput);
+
+  type StatusRow = { label: string; value: string };
+  const collectStatus = (): { header: string; rows: StatusRow[] } => {
+    const cfg = vscode.workspace.getConfiguration("dimfort");
+    const flag = (b: boolean) => (b ? "on" : "off");
+    const clientStateName = (s: State | undefined): string => {
+      switch (s) {
+        case State.Starting: return "Starting";
+        case State.Running:  return "Running";
+        case State.Stopped:  return "Stopped";
+        default:             return "(not started)";
+      }
+    };
+    const cacheDir = cfg.get<string>("cache.dir", "");
+    return {
+      header: "DimFort status",
+      rows: [
+        { label: "executable",       value: cfg.get<string>("executable", "dimfort") },
+        { label: "inlay hints",      value: flag(cfg.get<boolean>("inlayHints.enabled", false)) },
+        { label: "completion",       value: flag(cfg.get<boolean>("completion.enabled", true)) },
+        { label: "code actions",     value: flag(cfg.get<boolean>("codeActions.enabled", true)) },
+        { label: "go-to-definition", value: flag(cfg.get<boolean>("gotoDefinition.enabled", true)) },
+        { label: "hover",            value: cfg.get<string>("hover", "short") },
+        { label: "cache mode",       value: cfg.get<string>("cache.mode", "read-write") },
+        { label: "cache dir",        value: cacheDir === "" ? "(default)" : cacheDir },
+        { label: "scale checking",   value: cfg.get<string>("scale.mode", "auto") },
+        { label: "coverage layer",   value: cfg.get<string>("coverage.mode", "disabled") },
+        { label: "panel enabled",    value: flag(cfg.get<boolean>("panel.enabled", true)) },
+        { label: "show.cursor",      value: flag(cfg.get<boolean>("show.cursor", true)) },
+        { label: "show.scope",       value: flag(cfg.get<boolean>("show.scope", true)) },
+        { label: "show.imports",     value: flag(cfg.get<boolean>("show.imports", true)) },
+        { label: "sort mode",        value: cfg.get<string>("panel.sortMode", "line") },
+        { label: "unit display",     value: cfg.get<string>("panel.unitDisplayMode", "canonical") },
+        { label: "language client",  value: clientStateName(client?.state) },
+      ],
+    };
+  };
+
+  const renderPlain = (
+    snap: { header: string; rows: StatusRow[] },
+  ): string => {
+    const body = snap.rows
+      .map((r) => `  ${r.label.padEnd(18, " ")} : ${r.value}`)
+      .join("\n");
+    return `${snap.header}\n\n${body}`;
+  };
+
+  const teeToOutput = (rendered: string, source: string): void => {
+    const ts = new Date().toLocaleTimeString();
+    statusOutput.appendLine(`[${ts}] ${source}\n${rendered}\n`);
+  };
+
+  // ---------- Flavour 1: modal dialog ----------
+  // Pops up centered, blocking. Multi-line body sized to content.
+  // "Copy to clipboard" button copies the full rendered text.
   context.subscriptions.push(
     vscode.commands.registerCommand("dimfort.status", async () => {
-      const cfg = vscode.workspace.getConfiguration("dimfort");
-      const flag = (b: boolean) => (b ? "on" : "off");
-      const clientStateName = (s: State | undefined): string => {
-        switch (s) {
-          case State.Starting: return "Starting";
-          case State.Running:  return "Running";
-          case State.Stopped:  return "Stopped";
-          default:             return "(not started)";
-        }
-      };
-      // Two-column layout: label padded to 18 chars, then `: value`.
-      // Matches the Nvim/Emacs status formatting so a user familiar
-      // with one companion's output recognises this one too.
-      const row = (label: string, value: string) =>
-        `  ${label.padEnd(18, " ")} : ${value}`;
-      const cacheDir = cfg.get<string>("cache.dir", "");
-      const body = [
-        row("executable",          cfg.get<string>("executable", "dimfort")),
-        row("inlay hints",         flag(cfg.get<boolean>("inlayHints.enabled", false))),
-        row("completion",          flag(cfg.get<boolean>("completion.enabled", true))),
-        row("code actions",        flag(cfg.get<boolean>("codeActions.enabled", true))),
-        row("go-to-definition",    flag(cfg.get<boolean>("gotoDefinition.enabled", true))),
-        row("hover",               cfg.get<string>("hover", "short")),
-        row("cache mode",          cfg.get<string>("cache.mode", "read-write")),
-        row("cache dir",           cacheDir === "" ? "(default)" : cacheDir),
-        row("scale checking",      cfg.get<string>("scale.mode", "auto")),
-        row("coverage layer",      cfg.get<string>("coverage.mode", "disabled")),
-        row("panel enabled",       flag(cfg.get<boolean>("panel.enabled", true))),
-        row("show.cursor",         flag(cfg.get<boolean>("show.cursor", true))),
-        row("show.scope",          flag(cfg.get<boolean>("show.scope", true))),
-        row("show.imports",        flag(cfg.get<boolean>("show.imports", true))),
-        row("sort mode",           cfg.get<string>("panel.sortMode", "line")),
-        row("unit display",        cfg.get<string>("panel.unitDisplayMode", "canonical")),
-        row("language client",     clientStateName(client?.state)),
-      ].join("\n");
-      const header = "DimFort status";
-      const full = `${header}\n\n${body}`;
-      // Output channel: appended with a wall-clock stamp for an
-      // audit trail. The channel is the same DimFort one the LSP
-      // logs into — keeps the support story simple ("paste your
-      // DimFort Output").
-      const ts = new Date().toLocaleTimeString();
-      statusOutput.appendLine(`[${ts}] dimfort.status\n${body}\n`);
-      // Modal dialog: pops up in front of the user with both a
-      // copy-to-clipboard shortcut and an OK dismiss.
+      const snap = collectStatus();
+      const rendered = renderPlain(snap);
+      teeToOutput(rendered, "dimfort.status");
       const COPY = "Copy to clipboard";
       const pick = await vscode.window.showInformationMessage(
-        full,
+        rendered,
         { modal: true, detail: "" },
         COPY,
       );
       if (pick === COPY) {
-        await vscode.env.clipboard.writeText(full);
+        await vscode.env.clipboard.writeText(rendered);
       }
+    }),
+  );
+
+  // ---------- Flavour 2: toast notification ----------
+  // Bottom-right popup. Multi-line content gets a "Show details" /
+  // "Copy" button pair because the toast itself truncates after
+  // ~2 lines. Auto-dismisses after a few seconds if the user doesn't
+  // interact. The Output channel still gets the full block.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.statusToast", async () => {
+      const snap = collectStatus();
+      const rendered = renderPlain(snap);
+      teeToOutput(rendered, "dimfort.statusToast");
+      // Condense to a single-line summary for the toast itself; the
+      // full body is reachable via the buttons.
+      const summary = snap.rows
+        .filter((r) => ["hover", "cache mode", "scale checking",
+                        "coverage layer", "language client"].includes(r.label))
+        .map((r) => `${r.label.replace(/\s/g, "")}: ${r.value}`)
+        .join("  •  ");
+      const COPY = "Copy full";
+      const DETAILS = "Show full status";
+      const pick = await vscode.window.showInformationMessage(
+        `DimFort: ${summary}`,
+        COPY,
+        DETAILS,
+      );
+      if (pick === COPY) {
+        await vscode.env.clipboard.writeText(rendered);
+      } else if (pick === DETAILS) {
+        statusOutput.show(true);
+      }
+    }),
+  );
+
+  // ---------- Flavour 3: webview tab ----------
+  // Opens a full-tab HTML view. Rich formatting (table, themed
+  // colours, monospace body) but heavier weight than a dialog.
+  // Closing the tab dismisses; no explicit dismiss button needed.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.statusWebview", () => {
+      const snap = collectStatus();
+      const rendered = renderPlain(snap);
+      teeToOutput(rendered, "dimfort.statusWebview");
+      const panel = vscode.window.createWebviewPanel(
+        "dimfort.statusWebview",
+        "DimFort Status",
+        vscode.ViewColumn.Active,
+        { retainContextWhenHidden: false },
+      );
+      const esc = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const rowsHtml = snap.rows
+        .map((r) => `<tr><td class="lbl">${esc(r.label)}</td><td class="val">${esc(r.value)}</td></tr>`)
+        .join("");
+      const ts = new Date().toLocaleString();
+      panel.webview.html = /* html */ `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  body {
+    font-family: var(--vscode-font-family);
+    color: var(--vscode-foreground);
+    padding: 1.5em 2em;
+  }
+  h1 { font-size: 1.4em; margin: 0 0 0.25em 0; }
+  .stamp { color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-bottom: 1.2em; }
+  table { border-collapse: collapse; }
+  td { padding: 0.25em 1.2em 0.25em 0; vertical-align: top; }
+  td.lbl {
+    color: var(--vscode-descriptionForeground);
+    font-family: var(--vscode-editor-font-family);
+    font-size: 0.92em;
+  }
+  td.val {
+    font-family: var(--vscode-editor-font-family);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <h1>${esc(snap.header)}</h1>
+  <div class="stamp">snapshot taken at ${esc(ts)}</div>
+  <table>${rowsHtml}</table>
+</body>
+</html>`;
     }),
   );
 }
