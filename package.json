@@ -33,6 +33,11 @@
         "category": "DimFort"
       },
       {
+        "command": "dimfort.status",
+        "title": "Status",
+        "category": "DimFort"
+      },
+      {
         "command": "dimfort.toggleInlayHints",
         "title": "Toggle Inlay Hints",
         "category": "DimFort"

@@ -3,6 +3,7 @@ import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
+  State,
 } from "vscode-languageclient/node";
 import { CoverageProvider } from "./coverage";
 import { PanelCoordinator } from "./panel/coordinator";
@@ -590,8 +591,74 @@ export function activate(context: vscode.ExtensionContext): void {
       }),
     );
   }
-}
 
+  // Status dump (0.2.6). Mirrors Nvim's `:DimFortStatus` and Emacs's
+  // `M-x dimfort-status` — pop a modal summary the user can read at
+  // a glance, copy to clipboard, and also tee the same text to the
+  // Output channel so it's there for later debugging without
+  // re-running the command. Cross-companion table:
+  // DimFort/docs/editor-integration/commands.md.
+  const statusOutput = vscode.window.createOutputChannel("DimFort Status");
+  context.subscriptions.push(statusOutput);
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.status", async () => {
+      const cfg = vscode.workspace.getConfiguration("dimfort");
+      const flag = (b: boolean) => (b ? "on" : "off");
+      const clientStateName = (s: State | undefined): string => {
+        switch (s) {
+          case State.Starting: return "Starting";
+          case State.Running:  return "Running";
+          case State.Stopped:  return "Stopped";
+          default:             return "(not started)";
+        }
+      };
+      // Two-column layout: label padded to 18 chars, then `: value`.
+      // Matches the Nvim/Emacs status formatting so a user familiar
+      // with one companion's output recognises this one too.
+      const row = (label: string, value: string) =>
+        `  ${label.padEnd(18, " ")} : ${value}`;
+      const cacheDir = cfg.get<string>("cache.dir", "");
+      const body = [
+        row("executable",          cfg.get<string>("executable", "dimfort")),
+        row("inlay hints",         flag(cfg.get<boolean>("inlayHints.enabled", false))),
+        row("completion",          flag(cfg.get<boolean>("completion.enabled", true))),
+        row("code actions",        flag(cfg.get<boolean>("codeActions.enabled", true))),
+        row("go-to-definition",    flag(cfg.get<boolean>("gotoDefinition.enabled", true))),
+        row("hover",               cfg.get<string>("hover", "short")),
+        row("cache mode",          cfg.get<string>("cache.mode", "read-write")),
+        row("cache dir",           cacheDir === "" ? "(default)" : cacheDir),
+        row("scale checking",      cfg.get<string>("scale.mode", "auto")),
+        row("coverage layer",      cfg.get<string>("coverage.mode", "disabled")),
+        row("panel enabled",       flag(cfg.get<boolean>("panel.enabled", true))),
+        row("show.cursor",         flag(cfg.get<boolean>("show.cursor", true))),
+        row("show.scope",          flag(cfg.get<boolean>("show.scope", true))),
+        row("show.imports",        flag(cfg.get<boolean>("show.imports", true))),
+        row("sort mode",           cfg.get<string>("panel.sortMode", "line")),
+        row("unit display",        cfg.get<string>("panel.unitDisplayMode", "canonical")),
+        row("language client",     clientStateName(client?.state)),
+      ].join("\n");
+      const header = "DimFort status";
+      const full = `${header}\n\n${body}`;
+      // Output channel: appended with a wall-clock stamp for an
+      // audit trail. The channel is the same DimFort one the LSP
+      // logs into — keeps the support story simple ("paste your
+      // DimFort Output").
+      const ts = new Date().toLocaleTimeString();
+      statusOutput.appendLine(`[${ts}] dimfort.status\n${body}\n`);
+      // Modal dialog: pops up in front of the user with both a
+      // copy-to-clipboard shortcut and an OK dismiss.
+      const COPY = "Copy to clipboard";
+      const pick = await vscode.window.showInformationMessage(
+        full,
+        { modal: true, detail: "" },
+        COPY,
+      );
+      if (pick === COPY) {
+        await vscode.env.clipboard.writeText(full);
+      }
+    }),
+  );
+}
 
 // True if the configuration change affects any `dimfort.*` setting OTHER
 // than the two coverage-only knobs. Used by the config-change listener to

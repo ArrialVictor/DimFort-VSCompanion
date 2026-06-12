@@ -830,6 +830,44 @@ end module solver
 - [ ] **Empty case** — cursor in `phys_base` (which imports nothing):
       the Imports section shows `(none)`.
 
+## Status command (0.2.6)
+
+- [ ] **Modal dialog** — run **DimFort: Status** from the Command
+      Palette. A modal information dialog pops up (centered) titled
+      `DimFort status` with the multi-line summary (executable,
+      inlay hints, completion, code actions, go-to-definition, hover,
+      cache mode, cache dir, scale checking, coverage layer, panel
+      enabled, show.cursor, show.scope, show.imports, sort mode, unit
+      display, language client). All rows reflect the **current**
+      runtime values (not the original defaults), so toggling any
+      setting and re-running the command updates the dialog.
+
+- [ ] **Copy to clipboard** — click the **Copy to clipboard** button
+      in the dialog; the multi-line text is copied verbatim. Paste
+      into any text field to verify.
+
+- [ ] **OK dismisses** — click **OK**; the dialog closes; no
+      lingering popup.
+
+- [ ] **Output audit trail** — open `View → Output`, pick **DimFort
+      Status** from the channel dropdown. Each invocation of
+      `DimFort: Status` appended a `[HH:MM:SS] dimfort.status` block
+      followed by the same multi-line body. The channel persists
+      across command runs.
+
+- [ ] **Language-client state** — invoke once with the server
+      running (reads `Running`). Run `DimFort: Restart Language
+      Server`, immediately invoke `DimFort: Status` — reads
+      `Starting`. Wait a few seconds, run `DimFort: Status` again —
+      reads `Running`.
+
+- [ ] **Cross-companion parity** — the output mirrors Nvim's
+      `:DimFortStatus` and Emacs's `M-x dimfort-status` for the
+      shared rows. VS-specific additions (`show.cursor / scope /
+      imports`, `sort mode`, `unit display`, `language client`)
+      reflect VS UX surfaces the other companions don't expose the
+      same way.
+
 ## Config reload & cache
 
 - [ ] **`.dimfort.toml` auto-reload** — edit the toml (e.g. flip
