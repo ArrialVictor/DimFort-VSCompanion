@@ -53,7 +53,12 @@ function titlecase(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
 
 function renderScope(sc, depth) {
   const wrap = document.createElement("div");
-  wrap.style.marginLeft = (depth * 12) + "px";
+  // Each depth step nests at 1.2em so a nested scope-head aligns
+  // vertically with its parent scope's content rows (which sit at
+  // 1.2em via the shared ".scope-head + *" rule in section-view.ts).
+  // Was depth*12px before the 0.2.6 indent pass; 12px is shorter
+  // than 1.2em so the nested header looked left-of the sibling rows.
+  wrap.style.marginLeft = (depth * 1.2) + "em";
   const head = document.createElement("div");
   head.className = "scope-head";
   head.textContent = titlecase(sc.kind) + ": " + sc.name;

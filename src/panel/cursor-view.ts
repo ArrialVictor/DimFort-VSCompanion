@@ -310,6 +310,11 @@ repaint();
   .subsection-head { font-weight: 600; text-transform: uppercase;
     font-size: 0.85em; letter-spacing: 0.04em;
     color: var(--vscode-descriptionForeground); margin-bottom: 0.3em; }
+  /* Indent subsection bodies under the uppercase headers so
+     EXPRESSION / DIAGNOSTICS / INTERACTIONS / ACTIONS visually own
+     their content; previously rows were flush-left with the
+     headers (multi-view refactor regression). */
+  .subsection-body { padding-left: 1.2em; }
     `;
   }
 }

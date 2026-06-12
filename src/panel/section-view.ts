@@ -170,6 +170,11 @@ export abstract class SectionView
   .muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   td.muted { color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground)); }
   .scope-head { font-weight: 600; margin-top: 0.4em; }
+  /* Indent whatever immediately follows a scope-head (var table or
+     a muted "no declarations" line) so each scope group visually
+     owns its rows. Applies to Scope view's Module/Function blocks
+     and Imports view's "from <module>" groups. */
+  .scope-head + * { margin-left: 1.2em; }
   .clickable { cursor: pointer; }
   .clickable:hover { text-decoration: underline; }
   .empty { color: var(--vscode-descriptionForeground); font-style: italic; }
