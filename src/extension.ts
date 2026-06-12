@@ -1,3 +1,6 @@
+import { execFile } from "child_process";
+import { promisify } from "util";
+
 import * as vscode from "vscode";
 import {
   LanguageClient,
@@ -5,6 +8,8 @@ import {
   ServerOptions,
   State,
 } from "vscode-languageclient/node";
+
+const execFileP = promisify(execFile);
 import { CoverageProvider } from "./coverage";
 import { PanelCoordinator } from "./panel/coordinator";
 import { CoverageStatusFooter } from "./panel/coverage-status";
@@ -54,7 +59,7 @@ function buildClient(): LanguageClient {
     initializationOptions.cacheDir = cacheDir;
   }
   // Scale checking is tri-state: "auto" defers to the project's
-  // `.dimfort.toml` (omit the option so the server's config wins);
+  // `dimfort.toml` (omit the option so the server's config wins);
   // "on"/"off" forward an explicit boolean that overrides the toml.
   const scaleMode = config.get<string>("scale.mode", "auto");
   if (scaleMode === "on") {
@@ -365,17 +370,17 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // The server reads project config (`.dimfort.toml`: units file,
+  // The server reads project config (`dimfort.toml`: units file,
   // [diagnostics] severities, [scale] enabled, …) only at initialize, so
   // edits to it need a server restart to take effect. Watch the file and
   // rebuild on change/create/delete — same transparent reload the
   // `dimfort.*` settings get, so users don't have to run Restart manually.
-  const tomlWatcher = vscode.workspace.createFileSystemWatcher("**/.dimfort.toml");
+  const tomlWatcher = vscode.workspace.createFileSystemWatcher("**/dimfort.toml");
   const reloadOnToml = async () => {
     try {
       await rebuildClient();
     } catch (err) {
-      vscode.window.showErrorMessage(`DimFort: reload after .dimfort.toml change failed — ${err}`);
+      vscode.window.showErrorMessage(`DimFort: reload after dimfort.toml change failed — ${err}`);
     }
   };
   tomlWatcher.onDidChange(reloadOnToml);
@@ -526,7 +531,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // Scale checking is tri-state (auto / on / off), like hover. "auto"
-  // defers to the project .dimfort.toml; "on"/"off" override it. Cycles
+  // defers to the project dimfort.toml; "on"/"off" override it. Cycles
   // in that order; the config-change listener rebuilds the client.
   context.subscriptions.push(
     vscode.commands.registerCommand("dimfort.cycleScale", async () => {
@@ -661,6 +666,279 @@ export function activate(context: vscode.ExtensionContext): void {
       ch.show(true);
     }),
   );
+
+  // Open Config (0.2.6). Quick-pick for the two project config files
+  // (``dimfort.toml`` and a project units file). Each opens if it
+  // exists, creates a stub if not. When creating units file: sub-pick
+  // for empty vs defaults-as-reference, and auto-wire
+  // ``[units].file = "units.toml"`` into ``dimfort.toml`` so the
+  // server picks it up immediately. See ``openConfig`` below.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.openConfig", openConfig),
+  );
+}
+
+
+// =============================================================================
+// dimfort.openConfig — quick-pick + create-or-open + auto-wire.
+// =============================================================================
+
+async function openConfig(): Promise<void> {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) {
+    void vscode.window.showWarningMessage(
+      "DimFort: open a workspace folder first; nothing to wire a config into.",
+    );
+    return;
+  }
+  // ``id`` instead of ``kind`` — the latter is reserved by
+  // ``QuickPickItem`` for separator items.
+  interface ConfigPick extends vscode.QuickPickItem {
+    id: "dimfortToml" | "unitsFile";
+  }
+  const picks: ConfigPick[] = [
+    { id: "dimfortToml", label: "Project configuration file (dimfort.toml)" },
+    { id: "unitsFile",   label: "Project units file (units.toml)" },
+  ];
+  const pick = await vscode.window.showQuickPick<ConfigPick>(picks, {
+    title: "DimFort — Open Config",
+    placeHolder: "Which config file?",
+  });
+  if (!pick) return;
+  if (pick.id === "dimfortToml") {
+    await openOrCreateDimfortToml(folder.uri);
+  } else {
+    await openOrCreateUnitsFile(folder.uri);
+  }
+}
+
+async function openOrCreateDimfortToml(folder: vscode.Uri): Promise<void> {
+  const uri = vscode.Uri.joinPath(folder, "dimfort.toml");
+  if (await uriExists(uri)) {
+    await openInEditor(uri);
+    return;
+  }
+  interface FlavourPick extends vscode.QuickPickItem {
+    value: "empty" | "all-sections";
+  }
+  const flavours: FlavourPick[] = [
+    { label: "Empty file",                                value: "empty" },
+    { label: "Reference template (all sections commented out)", value: "all-sections" },
+  ];
+  const flavour = await vscode.window.showQuickPick<FlavourPick>(
+    flavours,
+    { title: "DimFort — Project configuration file", placeHolder: "Start from?" },
+  );
+  if (!flavour) return;
+  const content = flavour.value === "empty"
+    ? dimfortTomlStubEmpty()
+    : dimfortTomlStub();
+  await writeText(uri, content);
+  await openInEditor(uri);
+  vscode.window.setStatusBarMessage(
+    `DimFort: created ${vscode.workspace.asRelativePath(uri)}`,
+    3000,
+  );
+}
+
+async function openOrCreateUnitsFile(folder: vscode.Uri): Promise<void> {
+  const uri = vscode.Uri.joinPath(folder, "units.toml");
+  if (await uriExists(uri)) {
+    await openInEditor(uri);
+    return;
+  }
+  interface FlavourPick extends vscode.QuickPickItem {
+    value: "empty" | "defaults";
+  }
+  const flavours: FlavourPick[] = [
+    { label: "Empty file",                                value: "empty" },
+    { label: "Reference template (bundled defaults, all commented out)", value: "defaults" },
+  ];
+  const flavour = await vscode.window.showQuickPick<FlavourPick>(
+    flavours,
+    { title: "DimFort — Project units file", placeHolder: "Start from?" },
+  );
+  if (!flavour) return;
+  const content = flavour.value === "empty"
+    ? unitsStubEmpty()
+    : await unitsStubFromDefaults();
+  await writeText(uri, content);
+  // Auto-wire dimfort.toml so the server picks up the new file.
+  const tomlUri = vscode.Uri.joinPath(folder, "dimfort.toml");
+  const wired = await tryWireUnitsFile(tomlUri);
+  await openInEditor(uri);
+  const rel = vscode.workspace.asRelativePath(uri);
+  if (wired === "wired") {
+    vscode.window.setStatusBarMessage(
+      `DimFort: created ${rel} + wired into dimfort.toml`,
+      4000,
+    );
+  } else if (wired === "exists-with-units-section") {
+    void vscode.window.showInformationMessage(
+      `DimFort: created ${rel}. Your dimfort.toml already has a [units] section — add 'file = "units.toml"' under it to enable the new file.`,
+    );
+  } else {
+    vscode.window.setStatusBarMessage(
+      `DimFort: created ${rel}`,
+      3000,
+    );
+  }
+}
+
+async function uriExists(uri: vscode.Uri): Promise<boolean> {
+  try {
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function openInEditor(uri: vscode.Uri): Promise<void> {
+  const doc = await vscode.workspace.openTextDocument(uri);
+  await vscode.window.showTextDocument(doc);
+}
+
+async function writeText(uri: vscode.Uri, content: string): Promise<void> {
+  await vscode.workspace.fs.writeFile(
+    uri,
+    new TextEncoder().encode(content),
+  );
+}
+
+/**
+ * Ensure ``dimfort.toml`` references ``units.toml`` under ``[units].file``.
+ *
+ * Returns:
+ *   "already-wired"             — the file key is already present
+ *   "wired"                     — appended ``[units]\nfile = "units.toml"`` (creating the file if necessary)
+ *   "exists-with-units-section" — file exists with a ``[units]`` header but no ``file`` key; we don't try to insert into a non-trailing section without a real TOML parser. The caller surfaces a hint to the user.
+ */
+async function tryWireUnitsFile(
+  tomlUri: vscode.Uri,
+): Promise<"wired" | "already-wired" | "exists-with-units-section"> {
+  let existing = "";
+  if (await uriExists(tomlUri)) {
+    const bytes = await vscode.workspace.fs.readFile(tomlUri);
+    existing = new TextDecoder("utf-8").decode(bytes);
+  }
+  // ``[units]`` followed by ANY content up to the next ``[section]`` or EOF,
+  // looking for a ``file = ...`` line within that span.
+  const fileKeyInUnitsRe = /\[units\][^[]*?\n\s*file\s*=/s;
+  if (fileKeyInUnitsRe.test(existing)) {
+    return "already-wired";
+  }
+  if (/^\[units\]\s*$/m.test(existing)) {
+    // Section exists but no file key. Inserting into the middle of an
+    // existing section with string ops is fragile (comment handling, key
+    // ordering). Leave it to the user.
+    return "exists-with-units-section";
+  }
+  const sep = existing && !existing.endsWith("\n") ? "\n\n" : (existing ? "\n" : "");
+  const next = existing + sep + '[units]\nfile = "units.toml"\n';
+  await writeText(tomlUri, next);
+  return "wired";
+}
+
+function dimfortTomlStubEmpty(): string {
+  return [
+    "# DimFort project configuration.",
+    "#",
+    "# Add project-wide settings here. Reference:",
+    "#   https://github.com/ArrialVictor/DimFort/blob/main/docs/reference/dimfort-toml.md",
+    "",
+  ].join("\n");
+}
+
+function dimfortTomlStub(): string {
+  return [
+    "# DimFort project configuration.",
+    "#",
+    "# Optional. Without this file, DimFort uses bundled defaults for",
+    "# everything. Each section below is also optional — uncomment +",
+    "# customise as needed. Reference:",
+    "#   https://github.com/ArrialVictor/DimFort/blob/main/docs/reference/dimfort-toml.md",
+    "",
+    "# [units]",
+    "# file = \"units.toml\"   # Project units file (extends bundled defaults)",
+    "",
+    "# [parser]",
+    "# # Extra comment delimiters for unit annotations.",
+    "# # Defaults already recognise `!< @unit{...}` and friends.",
+    "",
+    "# [diagnostics]",
+    "# # H001 = \"off\"   # Per-code severity overrides",
+    "",
+    "# [scale]",
+    "# # enabled = true   # Enable S001/S002 scale-aware checking",
+    "",
+    "# [project]",
+    "# # src_paths = [\"src\"]   # Narrow the workspace check to these subdirs",
+    "",
+  ].join("\n");
+}
+
+function unitsStubHeader(): string {
+  return [
+    "# DimFort project units file.",
+    "#",
+    "# Extends (does not replace) the bundled defaults. To see what's",
+    "# already in the defaults, run:  dimfort show-defaults units",
+    "#",
+    "# Schema:",
+    "#   [base]     — base units mapping to SI dimension slots",
+    "#                (M / L / T / Theta / I / N / J)",
+    "#   [prefixes] — SI prefix multipliers (numeric or \"p/q\" rationals)",
+    "#   [derived]  — derived units; `expr` parsed against the table;",
+    "#                `prefixable = true` opts in to prefix expansion",
+    "#",
+    "",
+  ].join("\n");
+}
+
+function unitsStubEmpty(): string {
+  return unitsStubHeader() + [
+    "# Example: a custom derived unit.",
+    "#",
+    "# [derived]",
+    "# barrel = { expr = \"159 * L\", prefixable = false }   # US oil barrel",
+    "",
+  ].join("\n");
+}
+
+async function unitsStubFromDefaults(): Promise<string> {
+  const cfg = vscode.workspace.getConfiguration("dimfort");
+  const executable = cfg.get<string>("executable", "dimfort");
+  let defaultsBody = "";
+  try {
+    const { stdout } = await execFileP(executable, ["show-defaults", "units"]);
+    defaultsBody = stdout;
+  } catch {
+    // dimfort not on PATH, version too old, or non-zero exit — fall
+    // through and write a stub explaining the situation.
+  }
+  if (!defaultsBody) {
+    return unitsStubEmpty() + [
+      "",
+      "# (Couldn't fetch the bundled defaults; install or upgrade",
+      "#  DimFort, then run `dimfort show-defaults units` to see",
+      "#  what's available.)",
+      "",
+    ].join("\n");
+  }
+  // Comment every non-comment, non-blank line so the file is a no-op
+  // until the user uncomments what they need.
+  const commented = defaultsBody.split("\n").map((line) => {
+    if (line === "" || line.startsWith("#")) return line;
+    return "# " + line;
+  }).join("\n");
+  return unitsStubHeader() + [
+    "# Below: bundled defaults, ALL commented out.",
+    "# Uncomment any line to enable, override, or extend.",
+    "# To start from scratch instead, delete everything below this banner.",
+    "#",
+    "",
+  ].join("\n") + commented;
 }
 
 // True if the configuration change affects any `dimfort.*` setting OTHER

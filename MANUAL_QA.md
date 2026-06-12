@@ -646,7 +646,7 @@ Coverage now lives as a native VS Code status-bar item on the right.
 ## Scale layer (S001 / S002) — opt-in
 
 Scale checking is **off by default**; dimension-only must stay
-byte-identical. Turn it on with a workspace `.dimfort.toml`:
+byte-identical. Turn it on with a workspace `dimfort.toml`:
 
 ```toml
 [scale]
@@ -672,7 +672,7 @@ contains
 end module scale_qa
 ```
 
-- [ ] **Off by default** — with **no** `.dimfort.toml` (or `enabled =
+- [ ] **Off by default** — with **no** `dimfort.toml` (or `enabled =
       false`), the file is **completely clean** — no S001/S002.
 - [ ] **On** — with `[scale] enabled = true`, **yellow** squiggles:
       `phpa = play` → **S001**, `t_k = t_c` and `t_k = t_c + t_c` →
@@ -693,7 +693,7 @@ end module scale_qa
       `phpa = play / PA_PER_HPA`, is **clean** (no S001). The typed
       `Pa/hPa` parameter carries the multiplicative factor explicitly,
       so the assignment's units balance and the scale check passes.
-- [ ] **Editor toggle** (no `.dimfort.toml` needed) — set
+- [ ] **Editor toggle** (no `dimfort.toml` needed) — set
       `dimfort.scale.mode` to `on` (or run **DimFort: Cycle Scale
       Checking** until the status bar shows `scale checking on`): the
       S001/S002 squiggles appear. Set it back to `auto` → scale follows the
@@ -747,7 +747,7 @@ end subroutine unparsed_qa
       line 8 (clean autocast → `m·s⁻¹`).
 - [ ] **Doesn't mask real checks** — the `H001` still fires; P001 only marks
       what it *couldn't* read, it doesn't suppress checking elsewhere.
-- [ ] **Suppressible** — add a workspace `.dimfort.toml` with
+- [ ] **Suppressible** — add a workspace `dimfort.toml` with
       `[diagnostics]` `P001 = "off"`, save; the blue squiggle disappears
       (no manual restart), the red `H001` stays.
 
@@ -873,9 +873,94 @@ end module solver
       reflect VS UX surfaces the other companions don't expose the
       same way.
 
+## Open Config command (0.2.6)
+
+These checks need a **fresh workspace folder** with no
+`dimfort.toml` and no `units.toml`. Open an empty folder in VS
+Code (`File → Open Folder…`) before each subsection.
+
+- [ ] **`dimfort.toml` empty cold-create** — run **DimFort:
+      Open Config…**, pick **Project configuration file
+      (dimfort.toml)**. A sub-pick shows `Empty file` and
+      `Reference template (all sections commented out)`. Pick `Empty file`.
+      A new `dimfort.toml` appears, opens, and contains just
+      the minimal header (the top comment block — no section
+      headers). Status bar reads `DimFort: created dimfort.toml`.
+
+- [ ] **`dimfort.toml` all-sections cold-create** — same as
+      above but pick `Reference template (all sections commented out)`. The
+      file's `[units]` / `[parser]` / `[diagnostics]` / `[scale]`
+      / `[project]` section headers are all present but each
+      line is prefixed with `# `.
+
+- [ ] **`dimfort.toml` warm-open** — run the command again,
+      pick `Project configuration file (dimfort.toml)`. The
+      existing file opens with no sub-pick (no creation needed)
+      and no modification. No status bar message.
+
+Wipe the workspace (delete the created files) and reopen the
+folder before the next block.
+
+- [ ] **Units file empty cold-create** — run **DimFort: Open
+      Config…**, pick **Project units file (units.toml)**. A
+      sub-pick shows `Empty file` and `Defaults as
+      reference (all commented
+      out)`. Pick `Empty file`. A new `units.toml` appears,
+      opens, and contains the empty-template stub (header banner
+      + a single commented `[derived]` example). A new
+      `dimfort.toml` appears alongside it with
+      `[units]\nfile = "units.toml"`. Status bar reads
+      `DimFort: created units.toml + wired into dimfort.toml`.
+
+- [ ] **Server picks up the wiring** — close `dimfort.toml` if
+      open; in an adjacent `.f90` file in the same workspace,
+      the diagnostics should be unchanged but the wire is in
+      place. Run **DimFort: Status** and verify the snapshot's
+      `executable` and `language client` rows still look normal
+      (no error toast).
+
+Wipe again.
+
+- [ ] **Units file defaults cold-create** — same as above but
+      pick **Reference template (bundled defaults, all commented out)**. The
+      file's `[base]`, `[prefixes]`, `[derived]` sections are
+      all present but each line is prefixed with `# `. The top
+      banner explains "Uncomment any line to enable, override,
+      or extend." The auto-wire still happens.
+
+- [ ] **Units file warm-open** — run the command again, pick
+      `Project units file (units.toml)`. The existing
+      `units.toml` opens. No sub-pick is shown (no creation
+      needed). No status bar message about wiring.
+
+Wipe `dimfort.toml` only (keep `units.toml`); pre-create a
+`dimfort.toml` containing only `[diagnostics]\nH001 = "off"\n`
+(no `[units]` section).
+
+- [ ] **Auto-wire appends `[units]` section** — run **DimFort:
+      Open Config…**, pick `Project units file (units.toml)`.
+      Sub-pick: either flavour. After creation, open the
+      existing
+      `dimfort.toml` — a new `[units]\nfile = "units.toml"`
+      block appears appended at the end. Original `[diagnostics]`
+      section is preserved.
+
+Wipe again, this time pre-create a `dimfort.toml` containing
+`[units]\nother_key = "value"\n` (an existing `[units]` section
+with no `file` key).
+
+- [ ] **Edge case: existing `[units]` section** — run the
+      command, pick `Project units file (units.toml)`, any
+      flavour. After
+      creation, an information toast reads `DimFort: created
+      units.toml. Your dimfort.toml already has a [units]
+      section — add 'file = "units.toml"' under it to enable the
+      new file.` The `dimfort.toml` is **not** modified
+      (verify by inspection).
+
 ## Config reload & cache
 
-- [ ] **`.dimfort.toml` auto-reload** — edit the toml (e.g. flip
+- [ ] **`dimfort.toml` auto-reload** — edit the toml (e.g. flip
       `[scale] enabled` or change a `[diagnostics]` severity) and save;
       diagnostics update **without** running *DimFort: Restart* manually.
 - [ ] **Clear cache** — run **DimFort: Clear Content-Hash Cache**; the
@@ -953,7 +1038,7 @@ subroutine delim_demo
 end subroutine
 ```
 
-Save this `.dimfort.toml` next to it:
+Save this `dimfort.toml` next to it:
 
 ```toml
 [parser]
@@ -988,7 +1073,7 @@ unit_comment_delimiters = [
 
 ## Polymorphism (0.2.3)
 
-Save this as `poly_qa.f90` in a fresh folder (no `.dimfort.toml`
+Save this as `poly_qa.f90` in a fresh folder (no `dimfort.toml`
 needed — defaults are fine). The scene covers four cases: clean
 polymorphic body, dishonest body, caller mismatch, clean caller.
 
