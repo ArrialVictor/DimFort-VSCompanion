@@ -4,7 +4,7 @@ import { LanguageClient, State } from "vscode-languageclient/node";
 // Wire-format mirror of the server's dimfort/coverageStats response.
 // File-scope is served live by the read-only stats endpoint;
 // workspace-scope is populated only by the explicit
-// `dimfort.checkWorkspace` command (see
+// `dimfort/checkWorkspace` command (see
 // `DimFort/docs/design/shipped/coverage-visualization.md` §13.2).
 interface StatsRow {
   uri: string;
@@ -192,8 +192,8 @@ export class CoverageStatsProvider implements vscode.Disposable {
   /**
    * Trigger a workspace coverage refresh.
    *
-   * Sends ``workspace/executeCommand`` with the server-side command
-   * id ``dimfort.checkWorkspace``. Since DimFort 0.2.5, the server
+   * Sends ``workspace/executeCommand`` with the wire-protocol
+   * command id ``dimfort/checkWorkspace``. Since DimFort 0.2.5, the server
    * spawns a daemon worker and the executeCommand returns an ack
    * immediately. The fresh aggregate arrives later via
    * ``dimfort/workspaceCheckCompleted`` (see
@@ -222,7 +222,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
       ack = await this.client.sendRequest<{ started: boolean; reason?: string }>(
         "workspace/executeCommand",
         {
-          command: "dimfort.checkWorkspace",
+          command: "dimfort/checkWorkspace",
           arguments: [],
         },
       );

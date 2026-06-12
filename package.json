@@ -83,7 +83,7 @@
         "category": "DimFort"
       },
       {
-        "command": "dimfort.refreshWorkspace",
+        "command": "dimfort.checkWorkspace",
         "title": "Check Workspace",
         "category": "DimFort"
       },

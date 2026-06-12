@@ -452,26 +452,17 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // Workspace-wide check: ``vscode-languageclient`` AUTOMATICALLY
-  // registers every command the server lists in ``initialize``'s
-  // ``executeCommandProvider.commands`` into VSCode's command
-  // registry — including ``dimfort.checkWorkspace``. So the
-  // companion-side wrapper below MUST use a different command ID,
-  // otherwise the second ``registerCommand`` call throws ``command
-  // 'dimfort.checkWorkspace' already exists`` and aborts
-  // activation mid-init (no client → no didOpen → all errors
-  // cascade). DO NOT rename this back to ``dimfort.checkWorkspace``
-  // for "cross-companion parity" — Nvim and Emacs don't have
-  // auto-registration in their LSP clients, so their internal IDs
-  // can match the server-side name without collision; VSCompanion
-  // can't, structurally. The user-facing palette label
-  // ("DimFort: Check Workspace") matches across all three; the
-  // internal ID is an implementation detail.
-  //
-  // The companion-side wrapper exists (vs. just routing users to
-  // the auto-registered one) so the status-bar Coverage widget can
-  // observe the in-flight check — set wsRefreshing → dim →
-  // spinner → settle.
+  // Workspace-wide check. The server registers a wire-protocol
+  // command ``dimfort/checkWorkspace`` (slash, not dot — pure LSP
+  // wire identifier, never enters VS Code's command registry). The
+  // companion-side wrapper below is a separate VS Code command
+  // ``dimfort.checkWorkspace`` (dot) which the user invokes from
+  // the palette / keybindings. The wrapper exists so the status-bar
+  // Coverage widget can observe the in-flight check — set
+  // wsRefreshing → dim → spinner → settle — and so duplicate
+  // invocations coalesce client-side. The wrapper's body sends the
+  // ``workspace/executeCommand`` request with the slash-form wire
+  // name; see ``stats.ts`` for the payload.
 
   // Per-feature toggles. Each one flips the corresponding setting and
   // *rebuilds* the language client so the new value reaches the LSP.
@@ -564,18 +555,14 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Manual workspace refresh. The companion's VSCode command (this
-  // one) wraps the LSP call so we can manage bar UI state
+  // Manual workspace check. Wraps the wire-protocol
+  // ``dimfort/checkWorkspace`` call so we can manage bar UI state
   // (wsRefreshing → dimmed + spinner + "computing…") around it.
-  // The server-side command ``dimfort.checkWorkspace`` also exists
-  // and is auto-registered by vscode-languageclient as a VSCode
-  // command, but it doesn't drive the bar UI on its own — hence
-  // the separate companion-side id. Since the server's command
-  // also publishes diagnostics + seeds the workspace coverage
-  // cache + returns the payload, one invocation now refreshes
-  // *both* squiggles and the bar.
+  // Since the server's handler also publishes diagnostics + seeds
+  // the workspace coverage cache + returns the payload, one
+  // invocation refreshes both squiggles and the bar.
   context.subscriptions.push(
-    vscode.commands.registerCommand("dimfort.refreshWorkspace", () => {
+    vscode.commands.registerCommand("dimfort.checkWorkspace", () => {
       void statsProvider?.checkWorkspace();
     }),
   );

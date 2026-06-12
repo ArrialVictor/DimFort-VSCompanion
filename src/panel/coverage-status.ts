@@ -29,7 +29,7 @@ export class CoverageStatusFooter implements vscode.Disposable {
     this.item = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right, 50,
     );
-    this.item.command = "dimfort.refreshWorkspace";
+    this.item.command = "dimfort.checkWorkspace";
     this.disposables.push(this.item);
     this.disposables.push(
       this.statsProvider.onDidChange(() => this.refresh()),
