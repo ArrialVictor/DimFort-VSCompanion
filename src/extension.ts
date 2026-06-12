@@ -452,15 +452,26 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // Workspace-wide check: the language client AUTOMATICALLY registers
-  // `dimfort.checkWorkspace` (and every other command the server lists
-  // in initialize's executeCommandProvider.commands) — so DO NOT
-  // ``registerCommand`` it again here (would collide and abort
-  // activation). The auto-registered command exists in VSCode's
-  // command registry and can be invoked programmatically, but the
-  // user-facing palette entry points instead at the companion-side
-  // ``dimfort.checkWorkspace`` command below — that wrapper drives
-  // the bar's dimmed "computing…" state around the call.
+  // Workspace-wide check: ``vscode-languageclient`` AUTOMATICALLY
+  // registers every command the server lists in ``initialize``'s
+  // ``executeCommandProvider.commands`` into VSCode's command
+  // registry — including ``dimfort.checkWorkspace``. So the
+  // companion-side wrapper below MUST use a different command ID,
+  // otherwise the second ``registerCommand`` call throws ``command
+  // 'dimfort.checkWorkspace' already exists`` and aborts
+  // activation mid-init (no client → no didOpen → all errors
+  // cascade). DO NOT rename this back to ``dimfort.checkWorkspace``
+  // for "cross-companion parity" — Nvim and Emacs don't have
+  // auto-registration in their LSP clients, so their internal IDs
+  // can match the server-side name without collision; VSCompanion
+  // can't, structurally. The user-facing palette label
+  // ("DimFort: Check Workspace") matches across all three; the
+  // internal ID is an implementation detail.
+  //
+  // The companion-side wrapper exists (vs. just routing users to
+  // the auto-registered one) so the status-bar Coverage widget can
+  // observe the in-flight check — set wsRefreshing → dim →
+  // spinner → settle.
 
   // Per-feature toggles. Each one flips the corresponding setting and
   // *rebuilds* the language client so the new value reaches the LSP.
@@ -564,7 +575,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // cache + returns the payload, one invocation now refreshes
   // *both* squiggles and the bar.
   context.subscriptions.push(
-    vscode.commands.registerCommand("dimfort.checkWorkspace", () => {
+    vscode.commands.registerCommand("dimfort.refreshWorkspace", () => {
       void statsProvider?.checkWorkspace();
     }),
   );

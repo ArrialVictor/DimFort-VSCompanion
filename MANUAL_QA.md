@@ -501,7 +501,7 @@ shows the data; column alignment is done in the webview, not ASCII.
         transition.
       - **Workspace segment** — appears in the same footer line
         next to `File:`. Reads `Project: –` (dimmed) until the user
-        triggers `DimFort: Check Whole Workspace`; spinner while
+        triggers `DimFort: Check Workspace`; spinner while
         the server-side daemon worker runs; settles to
         `Project: <pct>% (🟡 N 🔴 M)` after. Dims once any buffer
         edits fire so the user knows the snapshot may be stale.
@@ -629,7 +629,7 @@ Coverage now lives as a native VS Code status-bar item on the right.
 - [ ] **Hover tooltip** — hovering the item opens a tooltip with a
       File / Project table (columns: Coverage, Verified, Unverified,
       Violation). Project row shows `–` (italic, dim) until the user
-      triggers **DimFort: Check Whole Workspace**.
+      triggers **DimFort: Check Workspace**.
 
 - [ ] **Refresh workspace coverage** — run the command. The Project
       row populates; the table tooltip updates async (lands on
@@ -845,7 +845,7 @@ end module solver
       `read-only`; it's now a 3-state cycle. The `dimfort.cache.mode`
       setting in Settings UI also exposes all three values directly.
 - [ ] **Restart drift check (perf-PR sanity)** — quit + reopen VSCode,
-      then re-run **DimFort: Check Whole Workspace** on the same
+      then re-run **DimFort: Check Workspace** on the same
       `qa.f90`. The H-diag and U-diag counts in the toast must match
       the pre-restart counts **exactly**. Any drift = a disk-cache codec
       is producing a different result than a from-scratch run; revert
@@ -855,7 +855,7 @@ end module solver
       [perf-pr-validation.md](https://github.com/ArrialVictor/DimFort/blob/main/docs/design/contributor/perf-pr-validation.md).)
 
 - [ ] **`[N/5]` workspace-check phase counter (0.2.6)** — run **DimFort:
-      Check Whole Workspace** on a workspace large enough to keep
+      Check Workspace** on a workspace large enough to keep
       each phase visible for at least a second (a few hundred files+;
       `qa.f90` alone is too fast). The progress status bar walks
       through all five phases in order, every message prefixed with

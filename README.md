@@ -212,7 +212,7 @@ All commands are available from the Command Palette (`Cmd/Ctrl+Shift+P`) under t
 | Command | Effect |
 |---|---|
 | `DimFort: Restart Language Server` | Restart the LSP server (`dimfort.restartLanguageServer`). |
-| `DimFort: Check Whole Workspace` | Run the workspace-wide unit check; refreshes the status-bar `Coverage:` segment (`dimfort.checkWorkspace`). |
+| `DimFort: Check Workspace` | Run the workspace-wide unit check; refreshes the status-bar `Coverage:` segment (`dimfort.refreshWorkspace`; companion-side wrapper around the server-registered `dimfort.checkWorkspace`, see the note below the table). |
 | `DimFort: Toggle Inlay Hints` | Toggle inlay hints; restarts the server (`dimfort.toggleInlayHints`). |
 | `DimFort: Toggle Unit Completion` | Toggle unit-name completion; restarts (`dimfort.toggleCompletion`). |
 | `DimFort: Toggle Code Actions` | Toggle code actions; restarts (`dimfort.toggleCodeActions`). |
@@ -228,6 +228,8 @@ All commands are available from the Command Palette (`Cmd/Ctrl+Shift+P`) under t
 | `DimFort: Toggle Imports View` | Show / hide the **Imports** view. Flips `dimfort.show.imports` (`dimfort.toggleImports`). |
 | `DimFort: Cycle Sort Mode (…)` | Cycle the panel sort mode shared by Scope and Imports (line / alphabetic / status); palette + title-bar icon variants (`dimfort.cycleSortMode`, `…alpha`, `…status`). |
 | `DimFort: Cycle Unit Display (…)` | Cycle the unit-display mode shared by Scope and Imports (input / canonical / both); palette + title-bar icon variants (`dimfort.cycleUnitDisplay`, `…canonical`, `…both`). |
+
+> **Note on `Check Workspace`'s internal ID.** The DimFort server advertises `dimfort.checkWorkspace` as one of its `workspace/executeCommand` ids. `vscode-languageclient` automatically registers every server-advertised command into VS Code's command registry, so the companion-side wrapper has to use a different id (`dimfort.refreshWorkspace`) to avoid a duplicate-registration error that aborts activation. The wrapper exists so the status-bar Coverage widget can show the in-flight spinner around the call. The other companions (Nvim, Emacs) don't auto-register server commands, so their user-facing ids can match the server's directly. The user-facing palette label ("DimFort: Check Workspace") is consistent across all three.
 
 The full cross-companion mapping (which Nvim / Emacs command each row corresponds to) lives in DimFort's docs: see [`editor-integration/commands.md`](https://github.com/ArrialVictor/DimFort/blob/main/docs/editor-integration/commands.md).
 

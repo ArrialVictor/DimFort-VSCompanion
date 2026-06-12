@@ -8,7 +8,7 @@
  *   even when the side panel is hidden).
  * - Compact text: workspace coverage %, with tier counts.
  * - Hover tooltip carries the full per-file + workspace breakdown.
- * - Click triggers ``DimFort: Check Whole Workspace``.
+ * - Click triggers ``DimFort: Check Workspace``.
  * - Warning-tinted background while the workspace numbers are stale.
  * - Sync-spinner glyph while a refresh is in flight.
  *
@@ -29,7 +29,7 @@ export class CoverageStatusFooter implements vscode.Disposable {
     this.item = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right, 50,
     );
-    this.item.command = "dimfort.checkWorkspace";
+    this.item.command = "dimfort.refreshWorkspace";
     this.disposables.push(this.item);
     this.disposables.push(
       this.statsProvider.onDidChange(() => this.refresh()),

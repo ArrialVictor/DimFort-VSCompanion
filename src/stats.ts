@@ -72,7 +72,7 @@ export interface StatsSnapshot {
  * Workspace stats are *manual-only* — the auto-refresh machinery the
  * 0.2.4 bar shipped with proved to be the wrong UX at scale and was
  * gutted in 0.2.5. The user triggers refreshes explicitly via the
- * "DimFort: Check Whole Workspace" command.
+ * "DimFort: Check Workspace" command.
  *
  * Fires ``onDidChange`` whenever any state shifts; the panel
  * subscribes and re-renders its footer.
