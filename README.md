@@ -212,6 +212,7 @@ All commands are available from the Command Palette (`Cmd/Ctrl+Shift+P`) under t
 | Command | Effect |
 |---|---|
 | `DimFort: Restart Language Server` | Restart the LSP server (`dimfort.restartLanguageServer`). |
+| `DimFort: Status` | Append a timestamped snapshot of the current DimFort settings + LSP client state to the `DimFort` Output channel, then reveal that channel (`dimfort.status`). |
 | `DimFort: Check Workspace` | Run the workspace-wide unit check; refreshes the status-bar `Coverage:` segment (`dimfort.checkWorkspace`). |
 | `DimFort: Toggle Inlay Hints` | Toggle inlay hints; restarts the server (`dimfort.toggleInlayHints`). |
 | `DimFort: Toggle Unit Completion` | Toggle unit-name completion; restarts (`dimfort.toggleCompletion`). |

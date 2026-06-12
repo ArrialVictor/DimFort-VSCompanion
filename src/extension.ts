@@ -3,6 +3,7 @@ import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
+  State,
 } from "vscode-languageclient/node";
 import { CoverageProvider } from "./coverage";
 import { PanelCoordinator } from "./panel/coordinator";
@@ -590,8 +591,77 @@ export function activate(context: vscode.ExtensionContext): void {
       }),
     );
   }
-}
 
+  // Status dump (0.2.6). Mirrors Nvim's `:DimFortStatus` and Emacs's
+  // `M-x dimfort-status`. Appends a timestamped block to the
+  // existing `DimFort` Output channel (the one the LSP client
+  // logs into) and reveals it. The Output surface is multi-line,
+  // copy-paste-friendly, persistent across invocations (audit
+  // trail for support discussions), and non-disruptive (no modal
+  // blocking, no toast competing for attention). Sharing the LSP
+  // channel keeps the support story to one place: "open Output →
+  // DimFort, paste."
+  //
+  // The channel is owned by ``vscode-languageclient`` and disposed
+  // when the client restarts, so we read ``client.outputChannel``
+  // at invocation time rather than capturing the reference.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("dimfort.status", () => {
+      const cfg = vscode.workspace.getConfiguration("dimfort");
+      const flag = (b: boolean) => (b ? "on" : "off");
+      const clientStateName = (s: State | undefined): string => {
+        switch (s) {
+          case State.Starting: return "Starting";
+          case State.Running:  return "Running";
+          case State.Stopped:  return "Stopped";
+          default:             return "(not started)";
+        }
+      };
+      // Two-column layout: label padded to 18 chars, then `: value`.
+      // Matches Nvim/Emacs status formatting so a user familiar with
+      // one companion's output recognises this one too.
+      const row = (label: string, value: string) =>
+        `  ${label.padEnd(18, " ")} : ${value}`;
+      const cacheDir = cfg.get<string>("cache.dir", "");
+      const body = [
+        row("executable",          cfg.get<string>("executable", "dimfort")),
+        row("inlay hints",         flag(cfg.get<boolean>("inlayHints.enabled", false))),
+        row("completion",          flag(cfg.get<boolean>("completion.enabled", true))),
+        row("code actions",        flag(cfg.get<boolean>("codeActions.enabled", true))),
+        row("go-to-definition",    flag(cfg.get<boolean>("gotoDefinition.enabled", true))),
+        row("hover",               cfg.get<string>("hover", "short")),
+        row("cache mode",          cfg.get<string>("cache.mode", "read-write")),
+        row("cache dir",           cacheDir === "" ? "(default)" : cacheDir),
+        row("scale checking",      cfg.get<string>("scale.mode", "auto")),
+        row("coverage layer",      cfg.get<string>("coverage.mode", "disabled")),
+        row("panel enabled",       flag(cfg.get<boolean>("panel.enabled", true))),
+        row("show.cursor",         flag(cfg.get<boolean>("show.cursor", true))),
+        row("show.scope",          flag(cfg.get<boolean>("show.scope", true))),
+        row("show.imports",        flag(cfg.get<boolean>("show.imports", true))),
+        row("sort mode",           cfg.get<string>("panel.sortMode", "line")),
+        row("unit display",        cfg.get<string>("panel.unitDisplayMode", "canonical")),
+        row("language client",     clientStateName(client?.state)),
+      ].join("\n");
+      const ts = new Date().toLocaleTimeString();
+      const ch = client?.outputChannel;
+      if (ch === undefined) {
+        // Pre-activation race: client constructor hasn't run yet.
+        // Surface the snapshot to the palette caller anyway so
+        // they aren't left with nothing.
+        void vscode.window.showInformationMessage(
+          "DimFort: language client not yet started; status snapshot " +
+          "logged after restart.",
+        );
+        return;
+      }
+      ch.appendLine(`\n[${ts}] DimFort status\n${body}\n`);
+      // ``preserveFocus = true`` so invoking from the palette
+      // doesn't yank focus into the Output panel — the user can
+      // glance at the bottom panel and keep editing.
+      ch.show(true);
+    }),
+  );
+}
 
 // True if the configuration change affects any `dimfort.*` setting OTHER
 // than the two coverage-only knobs. Used by the config-change listener to
