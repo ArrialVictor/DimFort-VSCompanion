@@ -213,7 +213,7 @@ All commands are available from the Command Palette (`Cmd/Ctrl+Shift+P`) under t
 |---|---|
 | `DimFort: Restart Language Server` | Restart the LSP server (`dimfort.restartLanguageServer`). |
 | `DimFort: Status` | Append a timestamped snapshot of the current DimFort settings + LSP client state to the `DimFort` Output channel, then reveal that channel (`dimfort.status`). |
-| `DimFort: Open Config…` | Quick-pick between `dimfort.toml` (workspace config) and the project units file. Each opens if it exists, or creates a commented stub if not. When creating a units file: sub-pick `Empty template` or `Defaults as reference (all commented out)`. Auto-wires `[units].file = "units.toml"` into `dimfort.toml` so the server picks it up immediately (`dimfort.openConfig`). |
+| `DimFort: Open Config…` | Quick-pick between the project configuration file (`dimfort.toml`) and the project units file (`units.toml`). Each opens if it exists, or creates a stub via a sub-pick (`Empty file` vs `Reference template`). Auto-wires `[units].file = "units.toml"` into `dimfort.toml` so the server picks up the new units file immediately (`dimfort.openConfig`). |
 | `DimFort: Check Workspace` | Run the workspace-wide unit check; refreshes the status-bar `Coverage:` segment (`dimfort.checkWorkspace`). |
 | `DimFort: Toggle Inlay Hints` | Toggle inlay hints; restarts the server (`dimfort.toggleInlayHints`). |
 | `DimFort: Toggle Unit Completion` | Toggle unit-name completion; restarts (`dimfort.toggleCompletion`). |

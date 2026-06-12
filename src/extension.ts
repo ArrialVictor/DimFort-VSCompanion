@@ -722,8 +722,8 @@ async function openOrCreateDimfortToml(folder: vscode.Uri): Promise<void> {
     value: "empty" | "all-sections";
   }
   const flavours: FlavourPick[] = [
-    { label: "Empty template",                            value: "empty" },
-    { label: "All sections (all commented out)",          value: "all-sections" },
+    { label: "Empty file",                                value: "empty" },
+    { label: "Reference template (all sections commented out)", value: "all-sections" },
   ];
   const flavour = await vscode.window.showQuickPick<FlavourPick>(
     flavours,
@@ -751,8 +751,8 @@ async function openOrCreateUnitsFile(folder: vscode.Uri): Promise<void> {
     value: "empty" | "defaults";
   }
   const flavours: FlavourPick[] = [
-    { label: "Empty template",                            value: "empty" },
-    { label: "Defaults as reference (all commented out)", value: "defaults" },
+    { label: "Empty file",                                value: "empty" },
+    { label: "Reference template (bundled defaults, all commented out)", value: "defaults" },
   ];
   const flavour = await vscode.window.showQuickPick<FlavourPick>(
     flavours,

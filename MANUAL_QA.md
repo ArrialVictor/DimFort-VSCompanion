@@ -881,14 +881,14 @@ Code (`File → Open Folder…`) before each subsection.
 
 - [ ] **`dimfort.toml` empty cold-create** — run **DimFort:
       Open Config…**, pick **Project configuration file
-      (dimfort.toml)**. A sub-pick shows `Empty template` and
-      `All sections (all commented out)`. Pick `Empty template`.
+      (dimfort.toml)**. A sub-pick shows `Empty file` and
+      `Reference template (all sections commented out)`. Pick `Empty file`.
       A new `dimfort.toml` appears, opens, and contains just
       the minimal header (the top comment block — no section
       headers). Status bar reads `DimFort: created dimfort.toml`.
 
 - [ ] **`dimfort.toml` all-sections cold-create** — same as
-      above but pick `All sections (all commented out)`. The
+      above but pick `Reference template (all sections commented out)`. The
       file's `[units]` / `[parser]` / `[diagnostics]` / `[scale]`
       / `[project]` section headers are all present but each
       line is prefixed with `# `.
@@ -903,9 +903,9 @@ folder before the next block.
 
 - [ ] **Units file empty cold-create** — run **DimFort: Open
       Config…**, pick **Project units file (units.toml)**. A
-      sub-pick shows `Empty template` and `Defaults as
+      sub-pick shows `Empty file` and `Defaults as
       reference (all commented
-      out)`. Pick `Empty template`. A new `units.toml` appears,
+      out)`. Pick `Empty file`. A new `units.toml` appears,
       opens, and contains the empty-template stub (header banner
       + a single commented `[derived]` example). A new
       `dimfort.toml` appears alongside it with
@@ -922,7 +922,7 @@ folder before the next block.
 Wipe again.
 
 - [ ] **Units file defaults cold-create** — same as above but
-      pick **Defaults as reference (all commented out)**. The
+      pick **Reference template (bundled defaults, all commented out)**. The
       file's `[base]`, `[prefixes]`, `[derived]` sections are
       all present but each line is prefixed with `# `. The top
       banner explains "Uncomment any line to enable, override,
