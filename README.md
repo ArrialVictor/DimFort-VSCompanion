@@ -143,8 +143,8 @@ Settings (under **DimFort** in the Settings UI):
   `read-write`, warm re-runs replay cached diagnostics for files
   whose source, includes, and dependencies haven't changed
   (a benchmark workspace measured ~33 s cold → ~20 s warm). Palette command
-  `DimFort: Toggle Content-Hash Cache` flips between `off` and
-  `read-write`. Invalidation triggers and the design are
+  `DimFort: Cycle Content-Hash Cache (Off / Read-only / Read-write)`
+  cycles all three modes. Invalidation triggers and the design are
   documented in
   [DimFort/docs/usage.md#content-hash-cache](https://github.com/ArrialVictor/DimFort/blob/main/docs/usage.md#content-hash-cache).
 - `dimfort.cache.dir` — optional override for the cache
@@ -204,6 +204,32 @@ either a manual drag back or the reset command.
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/panel-vscode-mismatch_dark.png">
   <img width="640" src="https://raw.githubusercontent.com/ArrialVictor/DimFort/main/docs/img/panel-vscode-mismatch_light.png" alt="DimFort side panel in VSCode — a kg ≠ m homogeneity violation, the assignment root marked red">
 </picture>
+
+## Commands
+
+All commands are available from the Command Palette (`Cmd/Ctrl+Shift+P`) under the **DimFort:** category. Settings live under the `dimfort.*` namespace.
+
+| Command | Effect |
+|---|---|
+| `DimFort: Restart Language Server` | Restart the LSP server (`dimfort.restartLanguageServer`). |
+| `DimFort: Check Workspace` | Run the workspace-wide unit check; refreshes the status-bar `Coverage:` segment (`dimfort.checkWorkspace`). |
+| `DimFort: Toggle Inlay Hints` | Toggle inlay hints; restarts the server (`dimfort.toggleInlayHints`). |
+| `DimFort: Toggle Unit Completion` | Toggle unit-name completion; restarts (`dimfort.toggleCompletion`). |
+| `DimFort: Toggle Code Actions` | Toggle code actions; restarts (`dimfort.toggleCodeActions`). |
+| `DimFort: Toggle Go to Definition` | Toggle go-to-definition; restarts (`dimfort.toggleGotoDefinition`). |
+| `DimFort: Cycle Hover Verbosity (Disabled / Short / Detailed)` | Cycle hover verbosity; restarts (`dimfort.cycleHover`). |
+| `DimFort: Cycle Content-Hash Cache (Off / Read-only / Read-write)` | Cycle the content-hash cache mode through all three values (`dimfort.cycleCache`). |
+| `DimFort: Clear Content-Hash Cache` | Delete the `.dimfort-cache/` directory and restart (`dimfort.clearCache`). |
+| `DimFort: Show Side Panel` | Open the side panel (`dimfort.togglePanel`). |
+| `DimFort: Cycle Scale Checking (Auto / On / Off)` | Cycle scale checking; `auto` defers to `.dimfort.toml` (`dimfort.cycleScale`). |
+| `DimFort: Cycle Coverage Visualisation (Disabled / Gutter / Background)` | Cycle the per-line coverage layer; no LSP restart (`dimfort.cycleCoverage`). |
+| `DimFort: Toggle Cursor View` | Show / hide the **Cursor** view (Expression / Diagnostics / Interactions / Actions). Flips `dimfort.show.cursor` (`dimfort.toggleCursor`). |
+| `DimFort: Toggle Scope View` | Show / hide the **Scope** view. Flips `dimfort.show.scope` (`dimfort.toggleScope`). |
+| `DimFort: Toggle Imports View` | Show / hide the **Imports** view. Flips `dimfort.show.imports` (`dimfort.toggleImports`). |
+| `DimFort: Cycle Sort Mode (…)` | Cycle the panel sort mode shared by Scope and Imports (line / alphabetic / status); palette + title-bar icon variants (`dimfort.cycleSortMode`, `…alpha`, `…status`). |
+| `DimFort: Cycle Unit Display (…)` | Cycle the unit-display mode shared by Scope and Imports (input / canonical / both); palette + title-bar icon variants (`dimfort.cycleUnitDisplay`, `…canonical`, `…both`). |
+
+The full cross-companion mapping (which Nvim / Emacs command each row corresponds to) lives in DimFort's docs: see [`editor-integration/commands.md`](https://github.com/ArrialVictor/DimFort/blob/main/docs/editor-integration/commands.md).
 
 ## Develop locally
 

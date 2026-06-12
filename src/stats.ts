@@ -4,7 +4,7 @@ import { LanguageClient, State } from "vscode-languageclient/node";
 // Wire-format mirror of the server's dimfort/coverageStats response.
 // File-scope is served live by the read-only stats endpoint;
 // workspace-scope is populated only by the explicit
-// `dimfort.checkWorkspace` command (see
+// `dimfort/checkWorkspace` command (see
 // `DimFort/docs/design/shipped/coverage-visualization.md` §13.2).
 interface StatsRow {
   uri: string;
@@ -72,7 +72,7 @@ export interface StatsSnapshot {
  * Workspace stats are *manual-only* — the auto-refresh machinery the
  * 0.2.4 bar shipped with proved to be the wrong UX at scale and was
  * gutted in 0.2.5. The user triggers refreshes explicitly via the
- * "DimFort: Refresh Workspace Coverage" command.
+ * "DimFort: Check Workspace" command.
  *
  * Fires ``onDidChange`` whenever any state shifts; the panel
  * subscribes and re-renders its footer.
@@ -192,8 +192,8 @@ export class CoverageStatsProvider implements vscode.Disposable {
   /**
    * Trigger a workspace coverage refresh.
    *
-   * Sends ``workspace/executeCommand`` with the server-side command
-   * id ``dimfort.checkWorkspace``. Since DimFort 0.2.5, the server
+   * Sends ``workspace/executeCommand`` with the wire-protocol
+   * command id ``dimfort/checkWorkspace``. Since DimFort 0.2.5, the server
    * spawns a daemon worker and the executeCommand returns an ack
    * immediately. The fresh aggregate arrives later via
    * ``dimfort/workspaceCheckCompleted`` (see
@@ -202,7 +202,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
    * Called from the palette command. Bar click is intentionally NOT
    * wired to this; the bar is purely a display surface.
    */
-  async refreshWorkspace(): Promise<void> {
+  async checkWorkspace(): Promise<void> {
     if (!this.client) return;
     if (this.wsRefreshing) {
       // Local coalesce: don't send a duplicate executeCommand, but
@@ -222,7 +222,7 @@ export class CoverageStatsProvider implements vscode.Disposable {
       ack = await this.client.sendRequest<{ started: boolean; reason?: string }>(
         "workspace/executeCommand",
         {
-          command: "dimfort.checkWorkspace",
+          command: "dimfort/checkWorkspace",
           arguments: [],
         },
       );

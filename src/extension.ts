@@ -452,15 +452,17 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // Workspace-wide check: the language client AUTOMATICALLY registers
-  // `dimfort.checkWorkspace` (and every other command the server lists
-  // in initialize's executeCommandProvider.commands) — so DO NOT
-  // ``registerCommand`` it again here (would collide and abort
-  // activation). The auto-registered command exists in VSCode's
-  // command registry and can be invoked programmatically, but the
-  // user-facing palette entry points instead at the companion-side
-  // ``dimfort.refreshWorkspace`` command below — that wrapper drives
-  // the bar's dimmed "computing…" state around the call.
+  // Workspace-wide check. The server registers a wire-protocol
+  // command ``dimfort/checkWorkspace`` (slash, not dot — pure LSP
+  // wire identifier, never enters VS Code's command registry). The
+  // companion-side wrapper below is a separate VS Code command
+  // ``dimfort.checkWorkspace`` (dot) which the user invokes from
+  // the palette / keybindings. The wrapper exists so the status-bar
+  // Coverage widget can observe the in-flight check — set
+  // wsRefreshing → dim → spinner → settle — and so duplicate
+  // invocations coalesce client-side. The wrapper's body sends the
+  // ``workspace/executeCommand`` request with the slash-form wire
+  // name; see ``stats.ts`` for the payload.
 
   // Per-feature toggles. Each one flips the corresponding setting and
   // *rebuilds* the language client so the new value reaches the LSP.
@@ -488,15 +490,17 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Cache toggle is enum-valued (off / read-only / read-write), not a
   // boolean, so it needs its own command rather than reusing
-  // registerToggle. The palette toggle flips between off and
-  // read-write — the most useful binary distinction — while
-  // read-only is reachable through the settings UI for the rare
-  // case where a user wants to consult the cache without populating it.
+  // registerToggle. Cycles through all three setting values in the
+  // order off → read-only → read-write → off, matching cycleHover /
+  // cycleScale / cycleCoverage's pattern. The Off-to-Read-only step
+  // exposes the inspect-without-populating mode that used to be
+  // settings-only.
   context.subscriptions.push(
-    vscode.commands.registerCommand("dimfort.toggleCache", async () => {
+    vscode.commands.registerCommand("dimfort.cycleCache", async () => {
       const cfg = vscode.workspace.getConfiguration("dimfort");
+      const order = ["off", "read-only", "read-write"];
       const current = cfg.get<string>("cache.mode", "off");
-      const next = current === "off" ? "read-write" : "off";
+      const next = order[(order.indexOf(current) + 1) % order.length];
       // The config-change listener rebuilds the client; don't also do it
       // here (double restart races and crashes the server).
       await cfg.update("cache.mode", next, vscode.ConfigurationTarget.Global);
@@ -551,21 +555,41 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Manual workspace refresh. The companion's VSCode command (this
-  // one) wraps the LSP call so we can manage bar UI state
+  // Manual workspace check. Wraps the wire-protocol
+  // ``dimfort/checkWorkspace`` call so we can manage bar UI state
   // (wsRefreshing → dimmed + spinner + "computing…") around it.
-  // The server-side command ``dimfort.checkWorkspace`` also exists
-  // and is auto-registered by vscode-languageclient as a VSCode
-  // command, but it doesn't drive the bar UI on its own — hence
-  // the separate companion-side id. Since the server's command
-  // also publishes diagnostics + seeds the workspace coverage
-  // cache + returns the payload, one invocation now refreshes
-  // *both* squiggles and the bar.
+  // Since the server's handler also publishes diagnostics + seeds
+  // the workspace coverage cache + returns the payload, one
+  // invocation refreshes both squiggles and the bar.
   context.subscriptions.push(
-    vscode.commands.registerCommand("dimfort.refreshWorkspace", () => {
-      void statsProvider?.refreshWorkspace();
+    vscode.commands.registerCommand("dimfort.checkWorkspace", () => {
+      void statsProvider?.checkWorkspace();
     }),
   );
+
+  // Per-section view-visibility toggles (0.2.6). Backed by the
+  // boolean settings `dimfort.show.{cursor,scope,imports}` which the
+  // views' `when` clauses key off, so flipping a setting hides or
+  // shows the view immediately. Cross-companion parity with Nvim's
+  // :DimFortToggleCursor/Scope/Imports and Emacs's analogues —
+  // every companion exposes the same three-way visibility control
+  // regardless of whether the underlying surface is native (VSCode's
+  // multi-view) or in-buffer (Nvim/Emacs panel renderers).
+  for (const section of ["cursor", "scope", "imports"] as const) {
+    const cmdId = `dimfort.toggle${section[0].toUpperCase()}${section.slice(1)}`;
+    const settingKey = `show.${section}`;
+    context.subscriptions.push(
+      vscode.commands.registerCommand(cmdId, async () => {
+        const cfg = vscode.workspace.getConfiguration("dimfort");
+        const current = cfg.get<boolean>(settingKey, true);
+        await cfg.update(settingKey, !current, vscode.ConfigurationTarget.Global);
+        vscode.window.setStatusBarMessage(
+          `DimFort: ${section} view ${!current ? "shown" : "hidden"}`,
+          2000,
+        );
+      }),
+    );
+  }
 }
 
 
