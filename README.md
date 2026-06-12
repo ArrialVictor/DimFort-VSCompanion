@@ -152,7 +152,7 @@ Settings (under **DimFort** in the Settings UI):
   first workspace folder.
 - `dimfort.scale.mode` — opt-in scale/magnitude checking (`S001`
   multiplicative, `S002` affine-offset): `auto` (default — defer to
-  the project `.dimfort.toml` `[scale] enabled`), `on`, or `off`.
+  the project `dimfort.toml` `[scale] enabled`), `on`, or `off`.
   `on`/`off` override the toml for the editor session. Cycle with
   `DimFort: Cycle Scale Checking`.
 - `dimfort.panel.enabled` — reveal the side panel on activation
@@ -213,7 +213,7 @@ All commands are available from the Command Palette (`Cmd/Ctrl+Shift+P`) under t
 |---|---|
 | `DimFort: Restart Language Server` | Restart the LSP server (`dimfort.restartLanguageServer`). |
 | `DimFort: Status` | Append a timestamped snapshot of the current DimFort settings + LSP client state to the `DimFort` Output channel, then reveal that channel (`dimfort.status`). |
-| `DimFort: Open Config…` | Quick-pick between `.dimfort.toml` (workspace config) and the project units file. Each opens if it exists, or creates a commented stub if not. When creating a units file: sub-pick `Empty template` or `Defaults as reference (all commented out)`. Auto-wires `[units].file = "units.toml"` into `.dimfort.toml` so the server picks it up immediately (`dimfort.openConfig`). |
+| `DimFort: Open Config…` | Quick-pick between `dimfort.toml` (workspace config) and the project units file. Each opens if it exists, or creates a commented stub if not. When creating a units file: sub-pick `Empty template` or `Defaults as reference (all commented out)`. Auto-wires `[units].file = "units.toml"` into `dimfort.toml` so the server picks it up immediately (`dimfort.openConfig`). |
 | `DimFort: Check Workspace` | Run the workspace-wide unit check; refreshes the status-bar `Coverage:` segment (`dimfort.checkWorkspace`). |
 | `DimFort: Toggle Inlay Hints` | Toggle inlay hints; restarts the server (`dimfort.toggleInlayHints`). |
 | `DimFort: Toggle Unit Completion` | Toggle unit-name completion; restarts (`dimfort.toggleCompletion`). |
@@ -223,7 +223,7 @@ All commands are available from the Command Palette (`Cmd/Ctrl+Shift+P`) under t
 | `DimFort: Cycle Content-Hash Cache (Off / Read-only / Read-write)` | Cycle the content-hash cache mode through all three values (`dimfort.cycleCache`). |
 | `DimFort: Clear Content-Hash Cache` | Delete the `.dimfort-cache/` directory and restart (`dimfort.clearCache`). |
 | `DimFort: Show Side Panel` | Open the side panel (`dimfort.togglePanel`). |
-| `DimFort: Cycle Scale Checking (Auto / On / Off)` | Cycle scale checking; `auto` defers to `.dimfort.toml` (`dimfort.cycleScale`). |
+| `DimFort: Cycle Scale Checking (Auto / On / Off)` | Cycle scale checking; `auto` defers to `dimfort.toml` (`dimfort.cycleScale`). |
 | `DimFort: Cycle Coverage Visualisation (Disabled / Gutter / Background)` | Cycle the per-line coverage layer; no LSP restart (`dimfort.cycleCoverage`). |
 | `DimFort: Toggle Cursor View` | Show / hide the **Cursor** view (Expression / Diagnostics / Interactions / Actions). Flips `dimfort.show.cursor` (`dimfort.toggleCursor`). |
 | `DimFort: Toggle Scope View` | Show / hide the **Scope** view. Flips `dimfort.show.scope` (`dimfort.toggleScope`). |
