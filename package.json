@@ -94,7 +94,7 @@
       },
       {
         "command": "dimfort.cycleSortMode",
-        "title": "Cycle Sort Mode (currently: By line)",
+        "title": "Cycle Panel Sort (Line / Alphabetic / Status)",
         "category": "DimFort",
         "icon": "$(list-ordered)"
       },
@@ -112,7 +112,7 @@
       },
       {
         "command": "dimfort.cycleUnitDisplay",
-        "title": "Cycle Unit Display (currently: Input only)",
+        "title": "Cycle Unit Display (Input / Canonical / Both)",
         "category": "DimFort",
         "icon": "$(star-empty)"
       },
@@ -176,6 +176,24 @@
       ]
     },
     "menus": {
+      "commandPalette": [
+        {
+          "command": "dimfort.cycleSortMode.alpha",
+          "when": "false"
+        },
+        {
+          "command": "dimfort.cycleSortMode.status",
+          "when": "false"
+        },
+        {
+          "command": "dimfort.cycleUnitDisplay.canonical",
+          "when": "false"
+        },
+        {
+          "command": "dimfort.cycleUnitDisplay.both",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "dimfort.cycleSortMode",
