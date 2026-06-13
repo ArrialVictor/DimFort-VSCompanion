@@ -34,5 +34,5 @@ labels: bug
 ```
 
 **Additional context**
-<!-- Did this work in a previous version? Project layout / .dimfort.toml
+<!-- Did this work in a previous version? Project layout / dimfort.toml
      contents if relevant. -->
