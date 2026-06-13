@@ -8,6 +8,130 @@ behavioural changes mostly land in the DimFort server itself. Entries
 below cover client-side changes only (settings, defaults, palette
 commands, packaging).
 
+## [0.2.6] — 2026-06-13
+
+### Highlight
+
+Side-panel rework + cross-companion command parity release. Three
+threads:
+
+1. **Multi-view panel as the production surface.** The legacy
+   single-WebviewView panel is retired; each section (Cursor /
+   Scope / Imports + coverage footer in the status bar) now ships
+   as its own registered View in a shared View Container. Sections
+   can be independently collapsed, reordered, dragged to the bottom
+   panel or secondary sidebar, and hidden via VSCode's native chrome.
+   `View: Reset View Locations` restores the default layout. The
+   panel sections inherit per-section sort mode (line / alphabetic
+   / status) and per-section unit-display mode (input / canonical /
+   both) from a shared title-bar control set.
+
+2. **Cross-companion command parity.** A canonical commands table
+   shipped server-side (`docs/editor-integration/commands.md`); the
+   extension now matches that table row-by-row. Two new commands:
+   `DimFort: Status` (mirrors `:DimFortStatus` / `M-x dimfort-status`,
+   prints state to the existing DimFort Output channel) and
+   `DimFort: Open Config…` (single command that resolves the project
+   `dimfort.toml` or units file, with a sub-pick for missing-file
+   case offering Empty file / Reference template).
+
+3. **Palette polish.** Title-bar icon-variant commands (the discrete
+   sort-mode / unit-display-mode click targets needed to render
+   the icons) used to surface in `Cmd+Shift+P` alongside the user-
+   facing cycle commands; they're now hidden from the palette,
+   leaving only the cycle commands the user actually invokes.
+
+### Recommended server version
+
+Pair this companion with DimFort **0.2.6+**. The workspace-check
+wire-protocol command renamed from `dimfort.checkWorkspace` (dot)
+to `dimfort/checkWorkspace` (slash) server-side; this companion now
+sends the slash form. Earlier servers (0.2.5 and below) accept both
+for one release as a soft-migration window, but pairing with 0.2.6+
+gets you the new workspace-less / index-not-ready toasts and the
+`[N/5]` workspace-check progress phase counter — neither of which is
+client-side.
+
+### Added
+
+- **`DimFort: Status` command.** Prints the active LSP client state
+  + extension configuration to the existing DimFort Output channel.
+  Mirrors `:DimFortStatus` (Nvim) and `M-x dimfort-status` (Emacs).
+  Useful for bug reports: ask the user to paste the channel's last
+  block. Output-channel-only by design (no toast, no webview, no
+  modal — those alternatives were prototyped and dropped as too
+  noisy).
+
+- **`DimFort: Open Config…` command.** Single command that opens
+  the project `dimfort.toml` if present, the project units file if
+  present, or — when the requested file doesn't exist — pops a
+  sub-pick offering **Empty file** (create blank) or **Reference
+  template** (drop in a starter template with comments). Matches
+  `:DimFortOpenConfig` (Nvim) and `M-x dimfort-open-config` (Emacs)
+  exactly. Reduces the "where do I edit DimFort config" friction.
+
+- **Sort + unit-display modes on the side panel.** Both the Scope
+  and Imports sections now carry a title-bar control set: sort
+  mode (`line` / `alphabetic` / `status`) and unit-display mode
+  (`input` / `canonical` / `both`). The unit-display icon is a
+  three-step star progression (empty / half / full). Defaults:
+  sort = `line`, unit-display = `canonical`. Both persist across
+  sessions per workspace.
+
+- **Cross-companion command audit fixes.** Five renames to match
+  the canonical commands table — most of the table was already
+  correct; the audit caught the remaining stragglers. See PR #31
+  for the full diff.
+
+- **Commands reference table in README.** Mirrors the canonical
+  server-side `docs/editor-integration/commands.md` for users
+  reading the extension's listing on the Marketplace.
+
+### Changed
+
+- **Wire-protocol command.** `dimfort.checkWorkspace` →
+  `dimfort/checkWorkspace`. Cosmetic on the client (the palette
+  command id `dimfort.checkWorkspace` is unchanged — that's the
+  companion namespace, not the wire format). Requires DimFort
+  0.2.5+ to receive (which accepts both for one release).
+
+- **Legacy single-view panel retired.** All side-panel content
+  now ships through the multi-view container. Users with custom
+  layouts may need to run `View: Reset View Locations` once
+  after the upgrade.
+
+### Fixed
+
+- **Multi-view panel: content indent under headers.** Section /
+  scope rows are now visually indented under their header to
+  match the legacy panel's hierarchy cue. Pre-fix the unindented
+  rows read as if every row were a top-level item.
+
+- **Coverage footer alignment.** The `Coverage` label in the
+  status-bar tooltip table previously sat one display cell to the
+  left of the bulleted tier labels (🟢 Verified / 🟡 Unverified /
+  🔴 Violation / 🔵 Unparsed) — fixed by splitting the bullet into
+  its own table column so all five labels share a baseline. Plus
+  numeric columns now centre-align, nbsp padding, shorter stale
+  message, and several other coverage-tooltip polish passes that
+  accumulated through the cycle.
+
+- **Palette no longer shows title-bar icon variants.** Discrete
+  `.alpha` / `.status` / `.canonical` / `.both` command ids
+  needed for the title-bar UI are now `when: "false"`-gated in
+  `package.json` contributes.commands so they don't pollute
+  `Cmd+Shift+P`. The user-facing cycle commands stay listed.
+
+### Docs
+
+- **Pre-release docs audit** caught: `.dimfort.toml` → `dimfort.toml`
+  rename stragglers in the bug-report template HTML comment and
+  four user-facing settings descriptions in `package.json`
+  (`dimfort.scale.mode` enum labels + descriptions).
+- **Restart-drift QA check** added to MANUAL_QA — catches per-file
+  state leaks across `:DimFortRestart` boundaries that would
+  otherwise only surface on the third or fourth iterative restart.
+
 ## [0.2.5] — 2026-06-09
 
 ### Recommended server version
