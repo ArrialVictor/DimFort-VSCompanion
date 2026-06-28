@@ -11,6 +11,7 @@ import {
 
 const execFileP = promisify(execFile);
 import { CoverageProvider } from "./coverage";
+import { deriveRootIfNeeded } from "./derive-root";
 import { PanelCoordinator } from "./panel/coordinator";
 import { CoverageStatusFooter } from "./panel/coverage-status";
 import { CursorView } from "./panel/cursor-view";
@@ -77,6 +78,19 @@ function buildClient(): LanguageClient {
     outputChannelName: "DimFort",
     initializationOptions,
   };
+
+  // Derive a workspace root from the open file when the user opened
+  // a single file (`code foo.f90`) instead of a folder — without this,
+  // ``vscode.workspace.workspaceFolders`` is empty, the LSP sends no
+  // folder to the server, and every workspace-scope feature silently
+  // disables. Matches the Nvim/Emacs companions' equivalent behaviour.
+  // Returns null when a real folder is already open (no synthesis
+  // needed) or no Fortran document is open yet (rare timing race;
+  // re-runs on the next attach attempt).
+  const derived = deriveRootIfNeeded();
+  if (derived) {
+    clientOptions.workspaceFolder = derived;
+  }
 
   return new LanguageClient(
     "dimfort",

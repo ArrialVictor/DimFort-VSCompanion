@@ -16,6 +16,7 @@
  */
 import * as vscode from "vscode";
 
+import { getDerivedRoot } from "../derive-root";
 import type { CoverageStatsProvider, StatsSnapshot } from "../stats";
 
 
@@ -64,7 +65,15 @@ export class CoverageStatusFooter implements vscode.Disposable {
     this.item.show();
   }
 
-  /** Compact status-bar text. */
+  /** Compact status-bar text.
+   *
+   * Intentionally kept compact — workspace-root provenance (the
+   * `(dimfort.toml)` / `(file dir)` tag from derive-root) is shown
+   * in the tooltip instead. The Nvim and Emacs companions surface
+   * the tag in their panel footers where there's room; VSCompanion's
+   * equivalent is the status bar, which competes with Git status,
+   * line/col, etc. for space. Diagnostic info belongs on hover.
+   */
   private formatText(s: StatsSnapshot): string {
     if (s.wsRefreshing) return "$(sync~spin) DimFort: refreshing…";
     if (s.workspace === null) {
@@ -94,6 +103,20 @@ export class CoverageStatusFooter implements vscode.Disposable {
     md.isTrusted = false;
     md.supportThemeIcons = true;
     md.appendMarkdown("**DimFort coverage**\n\n");
+
+    // Workspace-root provenance: shown only when derive-root
+    // anchored the workspace from a single open file (no real
+    // folder was open at activation). When VSCode opened with a
+    // real folder, ``derived`` is null and we skip the row —
+    // there's nothing diagnostic to report. Matches the
+    // cross-companion convention of surfacing root source as
+    // diagnostic context rather than daily-flow data.
+    const derived = getDerivedRoot();
+    if (derived !== null) {
+      md.appendMarkdown(
+        `_Workspace root:_ \`${derived.source}\` — \`${derived.dir}\`\n\n`,
+      );
+    }
 
     // One combined table. Headers stay clean ("File" / "Project"); the
     // % moves to its own "Coverage" row so it reads as a metric like
