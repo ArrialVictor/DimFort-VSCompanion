@@ -16,7 +16,7 @@
  */
 import * as vscode from "vscode";
 
-import { getRootSourceTag } from "../derive-root";
+import { getDerivedRoot } from "../derive-root";
 import type { CoverageStatsProvider, StatsSnapshot } from "../stats";
 
 
@@ -65,19 +65,21 @@ export class CoverageStatusFooter implements vscode.Disposable {
     this.item.show();
   }
 
-  /** Compact status-bar text. */
+  /** Compact status-bar text.
+   *
+   * Intentionally kept compact — workspace-root provenance (the
+   * `(dimfort.toml)` / `(file dir)` tag from derive-root) is shown
+   * in the tooltip instead. The Nvim and Emacs companions surface
+   * the tag in their panel footers where there's room; VSCompanion's
+   * equivalent is the status bar, which competes with Git status,
+   * line/col, etc. for space. Diagnostic info belongs on hover.
+   */
   private formatText(s: StatsSnapshot): string {
-    // Root-source tag (`(dimfort.toml)` / `(file dir)`) appended to
-    // the Project segment when derive-root anchored the workspace
-    // from a single open file. Empty string when a real folder was
-    // used (no derivation happened) — matches the cross-companion
-    // convention landed in 0.2.7.
-    const rootTag = getRootSourceTag();
     if (s.wsRefreshing) return "$(sync~spin) DimFort: refreshing…";
     if (s.workspace === null) {
       return s.file
-        ? `DimFort: File ${s.file.coveragePct}% · Project –${rootTag}`
-        : `DimFort: Project –${rootTag}`;
+        ? `DimFort: File ${s.file.coveragePct}% · Project –`
+        : "DimFort: Project –";
     }
     const ws = s.workspace;
     const filePart = s.file
@@ -92,7 +94,7 @@ export class CoverageStatusFooter implements vscode.Disposable {
     // anchor the warning right where it applies. Also still tints the
     // whole item's background as a glance-level backup.
     const projectWarning = s.wsStale ? "$(warning) " : "";
-    return `DimFort: ${filePart}${projectWarning}Project ${ws.coveragePct}%${rootTag}`;
+    return `DimFort: ${filePart}${projectWarning}Project ${ws.coveragePct}%`;
   }
 
   /** Markdown tooltip with the full breakdown. */
@@ -101,6 +103,20 @@ export class CoverageStatusFooter implements vscode.Disposable {
     md.isTrusted = false;
     md.supportThemeIcons = true;
     md.appendMarkdown("**DimFort coverage**\n\n");
+
+    // Workspace-root provenance: shown only when derive-root
+    // anchored the workspace from a single open file (no real
+    // folder was open at activation). When VSCode opened with a
+    // real folder, ``derived`` is null and we skip the row —
+    // there's nothing diagnostic to report. Matches the
+    // cross-companion convention of surfacing root source as
+    // diagnostic context rather than daily-flow data.
+    const derived = getDerivedRoot();
+    if (derived !== null) {
+      md.appendMarkdown(
+        `_Workspace root:_ \`${derived.source}\` — \`${derived.dir}\`\n\n`,
+      );
+    }
 
     // One combined table. Headers stay clean ("File" / "Project"); the
     // % moves to its own "Coverage" row so it reads as a metric like

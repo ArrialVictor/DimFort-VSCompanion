@@ -25,12 +25,17 @@ commands, packaging).
   behaviour landed in 0.2.7 — `dimfort.toml`-only marker policy
   (no `.git` fallback) across all three companions.
 
-- **Root-source tag in the status-bar `Project:` segment.** The
-  coverage status item now appends `(dimfort.toml)` or `(file dir)`
-  when the workspace was anchored by derive-root, so a glance
-  reveals which marker the LSP is using. No tag appears when a real
-  folder was already open (no derivation happened). Same
-  vocabulary as the Nvim companion's panel tag.
+- **Root-source provenance in the coverage status-bar tooltip.**
+  When derive-root anchored the workspace, the tooltip now shows
+  a `Workspace root: dimfort.toml — /path/to/dir` line above the
+  coverage breakdown. Surfaces diagnostic context where users
+  hover to investigate ("why is my project state weird?") without
+  taking status-bar real estate that competes with Git status,
+  line/col, etc. No row appears when a real folder was already
+  open — nothing diagnostic to report. The Nvim and Emacs
+  companions tag their panel footers (which have room); the
+  status-bar tooltip is VSCompanion's equivalent diagnostic
+  surface.
 
 - **Nested-`dimfort.toml` notification.** When the upward walk for
   the workspace root encounters a second `dimfort.toml` above the

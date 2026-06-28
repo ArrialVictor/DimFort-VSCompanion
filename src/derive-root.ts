@@ -38,6 +38,7 @@ import * as path from "path";
 type RootSource = "dimfort.toml" | "file dir";
 
 let _rootSource: RootSource | null = null;
+let _rootDir: string | null = null;
 const _warnedNestedRoots = new Set<string>();
 
 const FORTRAN_LANGS = new Set([
@@ -47,12 +48,25 @@ const FORTRAN_LANGS = new Set([
 ]);
 
 /**
- * Return a parenthesised source tag suitable for appending to the
- * status-bar `Project:` segment, or the empty string when no derivation
- * has happened yet.
+ * Snapshot of the most recent derive-root resolution for diagnostic
+ * display (currently the status-bar tooltip). `null` when no
+ * derivation has happened — either because a real folder was open
+ * (no derivation needed) or because no Fortran document was open
+ * yet when ``deriveRootIfNeeded`` last ran.
  */
-export function getRootSourceTag(): string {
-  return _rootSource ? ` (${_rootSource})` : "";
+export interface DerivedRoot {
+  /** Resolved root directory. */
+  dir: string;
+  /** Which marker policy anchored the root. */
+  source: RootSource;
+}
+
+/** Return the current derived-root snapshot, or `null`. */
+export function getDerivedRoot(): DerivedRoot | null {
+  if (_rootSource === null || _rootDir === null) {
+    return null;
+  }
+  return { dir: _rootDir, source: _rootSource };
 }
 
 /**
@@ -80,6 +94,7 @@ export function deriveRootIfNeeded(): vscode.WorkspaceFolder | null {
   }
   const walked = walkUpForMarker(doc.uri.fsPath);
   _rootSource = walked.source;
+  _rootDir = walked.rootDir;
   if (walked.source === "dimfort.toml" && walked.nestedAt) {
     surfaceNestedWarning(walked.rootDir, walked.nestedAt);
   }
