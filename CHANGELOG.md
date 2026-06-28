@@ -8,6 +8,37 @@ behavioural changes mostly land in the DimFort server itself. Entries
 below cover client-side changes only (settings, defaults, palette
 commands, packaging).
 
+## [Unreleased]
+
+### Added
+
+- **Workspace-root derivation for the no-folder case.** When the user
+  opens a single Fortran file (`code foo.f90`) without a folder,
+  VSCompanion now walks up from the file looking for `dimfort.toml`
+  and injects the result as a synthetic `workspaceFolder` on the
+  LSP client. Without this, `vscode.workspace.workspaceFolders` was
+  empty, the LSP sent no folder to the server, and every workspace-
+  scope feature (project coverage, cross-file analysis,
+  `dimfort/checkWorkspace`) silently disabled. Falls back to the
+  file's containing directory when no `dimfort.toml` is found
+  upstream. Matches the Nvim and Emacs companions' equivalent
+  behaviour landed in 0.2.7 — `dimfort.toml`-only marker policy
+  (no `.git` fallback) across all three companions.
+
+- **Root-source tag in the status-bar `Project:` segment.** The
+  coverage status item now appends `(dimfort.toml)` or `(file dir)`
+  when the workspace was anchored by derive-root, so a glance
+  reveals which marker the LSP is using. No tag appears when a real
+  folder was already open (no derivation happened). Same
+  vocabulary as the Nvim companion's panel tag.
+
+- **Nested-`dimfort.toml` notification.** When the upward walk for
+  the workspace root encounters a second `dimfort.toml` above the
+  chosen one, VSCompanion shows a one-time information message
+  surfacing the drift (typically an unintended sub-project or
+  configuration overlap). Per-root deduped — same root never warns
+  twice in one session. Only fires for `dimfort.toml` specifically.
+
 ## [0.2.6] — 2026-06-13
 
 ### Highlight

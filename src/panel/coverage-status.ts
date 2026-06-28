@@ -16,6 +16,7 @@
  */
 import * as vscode from "vscode";
 
+import { getRootSourceTag } from "../derive-root";
 import type { CoverageStatsProvider, StatsSnapshot } from "../stats";
 
 
@@ -66,11 +67,17 @@ export class CoverageStatusFooter implements vscode.Disposable {
 
   /** Compact status-bar text. */
   private formatText(s: StatsSnapshot): string {
+    // Root-source tag (`(dimfort.toml)` / `(file dir)`) appended to
+    // the Project segment when derive-root anchored the workspace
+    // from a single open file. Empty string when a real folder was
+    // used (no derivation happened) — matches the cross-companion
+    // convention landed in 0.2.7.
+    const rootTag = getRootSourceTag();
     if (s.wsRefreshing) return "$(sync~spin) DimFort: refreshing…";
     if (s.workspace === null) {
       return s.file
-        ? `DimFort: File ${s.file.coveragePct}% · Project –`
-        : "DimFort: Project –";
+        ? `DimFort: File ${s.file.coveragePct}% · Project –${rootTag}`
+        : `DimFort: Project –${rootTag}`;
     }
     const ws = s.workspace;
     const filePart = s.file
@@ -85,7 +92,7 @@ export class CoverageStatusFooter implements vscode.Disposable {
     // anchor the warning right where it applies. Also still tints the
     // whole item's background as a glance-level backup.
     const projectWarning = s.wsStale ? "$(warning) " : "";
-    return `DimFort: ${filePart}${projectWarning}Project ${ws.coveragePct}%`;
+    return `DimFort: ${filePart}${projectWarning}Project ${ws.coveragePct}%${rootTag}`;
   }
 
   /** Markdown tooltip with the full breakdown. */
