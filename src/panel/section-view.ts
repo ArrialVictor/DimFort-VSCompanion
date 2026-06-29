@@ -76,7 +76,13 @@ export abstract class SectionView
         const doc = await vscode.workspace.openTextDocument(msg.file);
         editor = await vscode.window.showTextDocument(doc);
       } catch {
-        // Fall back to the active editor when the path can't be opened.
+        // audited(0.2.7): silent-OK — webview reveal-line click on a
+        // path that can no longer be opened (file moved / deleted
+        // since the panel was rendered). Falling back to the active
+        // editor preserves the user's expected "click → cursor
+        // moves" feel; a toast would interrupt the click flow with
+        // information the user already infers from the cursor
+        // staying put.
       }
     }
     if (!editor) return;

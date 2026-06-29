@@ -17,6 +17,11 @@ import { CoverageStatusFooter } from "./panel/coverage-status";
 import { CursorView } from "./panel/cursor-view";
 import { ImportsView } from "./panel/imports-view";
 import { ScopeView } from "./panel/scope-view";
+import {
+  installServerExitSurfacing,
+  markExpectingStop,
+  reportStartFailure,
+} from "./server-exit";
 import { CoverageStatsProvider } from "./stats";
 
 let client: LanguageClient | undefined;
@@ -111,12 +116,25 @@ function buildClient(): LanguageClient {
 let rebuildChain: Promise<void> = Promise.resolve();
 
 function rebuildClient(): Promise<void> {
+  // audited(0.2.7): silent-OK — the `.catch` here drops the previous
+  // rebuild's rejection on the floor so the chain keeps advancing.
+  // The previous failure has already been surfaced at its origin
+  // (doRebuildClient's start() catch → reportStartFailure, or the
+  // calling command's own toast). The chain-level catch only
+  // exists so a single bad config-change can't poison every
+  // subsequent rebuild.
   rebuildChain = rebuildChain.catch(() => undefined).then(doRebuildClient);
   return rebuildChain;
 }
 
 async function doRebuildClient(): Promise<void> {
   if (client) {
+    // audited(0.2.7): silent-OK — mark as a graceful teardown BEFORE
+    // calling stop() so the resulting Running → Stopped transition
+    // doesn't trip the unexpected-exit toast. The catch covers
+    // stop()'s own failure modes (previous start half-completed,
+    // server already dead); we're tearing down regardless.
+    markExpectingStop(client);
     try {
       await client.stop();
     } catch {
@@ -125,17 +143,41 @@ async function doRebuildClient(): Promise<void> {
     }
   }
   client = buildClient();
+  // Install BEFORE start() so the first Starting → Running
+  // transition is observed and resets the state-transition dedup
+  // memo (lets a post-recovery crash warn afresh).
+  installServerExitSurfacing(client);
   panelCoordinator?.setClient(client);
   coverageProvider?.setClient(client);
   statsProvider?.setClient(client);
-  await client.start();
+  try {
+    await client.start();
+  } catch (err) {
+    // audited(0.2.7): error-surfacing — start() failure on rebuild
+    // would otherwise propagate to the caller's try/catch (which
+    // toasts a generic "reload failed" message) without naming the
+    // common causes. Surface the actionable hints here, then
+    // re-throw so the caller's own teardown / reporting still runs.
+    reportStartFailure(err);
+    throw err;
+  }
 }
 
 export function activate(context: vscode.ExtensionContext): void {
   client = buildClient();
-  void client.start();
+  // audited(0.2.7): error-surfacing — wire BOTH lifecycle paths
+  // before start():
+  //  - installServerExitSurfacing covers the mid-session crash
+  //    (Running → Stopped without our markExpectingStop).
+  //  - reportStartFailure covers the pre-handshake failure
+  //    (executable not on PATH, immediate spawn crash, Python
+  //    error before initialize completes). Previously `void
+  //    client.start()` dropped this rejection on the floor.
+  installServerExitSurfacing(client);
+  client.start().catch(reportStartFailure);
   context.subscriptions.push({
     dispose: () => {
+      if (client) markExpectingStop(client);
       void client?.stop();
     },
   });
@@ -804,6 +846,9 @@ async function uriExists(uri: vscode.Uri): Promise<boolean> {
     await vscode.workspace.fs.stat(uri);
     return true;
   } catch {
+    // audited(0.2.7): silent-OK — the function's contract is
+    // "boolean exists?", so a FileNotFound (or any stat error) IS
+    // the negative answer. Caller branches on the return value.
     return false;
   }
 }
@@ -928,8 +973,11 @@ async function unitsStubFromDefaults(): Promise<string> {
     const { stdout } = await execFileP(executable, ["show-defaults", "units"]);
     defaultsBody = stdout;
   } catch {
-    // dimfort not on PATH, version too old, or non-zero exit — fall
-    // through and write a stub explaining the situation.
+    // audited(0.2.7): silent-OK — dimfort not on PATH, version too
+    // old, or non-zero exit. The fallback stub below names the
+    // situation explicitly ("Couldn't fetch the bundled defaults…")
+    // so the user sees the cause directly in the file they just
+    // opened. A separate toast would duplicate the message.
   }
   if (!defaultsBody) {
     return unitsStubEmpty() + [
@@ -982,5 +1030,9 @@ function affectsOtherDimfortSettings(
 }
 
 export function deactivate(): Thenable<void> | undefined {
+  // audited(0.2.7): silent-OK — extension teardown is a graceful
+  // stop; mark the client so the Running → Stopped transition
+  // doesn't trip the unexpected-exit toast on the way out.
+  if (client) markExpectingStop(client);
   return client?.stop();
 }

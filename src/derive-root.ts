@@ -129,8 +129,10 @@ function walkUpForMarker(filePath: string): WalkResult {
         matches.push(candidate);
       }
     } catch {
-      // Stat failure (ENOENT / permission) just means "no marker here";
-      // continue walking.
+      // audited(0.2.7): silent-OK — stat failure (ENOENT / permission)
+      // just means "no marker here"; continue walking. This is the
+      // hot path during walk-up so a log call per directory would
+      // be pure noise.
     }
     const parent = path.dirname(dir);
     if (parent === dir) {

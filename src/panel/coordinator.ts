@@ -182,6 +182,12 @@ export class PanelCoordinator {
         "dimfort/panelInfo", params,
       );
     } catch {
+      // audited(0.2.7): silent-OK — fires per cursor movement (post-
+      // debounce). Toast per failed request would carpet the user
+      // during any server hiccup. The panel keeps its previous
+      // payload until the next successful update; a fatal server
+      // exit is surfaced separately via installServerExitSurfacing
+      // (server-exit.ts), so the silence here is bounded by that.
       return;
     }
     if (seq !== this.requestSeq || !result) return;
@@ -192,6 +198,13 @@ export class PanelCoordinator {
         "dimfort/interactions", params,
       );
     } catch {
+      // audited(0.2.7): silent-OK — same shape as panelInfo above.
+      // Interactions is the optional secondary payload; the primary
+      // panel content has already rendered from `result`. Empty
+      // interactions is documented as "no related sites at this
+      // cursor", indistinguishable from a transient failure for the
+      // user — and tolerable as a degraded state until the next
+      // cursor move resolves.
       interactions = null;
     }
     if (seq !== this.requestSeq) return;
@@ -209,6 +222,12 @@ export class PanelCoordinator {
         ),
       );
     } catch {
+      // audited(0.2.7): silent-OK — the VSCode code-action provider
+      // call goes through the LSP pipeline (every registered
+      // provider gets queried). A failure here usually means a
+      // non-DimFort provider threw; suppressing it here keeps the
+      // panel rendering from being held hostage by an unrelated
+      // extension. Same per-cursor-tick rationale: don't toast.
       actions = [];
     }
     if (seq !== this.requestSeq) return;
