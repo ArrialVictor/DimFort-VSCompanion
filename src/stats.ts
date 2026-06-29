@@ -240,9 +240,19 @@ export class CoverageStatsProvider implements vscode.Disposable {
       // got the chance to send its own `window/showMessage` — the
       // request didn't make it across the wire.
       const msg = err instanceof Error ? err.message : String(err);
-      void vscode.window.showErrorMessage(
-        `DimFort: workspace check request failed — ${msg}`,
-      );
+      // "View Output" action flips the toast to sticky-until-dismissed;
+      // without an action item, showErrorMessage auto-dismisses after
+      // ~5–10 s which can be missed when other notifications are
+      // also competing for the slot.
+      const channel = this.client?.outputChannel;
+      void vscode.window
+        .showErrorMessage(
+          `DimFort: workspace check request failed — ${msg}`,
+          ...(channel ? ["View Output"] : []),
+        )
+        .then((choice) => {
+          if (choice === "View Output" && channel) channel.show(true);
+        });
     }
     if (!ack || !ack.started) {
       // audited(0.2.7): silent-OK on the companion side — when the

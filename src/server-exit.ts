@@ -67,6 +67,12 @@ export function markExpectingStop(client: LanguageClient): void {
  * Starting → Running transition is captured (used to reset the
  * state-transition dedup memo so a post-recovery crash can warn
  * afresh).
+ *
+ * The toast carries a "View Output" action item; without one,
+ * ``showErrorMessage`` auto-dismisses after a few seconds and the
+ * languageclient's own retry notification rotates ours off-screen.
+ * Adding the action flips the notification to sticky-until-dismissed
+ * AND gives the user a one-click path to the actual error.
  */
 export function installServerExitSurfacing(
   client: LanguageClient,
@@ -87,12 +93,16 @@ export function installServerExitSurfacing(
     const key = `state:${evt.oldState}->${evt.newState}`;
     if (_warnedKeys.has(key)) return;
     _warnedKeys.add(key);
-    void vscode.window.showErrorMessage(
-      "DimFort: LSP server exited unexpectedly. Open Output → "
-        + "DimFort for details; common causes include a missing "
-        + "'lsp' extra (pipx install 'dimfort[lsp]') or a Python "
-        + "crash mid-handler.",
-    );
+    void vscode.window
+      .showErrorMessage(
+        "DimFort: LSP server exited unexpectedly. Common causes: "
+          + "a missing 'lsp' extra (pipx install 'dimfort[lsp]') or "
+          + "a Python crash mid-handler.",
+        "View Output",
+      )
+      .then((choice) => {
+        if (choice === "View Output") client.outputChannel.show(true);
+      });
   });
 }
 
@@ -101,17 +111,36 @@ export function installServerExitSurfacing(
  *
  * Use as a ``.catch`` on the start promise. Deduped per error
  * message so retry loops don't multi-toast.
+ *
+ * ``outputChannel`` is optional only for backwards compatibility of
+ * the helper signature; callers in this extension always have it
+ * (``client.outputChannel``) and should always pass it so the
+ * "View Output" action is offered. When omitted, the toast still
+ * sticks (via a no-op action wouldn't help) — we just skip the
+ * action button and let the message auto-dismiss; not ideal, but
+ * the function stays robust.
  */
-export function reportStartFailure(err: unknown): void {
+export function reportStartFailure(
+  err: unknown,
+  outputChannel?: vscode.OutputChannel,
+): void {
   const msg = err instanceof Error ? err.message : String(err);
   const key = `start:${msg}`;
   if (_warnedKeys.has(key)) return;
   _warnedKeys.add(key);
-  void vscode.window.showErrorMessage(
+  const body =
     "DimFort: LSP server failed to start "
-      + `(${msg}). Common causes: the 'dimfort' executable is not on `
-      + "PATH (set 'dimfort.executable' or pipx install "
-      + "'dimfort[lsp]'), or a Python crash before the initialize "
-      + "handshake completes. Open Output → DimFort for details.",
-  );
+    + `(${msg}). Common causes: the 'dimfort' executable is not on `
+    + "PATH (set 'dimfort.executable'), the 'lsp' extra is missing "
+    + "(pipx install 'dimfort[lsp]'), or a Python crash before the "
+    + "initialize handshake completes.";
+  if (outputChannel) {
+    void vscode.window
+      .showErrorMessage(body, "View Output")
+      .then((choice) => {
+        if (choice === "View Output") outputChannel.show(true);
+      });
+  } else {
+    void vscode.window.showErrorMessage(body);
+  }
 }

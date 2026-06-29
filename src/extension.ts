@@ -158,7 +158,7 @@ async function doRebuildClient(): Promise<void> {
     // toasts a generic "reload failed" message) without naming the
     // common causes. Surface the actionable hints here, then
     // re-throw so the caller's own teardown / reporting still runs.
-    reportStartFailure(err);
+    reportStartFailure(err, client.outputChannel);
     throw err;
   }
 }
@@ -174,7 +174,7 @@ export function activate(context: vscode.ExtensionContext): void {
   //    error before initialize completes). Previously `void
   //    client.start()` dropped this rejection on the floor.
   installServerExitSurfacing(client);
-  client.start().catch(reportStartFailure);
+  client.start().catch((err) => reportStartFailure(err, client?.outputChannel));
   context.subscriptions.push({
     dispose: () => {
       if (client) markExpectingStop(client);

@@ -16,8 +16,9 @@ commands, packaging).
   `LanguageClient.onDidChangeState` wiring catches mid-session
   crashes (segfault, SIGKILL, Python crash mid-handler) and toasts
   via `vscode.window.showErrorMessage` naming the most common
-  causes (missing `[lsp]` extra, server crash mid-handler) and
-  pointing at `Output → DimFort` for details. Previously the
+  causes (missing `[lsp]` extra, server crash mid-handler) with a
+  **"View Output"** action that opens the DimFort log channel
+  one-click (also keeps the notification sticky-until-dismissed). Previously the
   server-died case was invisible — the panel went stale, new
   requests stopped resolving, the user had no signal anything was
   wrong. Per-(state-transition) deduped so a rapid-retry crash
