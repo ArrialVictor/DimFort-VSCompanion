@@ -121,10 +121,11 @@ The lifecycle-enumeration discipline above walked three axes per fix; this findi
 
 ## Carry-forward to 0.2.8
 
-- **CI grep gate.** A separate PR per repo (cross-language) adds a
-  workflow step that fails on any new `catch {}` or `void
-  someClient.start()` without an `audited(...)` annotation. Same
-  shape as the planned server-side gate.
+- ~~**CI grep gate.**~~ Shipped — `scripts/silent-failure-gate.py`
+  hard-bans empty `catch` blocks across `src/**/*.ts` and (in
+  diff-aware mode) requires `audited(0.2.X)` annotation on newly-
+  introduced `catch` blocks. Wired into `ci.yml` after the
+  TypeScript compile step. Sibling of the DimFort server-side gate.
 - **Status-bar "server stopped" badge.** The toast is dismissable;
   a passive modeline indicator that persists until the server is
   Running again would catch the case where the user dismissed the
