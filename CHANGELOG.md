@@ -34,12 +34,35 @@ commands, packaging).
   +
   [EmacsCompanion#34](https://github.com/ArrialVictor/DimFort-EmacsCompanion/pull/34)).
 
-- **LSP-server startup-failure surfacing.** `LanguageClient.start()`
-  rejections — executable not on PATH, missing `[lsp]` extra,
-  immediate Python crash before the initialize handshake — now toast
-  with the actionable hint instead of vanishing into the previous
-  `void client.start()`. Deduped per error message so a retry loop
-  on a persistent install error doesn't multi-toast.
+- **LSP-server startup-failure surfacing.** Server-died-before-
+  reaching-`Running` is now surfaced via the same
+  `onDidChangeState` listener — `Starting → Stopped` is the
+  startup-failure signal, the analogue of the existing
+  `Running → Stopped` mid-session-crash branch. The state-listener
+  is the canonical surface here because the library's `_onStart`
+  promise plumbing isn't reliable across the close-then-cleanup
+  sequence (the library sets `_onStart = undefined` before the
+  original start()'s catch can run, so the outer `.catch` on
+  `client.start()` doesn't always fire). The state-change emit is
+  synchronous from the library's `$state = StartFailed` assignment
+  and fires regardless of promise plumbing. The toast names the
+  install-failure causes — executable not on PATH, missing `[lsp]`
+  extra, immediate Python crash. `reportStartFailure` remains on
+  the `.catch` as a belt-and-suspenders second path, deduped
+  against the state listener via a shared key.
+
+- **Smart-retry policy in the quiet handler.** The handler tracks
+  whether the client has reached `State.Running` at least once.
+  Until it has (install/startup failure shape — missing `[lsp]`
+  extra, immediate Python crash before initialize), `closed()`
+  returns `DoNotRestart` immediately, preventing the library from
+  spamming "Restarting server failed" force-shown toasts on each
+  failed retry. Once `Running` fires the first time, the handler
+  flips to standard retry mode (5 closes in 3 minutes → give up;
+  restart otherwise) so transient runtime crashes still auto-
+  recover. The first reach to `Running` is signalled via a
+  `markReady()` hook called from `installServerExitSurfacing`'s
+  state-change listener.
 
 - **Quiet error handler for vscode-languageclient.** The library's
   default `ErrorHandler` fires its own toasts on every transport

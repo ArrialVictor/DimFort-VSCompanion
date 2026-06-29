@@ -85,9 +85,11 @@ export function markExpectingStop(client: LanguageClient): void {
  */
 export function installServerExitSurfacing(
   client: LanguageClient,
+  onReady?: () => void,
 ): vscode.Disposable {
   return client.onDidChangeState((evt) => {
     if (evt.newState === State.Running) {
+      onReady?.();
       for (const k of Array.from(_warnedKeys)) {
         if (k.startsWith("state:")) _warnedKeys.delete(k);
       }
@@ -98,17 +100,38 @@ export function installServerExitSurfacing(
       _expectingStop.delete(client);
       return;
     }
-    if (evt.oldState !== State.Running) return;
+    // Two distinct user-visible failure shapes converge here:
+    //  - Running → Stopped: server was up, then died (mid-session
+    //    crash — segfault, SIGKILL, Python crash mid-handler).
+    //  - Starting → Stopped: server never reached Running (startup
+    //    failure — executable not on PATH, missing [lsp] extra,
+    //    immediate Python crash pre-handshake). Critically, this
+    //    branch is the ONLY reliable signal for the
+    //    smart-retry / missing-[lsp] case: when our quiet-handler's
+    //    closed() returns DoNotRestart while the server never
+    //    reached Running, the library sets `_onStart = undefined`
+    //    BEFORE the original start()'s catch can run, so the
+    //    `client.start().catch(reportStartFailure)` chain never
+    //    fires (the async function returns the now-undefined
+    //    _onStart, so the outer promise resolves rather than
+    //    rejects). The state-change emit, in contrast, runs
+    //    synchronously from the `$state = StartFailed` assignment
+    //    — it fires regardless of promise plumbing.
+    if (evt.oldState !== State.Running && evt.oldState !== State.Starting) return;
     const key = `state:${evt.oldState}->${evt.newState}`;
     if (_warnedKeys.has(key)) return;
     _warnedKeys.add(key);
+    const body = evt.oldState === State.Running
+      ? "DimFort: LSP server exited unexpectedly. Common causes: "
+        + "a missing 'lsp' extra (pipx install 'dimfort[lsp]') or "
+        + "a Python crash mid-handler."
+      : "DimFort: LSP server failed to start. Common causes: the "
+        + "'dimfort' executable is not on PATH (set "
+        + "'dimfort.executable'), the 'lsp' extra is missing "
+        + "(pipx install 'dimfort[lsp]'), or a Python crash before "
+        + "the initialize handshake completes.";
     void vscode.window
-      .showErrorMessage(
-        "DimFort: LSP server exited unexpectedly. Common causes: "
-          + "a missing 'lsp' extra (pipx install 'dimfort[lsp]') or "
-          + "a Python crash mid-handler.",
-        "View Output",
-      )
+      .showErrorMessage(body, "View Output")
       .then((choice) => {
         if (choice === "View Output") client.outputChannel.show(true);
       });
@@ -149,7 +172,20 @@ export function installServerExitSurfacing(
  * notifications, library noise on the same lifecycle event made
  * ours visually invisible.
  */
-export function quietErrorHandler(): ErrorHandler {
+/**
+ * QuietErrorHandler extended with a ``markReady`` hook the caller
+ * invokes once the server has completed the initialize handshake
+ * (i.e., the client has reached ``State.Running``). The hook
+ * flips the close handler from "DoNotRestart" (install/startup
+ * failure) to the retry policy (transient runtime crash); see
+ * ``quietErrorHandler`` for why.
+ */
+export interface QuietHandler extends ErrorHandler {
+  markReady(): void;
+}
+
+export function quietErrorHandler(): QuietHandler {
+  let everRan = false;
   let restarts: number[] = [];
   return {
     error(
@@ -163,6 +199,19 @@ export function quietErrorHandler(): ErrorHandler {
       return { action: ErrorAction.Shutdown, handled: true };
     },
     closed(): CloseHandlerResult {
+      if (!everRan) {
+        // The server died before ever completing the initialize
+        // handshake — almost certainly a startup/install failure
+        // (missing 'lsp' extra, immediate Python crash, etc.).
+        // Retries don't fix install issues; they only spam the
+        // library's force-shown "Restarting server failed" toasts
+        // on each failed attempt. Our reportStartFailure has
+        // already surfaced the cause with the actionable hint.
+        // A manual ``DimFort: Restart Language Server`` re-creates
+        // the client and resets everRan, so the user can retry
+        // after fixing the install.
+        return { action: CloseAction.DoNotRestart, handled: true };
+      }
       restarts.push(timestamp());
       if (restarts.length <= 5) {
         return { action: CloseAction.Restart, handled: true };
@@ -174,6 +223,9 @@ export function quietErrorHandler(): ErrorHandler {
       }
       restarts.shift();
       return { action: CloseAction.Restart, handled: true };
+    },
+    markReady(): void {
+      everRan = true;
     },
   };
 }
@@ -202,10 +254,17 @@ export function reportStartFailure(
   err: unknown,
   outputChannel?: vscode.OutputChannel,
 ): void {
-  const msg = err instanceof Error ? err.message : String(err);
-  const key = `start:${msg}`;
+  // Belt-and-suspenders alongside the state-listener's
+  // Starting → Stopped branch in installServerExitSurfacing.
+  // Dedup key is INTENTIONALLY shared with the state listener
+  // (`state:Starting->Stopped`) so the two paths don't double-toast
+  // when they both fire (the ENOENT / Manual-D case: state goes
+  // Starting → StartFailed → public emit, then start() rejects on
+  // the catch). Both reset on Running via the same prefix sweep.
+  const key = `state:Starting->Stopped`;
   if (_warnedKeys.has(key)) return;
   _warnedKeys.add(key);
+  const msg = err instanceof Error ? err.message : String(err);
   const body =
     "DimFort: LSP server failed to start "
     + `(${msg}). Common causes: the 'dimfort' executable is not on `

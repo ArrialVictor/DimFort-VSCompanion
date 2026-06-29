@@ -18,6 +18,7 @@ import { CursorView } from "./panel/cursor-view";
 import { ImportsView } from "./panel/imports-view";
 import { ScopeView } from "./panel/scope-view";
 import {
+  type QuietHandler,
   installServerExitSurfacing,
   markExpectingStop,
   quietErrorHandler,
@@ -35,7 +36,7 @@ let statsProvider: CoverageStatsProvider | undefined;
 // re-use a captured `clientOptions` reference, because `LanguageClient`
 // keeps the same `initializationOptions` across `restart()` calls, so a
 // setting change won't reach the server otherwise.
-function buildClient(): LanguageClient {
+function buildClient(errorHandler: QuietHandler): LanguageClient {
   const config = vscode.workspace.getConfiguration("dimfort");
   const executable = config.get<string>("executable", "dimfort");
 
@@ -86,8 +87,12 @@ function buildClient(): LanguageClient {
     // Suppress vscode-languageclient's own retry/close notifications;
     // see server-exit.ts:quietErrorHandler for the rationale. Our
     // installServerExitSurfacing + reportStartFailure are the single
-    // user-visible voice for connection lifecycle events.
-    errorHandler: quietErrorHandler(),
+    // user-visible voice for connection lifecycle events. The handler
+    // also implements smart-retry: no auto-restart until the client
+    // has reached State.Running once, so install/startup failures
+    // don't churn through the retry loop. ``markReady`` is invoked
+    // from installServerExitSurfacing's state-change listener.
+    errorHandler,
   };
 
   // Derive a workspace root from the open file when the user opened
@@ -148,11 +153,15 @@ async function doRebuildClient(): Promise<void> {
       // which is fine — we're tearing it down anyway.
     }
   }
-  client = buildClient();
+  const handler = quietErrorHandler();
+  client = buildClient(handler);
   // Install BEFORE start() so the first Starting → Running
-  // transition is observed and resets the state-transition dedup
-  // memo (lets a post-recovery crash warn afresh).
-  installServerExitSurfacing(client);
+  // transition is observed: resets the state-transition dedup memo
+  // AND flips the QuietHandler's everRan flag so subsequent close
+  // events can trigger the retry policy (runtime crash recovery).
+  // While everRan is false, closed() returns DoNotRestart so an
+  // install/startup failure doesn't loop on retries.
+  installServerExitSurfacing(client, handler.markReady);
   panelCoordinator?.setClient(client);
   coverageProvider?.setClient(client);
   statsProvider?.setClient(client);
@@ -170,16 +179,20 @@ async function doRebuildClient(): Promise<void> {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  client = buildClient();
+  const handler = quietErrorHandler();
+  client = buildClient(handler);
   // audited(0.2.7): error-surfacing — wire BOTH lifecycle paths
   // before start():
   //  - installServerExitSurfacing covers the mid-session crash
-  //    (Running → Stopped without our markExpectingStop).
+  //    (Running → Stopped without our markExpectingStop). Also
+  //    invokes handler.markReady() on the first Starting → Running
+  //    so the QuietHandler switches from "install-failure mode"
+  //    (DoNotRestart) to "runtime-crash mode" (retry policy).
   //  - reportStartFailure covers the pre-handshake failure
   //    (executable not on PATH, immediate spawn crash, Python
   //    error before initialize completes). Previously `void
   //    client.start()` dropped this rejection on the floor.
-  installServerExitSurfacing(client);
+  installServerExitSurfacing(client, handler.markReady);
   client.start().catch((err) => reportStartFailure(err, client?.outputChannel));
   context.subscriptions.push({
     dispose: () => {
