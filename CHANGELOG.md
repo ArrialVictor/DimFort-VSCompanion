@@ -12,6 +12,71 @@ commands, packaging).
 
 ### Added
 
+- **Unexpected LSP-server-exit surfacing.** New
+  `LanguageClient.onDidChangeState` wiring catches mid-session
+  crashes (segfault, SIGKILL, Python crash mid-handler) and toasts
+  via `vscode.window.showErrorMessage` naming the most common
+  causes (missing `[lsp]` extra, server crash mid-handler) with a
+  **"View Output"** action that opens the DimFort log channel
+  one-click (also keeps the notification sticky-until-dismissed). Previously the
+  server-died case was invisible — the panel went stale, new
+  requests stopped resolving, the user had no signal anything was
+  wrong. Per-(state-transition) deduped so a rapid-retry crash
+  loop doesn't carpet the screen; the dedup memo resets once the
+  server reaches `Running` again so a post-recovery crash warns
+  afresh. Graceful teardowns (extension deactivate, the
+  `dimfort.restartLanguageServer` command, settings rebuilds) are
+  tagged via a `_expectingStop` WeakSet so they don't trip the
+  toast. New module `src/server-exit.ts`. Closes the third leg of
+  the 0.2.7 silent-failure audit (after server-side
+  [#113](https://github.com/ArrialVictor/DimFort/pull/113) +
+  [NvimCompanion#33](https://github.com/ArrialVictor/DimFort-NvimCompanion/pull/33)
+  +
+  [EmacsCompanion#34](https://github.com/ArrialVictor/DimFort-EmacsCompanion/pull/34)).
+
+- **LSP-server startup-failure surfacing.** Server-died-before-
+  reaching-`Running` is now surfaced via the same
+  `onDidChangeState` listener — `Starting → Stopped` is the
+  startup-failure signal, the analogue of the existing
+  `Running → Stopped` mid-session-crash branch. The state-listener
+  is the canonical surface here because the library's `_onStart`
+  promise plumbing isn't reliable across the close-then-cleanup
+  sequence (the library sets `_onStart = undefined` before the
+  original start()'s catch can run, so the outer `.catch` on
+  `client.start()` doesn't always fire). The state-change emit is
+  synchronous from the library's `$state = StartFailed` assignment
+  and fires regardless of promise plumbing. The toast names the
+  install-failure causes — executable not on PATH, missing `[lsp]`
+  extra, immediate Python crash. `reportStartFailure` remains on
+  the `.catch` as a belt-and-suspenders second path, deduped
+  against the state listener via a shared key.
+
+- **Smart-retry policy in the quiet handler.** The handler tracks
+  whether the client has reached `State.Running` at least once.
+  Until it has (install/startup failure shape — missing `[lsp]`
+  extra, immediate Python crash before initialize), `closed()`
+  returns `DoNotRestart` immediately, preventing the library from
+  spamming "Restarting server failed" force-shown toasts on each
+  failed retry. Once `Running` fires the first time, the handler
+  flips to standard retry mode (5 closes in 3 minutes → give up;
+  restart otherwise) so transient runtime crashes still auto-
+  recover. The first reach to `Running` is signalled via a
+  `markReady()` hook called from `installServerExitSurfacing`'s
+  state-change listener.
+
+- **Quiet error handler for vscode-languageclient.** The library's
+  default `ErrorHandler` fires its own toasts on every transport
+  error and close-decision — 5+ separate notifications during a
+  startup-failure retry loop, all prefixed with the client name
+  ("DimFort") so they read as ours and drown out the single
+  actionable surfacing toast. A custom `errorHandler` in
+  `LanguageClientOptions` keeps the same retry policy (3 errors
+  → shutdown; 5 closes in 3 minutes → give up; restart otherwise)
+  but returns `handled: true` on every branch so the library
+  suppresses its default notifications. Our
+  `installServerExitSurfacing` + `reportStartFailure` are now the
+  sole user-visible voice for connection lifecycle events.
+
 - **Workspace-root derivation for the no-folder case.** When the user
   opens a single Fortran file (`code foo.f90`) without a folder,
   VSCompanion now walks up from the file looking for `dimfort.toml`
@@ -43,6 +108,22 @@ commands, packaging).
   surfacing the drift (typically an unintended sub-project or
   configuration overlap). Per-root deduped — same root never warns
   twice in one session. Only fires for `dimfort.toml` specifically.
+
+### Fixed
+
+- **`workspace/executeCommand` wire-level error now surfaces.** When
+  the LSP request itself fails (transport disconnected, server
+  crashed mid-request) the companion now toasts the error message
+  instead of silently clearing the spinner. The documented
+  `started: false` server-refusal cases (already in progress / index
+  not ready / no files) stay silent on the companion side — the
+  server already toasts the reason via `window/showMessage` which
+  VSCode renders as a popup; double-warning would be noise.
+  Annotated with `audited(0.2.7)` so the intentional silence is
+  documented. Same shape as
+  [NvimCompanion#33](https://github.com/ArrialVictor/DimFort-NvimCompanion/pull/33)
+  and
+  [EmacsCompanion#34](https://github.com/ArrialVictor/DimFort-EmacsCompanion/pull/34).
 
 ## [0.2.6] — 2026-06-13
 

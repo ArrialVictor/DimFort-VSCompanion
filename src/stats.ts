@@ -226,13 +226,46 @@ export class CoverageStatsProvider implements vscode.Disposable {
           arguments: [],
         },
       );
-    } catch {
-      // Swallow LSP errors silently — the bar staying on its old
-      // state is better UX than a popup.
+    } catch (err) {
+      // audited(0.2.7): error-surfacing — a wire-level failure on the
+      // executeCommand request (transport disconnected, server crashed
+      // mid-request, etc.) was previously silently swallowed. The
+      // user clicked "DimFort: Check Workspace", saw the spinner
+      // briefly appear, then nothing happened. Toast names the
+      // actual error so the failure is observable. Mirrors the Nvim
+      // companion's `workspace/executeCommand` err branch and the
+      // Emacs companion's condition-case → message conversion in
+      // 0.2.7's silent-failure audit. The companion-side notification
+      // is the right surface here because the server itself never
+      // got the chance to send its own `window/showMessage` — the
+      // request didn't make it across the wire.
+      const msg = err instanceof Error ? err.message : String(err);
+      // "View Output" action flips the toast to sticky-until-dismissed;
+      // without an action item, showErrorMessage auto-dismisses after
+      // ~5–10 s which can be missed when other notifications are
+      // also competing for the slot.
+      const channel = this.client?.outputChannel;
+      void vscode.window
+        .showErrorMessage(
+          `DimFort: workspace check request failed — ${msg}`,
+          ...(channel ? ["View Output"] : []),
+        )
+        .then((choice) => {
+          if (choice === "View Output" && channel) channel.show(true);
+        });
     }
     if (!ack || !ack.started) {
-      // Server refused to start (already in flight, or no index).
-      // Clear the spinner; nothing further to wait for.
+      // audited(0.2.7): silent-OK on the companion side — when the
+      // server refuses (started:false ack — "already in progress",
+      // "index not ready", "no files found"), it has ALREADY toasted
+      // the user-visible refusal reason via `window/showMessage`
+      // BEFORE returning. vscode-languageclient routes that to a
+      // notification popup by default. Adding a second toast here
+      // would double-warn the same event. We only need to clear the
+      // local spinner state so the bar stops indicating in-flight.
+      //
+      // (The ack === null branch is the wire-error path above, which
+      // already toasted; this branch then unsticks the spinner.)
       this.wsRefreshing = false;
       this.emitter.fire();
     }
@@ -292,6 +325,13 @@ export class CoverageStatsProvider implements vscode.Disposable {
         { uri },
       );
     } catch {
+      // audited(0.2.7): silent-OK — this fires on every diagnostic
+      // change for the active file (so, effectively per-edit). A
+      // toast per failed request would carpet the user during any
+      // server hiccup. The bar staying on its prior numbers is the
+      // intended degraded state; the server's own crash surfaces
+      // through installServerExitSurfacing (server-exit.ts) when
+      // the underlying problem is fatal.
       return;
     }
     // Drop stale responses: a later request for the same URI may have

@@ -175,8 +175,13 @@ export class CoverageProvider implements vscode.Disposable {
         { uri: editor.document.uri.toString() },
       );
     } catch {
-      // Server not ready / request failed — leave the last decorations
-      // in place rather than blanking everything.
+      // audited(0.2.7): silent-OK — fires per debounced diagnostic
+      // refresh. Server not ready / request failed — leave the last
+      // decorations in place rather than blanking everything (a
+      // momentary flash to "no coverage" then back is worse UX than
+      // stale-but-stable). Server crashes are surfaced via
+      // installServerExitSurfacing (server-exit.ts); transient
+      // request failures during a restart cycle correctly silence.
       return;
     }
     this.applyDecorations(editor, response.lines);
