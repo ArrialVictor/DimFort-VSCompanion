@@ -20,6 +20,7 @@ import { ScopeView } from "./panel/scope-view";
 import {
   installServerExitSurfacing,
   markExpectingStop,
+  quietErrorHandler,
   reportStartFailure,
 } from "./server-exit";
 import { CoverageStatsProvider } from "./stats";
@@ -82,6 +83,11 @@ function buildClient(): LanguageClient {
     ],
     outputChannelName: "DimFort",
     initializationOptions,
+    // Suppress vscode-languageclient's own retry/close notifications;
+    // see server-exit.ts:quietErrorHandler for the rationale. Our
+    // installServerExitSurfacing + reportStartFailure are the single
+    // user-visible voice for connection lifecycle events.
+    errorHandler: quietErrorHandler(),
   };
 
   // Derive a workspace root from the open file when the user opened

@@ -41,6 +41,19 @@ commands, packaging).
   `void client.start()`. Deduped per error message so a retry loop
   on a persistent install error doesn't multi-toast.
 
+- **Quiet error handler for vscode-languageclient.** The library's
+  default `ErrorHandler` fires its own toasts on every transport
+  error and close-decision — 5+ separate notifications during a
+  startup-failure retry loop, all prefixed with the client name
+  ("DimFort") so they read as ours and drown out the single
+  actionable surfacing toast. A custom `errorHandler` in
+  `LanguageClientOptions` keeps the same retry policy (3 errors
+  → shutdown; 5 closes in 3 minutes → give up; restart otherwise)
+  but returns `handled: true` on every branch so the library
+  suppresses its default notifications. Our
+  `installServerExitSurfacing` + `reportStartFailure` are now the
+  sole user-visible voice for connection lifecycle events.
+
 - **Workspace-root derivation for the no-folder case.** When the user
   opens a single Fortran file (`code foo.f90`) without a folder,
   VSCompanion now walks up from the file looking for `dimfort.toml`

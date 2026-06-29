@@ -38,7 +38,16 @@
  * enumeration.
  */
 import * as vscode from "vscode";
-import { LanguageClient, State } from "vscode-languageclient/node";
+import {
+  CloseAction,
+  type CloseHandlerResult,
+  ErrorAction,
+  type ErrorHandler,
+  type ErrorHandlerResult,
+  LanguageClient,
+  type Message,
+  State,
+} from "vscode-languageclient/node";
 
 const _warnedKeys = new Set<string>();
 const _expectingStop = new WeakSet<LanguageClient>();
@@ -104,6 +113,75 @@ export function installServerExitSurfacing(
         if (choice === "View Output") client.outputChannel.show(true);
       });
   });
+}
+
+/**
+ * Build a quiet ``ErrorHandler`` for ``LanguageClientOptions``.
+ *
+ * vscode-languageclient ships a default error/close handler that
+ * fires a ``window.showErrorMessage`` on every error and on every
+ * decision the close handler makes — typically 5+ separate
+ * notifications during a missing-`[lsp]`-extra startup-failure
+ * loop ("Pending response rejected", "Server initialization
+ * failed", "DimFort client: couldn't create connection to
+ * server", "Restarting server failed", "The DimFort server
+ * crashed 5 times in the last 3 minutes"). They share the client
+ * name ("DimFort") so they look like ours, and they drown out the
+ * single actionable notification ``reportStartFailure`` /
+ * ``installServerExitSurfacing`` actually emits.
+ *
+ * This handler keeps the SAME retry policy as the library default
+ * (3 transport errors → shutdown; 5 closes in 3 minutes → give
+ * up; restart otherwise) but returns ``handled: true`` on every
+ * branch so the library suppresses its own notifications. Our
+ * surfacing modules above are the sole user-visible voice.
+ *
+ * The retry counter ``count`` argument to ``error`` is supplied
+ * by the language-client — it counts transport errors per
+ * connection. ``closed`` has no such argument so we track the
+ * close history ourselves, mirroring the default's
+ * "five-restarts-in-three-minutes" check (see
+ * ``vscode-languageclient/lib/common/client.ts``'s
+ * ``DefaultErrorHandler``).
+ *
+ * audited(0.2.7): error-surfacing — the absence of this handler
+ * was a real audit gap. Even with sticky toasts on our own
+ * notifications, library noise on the same lifecycle event made
+ * ours visually invisible.
+ */
+export function quietErrorHandler(): ErrorHandler {
+  let restarts: number[] = [];
+  return {
+    error(
+      _error: Error,
+      _message: Message | undefined,
+      count: number | undefined,
+    ): ErrorHandlerResult {
+      if (count !== undefined && count <= 3) {
+        return { action: ErrorAction.Continue, handled: true };
+      }
+      return { action: ErrorAction.Shutdown, handled: true };
+    },
+    closed(): CloseHandlerResult {
+      restarts.push(timestamp());
+      if (restarts.length <= 5) {
+        return { action: CloseAction.Restart, handled: true };
+      }
+      const diff = restarts[restarts.length - 1] - restarts[0];
+      if (diff <= 3 * 60 * 1000) {
+        restarts = [];
+        return { action: CloseAction.DoNotRestart, handled: true };
+      }
+      restarts.shift();
+      return { action: CloseAction.Restart, handled: true };
+    },
+  };
+}
+
+function timestamp(): number {
+  // Indirection so the call site is uniform and easy to swap in
+  // tests if we ever add them.
+  return Date.now();
 }
 
 /**
