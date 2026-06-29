@@ -16,11 +16,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Full history so the silent-failure gate's diff-aware check
+          # can resolve the merge base against origin/main.
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
       - name: Install dependencies
         run: npm ci
       - name: Compile TypeScript
@@ -28,3 +36,15 @@ jobs:
         # fail to load at runtime, so the compile step is the
         # primary signal.
         run: npm run compile
+      - name: Silent-failure regression gate
+        # Locks in the 0.2.7 silent-failure audit (companion side).
+        # Hard-bans empty catch blocks. Requires `audited(0.2.X)`
+        # annotation on new catch blocks in `src/**/*.ts`. See
+        # docs/silent-failure-audit.md for the baseline.
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            git fetch --quiet origin "${{ github.base_ref }}"
+          fi
+          python scripts/silent-failure-gate.py
