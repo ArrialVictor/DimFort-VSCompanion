@@ -109,6 +109,33 @@ commands, packaging).
   configuration overlap). Per-root deduped — same root never warns
   twice in one session. Only fires for `dimfort.toml` specifically.
 
+### Changed
+
+- **`MANUAL_QA.md` reorganised around display surfaces.** The walk
+  now covers only what an LSP client can't reach: squiggle /
+  Problems-panel rendering, hover popup tree layout, side panel
+  multi-view shell (activity-bar `[m²]` icon, three WebviewViews,
+  drag/dock/hide, Reset View Locations), title-bar sort + unit-
+  display action icons, status-bar Coverage item with hover
+  tooltip, `DimFort: Status` Output channel reveal, Settings UI
+  enum picker labels, code-action lightbulb with `$0` snippet
+  placeholder + auto-popup completion, `[N/5]` workspace-check
+  phase counter, Reload Window persistence, multi-editor paint.
+  Server-side correctness (diagnostic codes, hover / panel / inlay
+  / workspace / coverage / code-action / completion payloads) is
+  now verified by the DimFort LSP integration test suite that
+  landed this cycle, so the manual walk no longer re-checks them.
+  Reorganised by display surface (Diagnostic rendering, Hover,
+  Side panel: multi-view shell / content / title-bar icons /
+  cursor-follow, Workspace check, Coverage status-bar, etc.)
+  rather than by feature, with the fixtures kept up front and each
+  step referencing them by name + line. Net effect: 1304 → 768
+  lines (~41% reduction; less than the other two companions
+  because VSCompanion has more unique display surfaces). A closing
+  pointer maps the dropped checks back to the specific LSP test
+  file that covers them, so a regression triage finds the
+  wire-test counterpart fast.
+
 ### Fixed
 
 - **`workspace/executeCommand` wire-level error now surfaces.** When

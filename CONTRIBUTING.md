@@ -34,8 +34,17 @@ npx vsce package               # build a .vsix you can `code --install-extension
 ```
 
 The extension is a single TypeScript file (`src/extension.ts`) plus the panel
-webview (`src/panel.ts`). There are no unit tests yet; the source of truth for
-behavioural QA is `MANUAL_QA.md`.
+webview (`src/panel.ts`). There are no unit tests in this repo. Behavioural QA
+is split:
+
+- **Server-side wire behaviour** (diagnostic codes, hover / panel / inlay /
+  workspace / coverage / code-action / completion payloads) is verified by the
+  DimFort LSP integration test suite at `tests/lsp_integration/` in the server
+  repo. Changes that don't affect rendering can rely on that suite alone.
+- **Display behaviour** (squiggle / Problems-panel rendering, hover popup, side
+  panel multi-view shell, title-bar action icons, status-bar Coverage item,
+  Output channel `DimFort: Status`, Settings UI integration, code-action
+  lightbulb) is covered by `MANUAL_QA.md`, run before each release.
 
 ## Style + scope
 
