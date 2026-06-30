@@ -111,6 +111,15 @@ commands, packaging).
 
 ### Changed
 
+- **`MANUAL_QA.md` — `both` unit-display mode wording corrected.**
+  The Surface 5 entry described the layout as
+  `input ⟶ canonical` with an arrow separator; the actual panel
+  renders the two columns side-by-side with no glyph between
+  them (matches the `<td>` table convention the panel HTML
+  already uses). Updated to describe the column layout without
+  the arrow. Mirrors the parallel fix in the Nvim + Emacs
+  companions.
+
 - **`MANUAL_QA.md` reorganised around display surfaces.** The walk
   now covers only what an LSP client can't reach: squiggle /
   Problems-panel rendering, hover popup tree layout, side panel

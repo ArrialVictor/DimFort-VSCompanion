@@ -376,8 +376,11 @@ Each view's title bar carries mode-aware action icons.
         (`m·s⁻¹`). Star-empty icon.
       - **input**: one column, annotation as written (`m/s`).
         Thinnest layout. Star-half icon.
-      - **both**: two columns, `input ⟶ canonical`. Widest
-        layout. Star-full icon.
+      - **both**: two columns side-by-side — `input` then
+        `canonical`, no arrow / separator glyph between (column
+        spacing conveys the relationship; matches the
+        side-by-side `<td>` convention). Widest layout.
+        Star-full icon.
 - [ ] **Synchronous on both views** — cycle from Imports; Scope
       also re-renders to the new mode.
 - [ ] **Persistence** — same as sort: choice survives reload.
