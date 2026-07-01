@@ -109,6 +109,65 @@ commands, packaging).
   configuration overlap). Per-root deduped — same root never warns
   twice in one session. Only fires for `dimfort.toml` specifically.
 
+### Added
+
+- **Test-only state hooks (env-guarded).** Six commands +
+  transient `setStatusBarMessage` interception, all registered
+  **only when `DIMFORT_TEST_HOOKS=1` is set at extension-host
+  launch time**. Not listed in `package.json contributes.commands`,
+  so they never appear in the Command Palette regardless. Used by
+  the internal QA harness (in the Homogeneity meta repo's
+  `qa-automation/vscode/`) to inspect state that isn't otherwise
+  reachable via VS Code's public API — WebviewViewProvider payload
+  content, per-editor decoration ranges, status-bar item text,
+  transient `setStatusBarMessage` output, per-section-view
+  received state, and `showQuickPick` picker-driven flows.
+
+  - `dimfort._test.getPanelState` — the coordinator's latest
+    broadcast.
+  - `dimfort._test.getCoverageState(uri)` — coverage mode + last
+    painted per-tier line numbers.
+  - `dimfort._test.getSectionViewState(view)` — per-section-view
+    last received data / empty / stats / sortMode / unitDisplay.
+  - `dimfort._test.getStatusBarFooterText()` — coverage footer's
+    current text.
+  - `dimfort._test.getLastStatusBarMessages()` — last 50
+    intercepted `setStatusBarMessage` calls.
+  - `dimfort._test.openConfigDirect(fileType, flavour)` —
+    invokes `dimfort.openConfig` with the two `showQuickPick`
+    calls pre-answered.
+  - `dimfort._test.rawHover(uri, line, character)` — sends
+    `textDocument/hover` directly via the LanguageClient,
+    bypassing `vscode.executeHoverProvider`. Used to isolate the
+    root cause of hover-flake-in-test-electron races.
+  - `dimfort._test.lspClientState()` — returns the language
+    client's `{state, hasClient}` (state 2 = Running).
+
+  All eight are read-only (or single-shot for `openConfigDirect`);
+  zero runtime cost when the env var isn't set. See
+  `CONTRIBUTING.md` for the full description.
+
+- **`dimfort.status` command now returns its body string.** No
+  visible change for palette callers (they discard the return
+  value); the internal QA harness uses it to assert the row
+  contents without having to read the Output channel (which
+  isn't publicly readable). Pure additive change.
+
+### Fixed
+
+- **Coverage refresh: null `dimfort/lineStatus` response is
+  now silenced.** The server returns `null` as the
+  "not-computed-yet" reply during warm-up (before its first
+  diagnostics wave). Previously the code assumed a non-null
+  response and tried to read `response.lines`, throwing an
+  uncaught `TypeError` per stale refresh. Add a `!response`
+  guard with the same "keep the last decorations, don't flash
+  to nothing" rationale as the existing catch block above it.
+  Surfaced by the internal QA harness's cycle-coverage exercises;
+  in production the fault window is small (LSP warm-up) so most
+  users never saw it, but the uncaught throw was still noise in
+  `*Debug Console*`.
+
 ### Changed
 
 - **`MANUAL_QA.md` delim scene — toml key updated to 0.2.7 nested

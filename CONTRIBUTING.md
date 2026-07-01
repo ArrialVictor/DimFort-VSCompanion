@@ -46,6 +46,60 @@ is split:
   Output channel `DimFort: Status`, Settings UI integration, code-action
   lightbulb) is covered by `MANUAL_QA.md`, run before each release.
 
+### Test-only state hooks
+
+Some extension state isn't reachable via VS Code's public API — the
+WebviewViewProvider panel content, `TextEditor.setDecorations` state,
+status-bar item text, transient `setStatusBarMessage` output. For
+the internal QA harness to inspect these, the extension exposes
+six commands + a `setStatusBarMessage` intercept **only when the
+`DIMFORT_TEST_HOOKS=1` environment variable is set at
+extension-host launch time**:
+
+- `dimfort._test.getPanelState` — returns the coordinator's latest
+  broadcast (`{ kind: "data" | "empty", payload?, reason?, at,
+  sortMode, unitDisplay }`).
+- `dimfort._test.getCoverageState(uri)` — returns the current
+  coverage mode plus the last painted per-tier line numbers for the
+  given editor URI.
+- `dimfort._test.getSectionViewState(view)` — returns the last
+  received messages (`data` / `empty` / `stats` / `sortMode` /
+  `unitDisplay`) for one of the three section views (`"cursor"`,
+  `"scope"`, `"imports"`).
+- `dimfort._test.getStatusBarFooterText()` — returns the coverage
+  status-bar footer's current `text`.
+- `dimfort._test.getLastStatusBarMessages()` — returns the last 50
+  intercepted `setStatusBarMessage` calls as
+  `[{ text, at }, …]`.
+- `dimfort._test.openConfigDirect(fileType, flavour)` — invokes
+  `dimfort.openConfig` with the two `showQuickPick` calls
+  pre-answered (`fileType` is `"dimfortToml"` or `"unitsFile"`;
+  `flavour` is `"empty"` or `"reference"`).
+- `dimfort._test.rawHover(uri, line, character)` — sends
+  `textDocument/hover` directly via the LanguageClient (bypassing
+  `vscode.executeHoverProvider`), returns `{ok, result}` or
+  `{error}`. Used to isolate hover flakes: if `rawHover` works but
+  `executeHoverProvider` doesn't, the LSP is fine and the flake is
+  in VS Code's provider registration timing.
+- `dimfort._test.lspClientState()` — returns the language
+  client's `{state, hasClient}` (state 2 = Running). Used by the
+  restart-or-not tests to verify a cycle command didn't
+  inadvertently restart the LSP.
+
+Without the env var, none of the six commands are registered and
+no `setStatusBarMessage` interception happens — end users see the
+extension exactly as shipped. The commands aren't listed in
+`package.json contributes.commands` either, so they don't appear
+in the Command Palette regardless. The intercept is a passthrough
+(it records + calls the original), so the visible UI is
+unchanged even when active.
+
+Additionally, `dimfort.status` returns its formatted body string
+(a plain multi-line string). The palette caller discards the
+return value; the harness uses it to assert row contents without
+needing to read the client's Output channel (which isn't publicly
+readable).
+
 ## Style + scope
 
 - Keep the extension thin. Server requests use the existing `vscode-languageclient`

@@ -44,6 +44,10 @@ export class CoverageStatusFooter implements vscode.Disposable {
     this.disposables = [];
   }
 
+  // For the internal QA harness (`dimfort._test.getStatusBarFooterText').
+  _testGetItemText(): string { return this.item.text; }
+  _testIsItemVisible(): boolean { return this.item.text !== ""; }
+
   private refresh(): void {
     const active = vscode.window.activeTextEditor;
     const isFortran = active?.document.languageId === "fortran";

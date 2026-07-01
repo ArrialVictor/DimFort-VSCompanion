@@ -236,11 +236,12 @@ export function activate(context: vscode.ExtensionContext): void {
       ImportsView.viewType, importsView,
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
-    // Coverage as a real status-bar footer rather than an in-webview
-    // section. Always visible at the bottom of the VSCode window across
-    // any editor, with full per-file + workspace breakdown on hover.
-    new CoverageStatusFooter(statsProvider),
   );
+  // Coverage as a real status-bar footer rather than an in-webview
+  // section. Always visible at the bottom of the VSCode window across
+  // any editor, with full per-file + workspace breakdown on hover.
+  const coverageFooter = new CoverageStatusFooter(statsProvider);
+  context.subscriptions.push(coverageFooter);
 
   // Title-bar cycle commands. Three menu entries per cycle show
   // different icons (mode-aware) so the active mode is visible at a
@@ -321,6 +322,124 @@ export function activate(context: vscode.ExtensionContext): void {
   coverageProvider = new CoverageProvider(context);
   coverageProvider.setClient(client);
   context.subscriptions.push(coverageProvider);
+
+  // Test-only state hooks — only registered when DIMFORT_TEST_HOOKS=1
+  // in the environment. Used by the internal QA harness at
+  // ../qa-automation/vscode/ to read state that isn't otherwise
+  // reachable via VS Code's public API (webview HTML, per-editor
+  // decoration ranges, status bar item text, transient
+  // setStatusBarMessage output). Not exposed to end users: the guard
+  // prevents registration outside dev/test.
+  if (process.env.DIMFORT_TEST_HOOKS === "1") {
+    // Intercept `vscode.window.setStatusBarMessage' so tests can read
+    // back the transient messages the cycle commands / clear-cache /
+    // restart emit. Keeps the last N. Passthrough to the original so
+    // any UI still updates as expected.
+    const testStatusBarMessages: { text: string; at: number }[] = [];
+    const origSetStatusBarMessage =
+      vscode.window.setStatusBarMessage.bind(vscode.window);
+    (vscode.window as unknown as {
+      setStatusBarMessage: (t: string, h?: number) => vscode.Disposable;
+    }).setStatusBarMessage = (text: string, hideAfterMs?: number) => {
+      testStatusBarMessages.push({ text, at: Date.now() });
+      if (testStatusBarMessages.length > 50) testStatusBarMessages.shift();
+      return origSetStatusBarMessage(text, hideAfterMs as never);
+    };
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand("dimfort._test.getPanelState", () =>
+        panelCoordinator?._testGetLastBroadcast(),
+      ),
+      vscode.commands.registerCommand(
+        "dimfort._test.getCoverageState",
+        (uri: string) => ({
+          mode: coverageProvider?._testCurrentMode(),
+          paint: coverageProvider?._testGetLastPaint(uri),
+        }),
+      ),
+      vscode.commands.registerCommand(
+        "dimfort._test.getSectionViewState",
+        (viewType: "cursor" | "scope" | "imports") => {
+          switch (viewType) {
+            case "cursor":  return cursorView._testGetLastMessages();
+            case "scope":   return scopeView._testGetLastMessages();
+            case "imports": return importsView._testGetLastMessages();
+            default: return undefined;
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "dimfort._test.getStatusBarFooterText",
+        () => coverageFooter._testGetItemText(),
+      ),
+      vscode.commands.registerCommand(
+        "dimfort._test.getLastStatusBarMessages",
+        () => [...testStatusBarMessages],
+      ),
+      vscode.commands.registerCommand(
+        "dimfort._test.rawHover",
+        async (uri: string, line: number, character: number) => {
+          if (!client) return { error: "client undefined" };
+          try {
+            const params = {
+              textDocument: { uri },
+              position: { line, character },
+            };
+            const result = await client.sendRequest(
+              "textDocument/hover", params,
+            );
+            return { ok: true, result };
+          } catch (err) {
+            return { error: String(err) };
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "dimfort._test.lspClientState",
+        () => ({
+          state: client?.state,
+          hasClient: !!client,
+        }),
+      ),
+      vscode.commands.registerCommand(
+        "dimfort._test.openConfigDirect",
+        async (
+          fileType: "dimfortToml" | "unitsFile",
+          flavour: "empty" | "reference",
+        ) => {
+          // Stub `showQuickPick' with a sequence that returns the
+          // desired file type on the first call, the desired flavour
+          // on the second, then restore the original.
+          const origShowQuickPick = vscode.window.showQuickPick.bind(vscode.window);
+          let call = 0;
+          (vscode.window as unknown as {
+            showQuickPick: (items: unknown[]) => Promise<unknown>;
+          }).showQuickPick = (items: unknown[]) => {
+            call++;
+            const arr = items as { id?: string; value?: string }[];
+            if (call === 1) {
+              return Promise.resolve(arr.find((i) => i.id === fileType));
+            } else {
+              return Promise.resolve(
+                arr.find((i) =>
+                  flavour === "empty"
+                    ? i.value === "empty"
+                    : i.value === "all-sections" || i.value === "defaults",
+                ),
+              );
+            }
+          };
+          try {
+            await vscode.commands.executeCommand("dimfort.openConfig");
+          } finally {
+            (vscode.window as unknown as {
+              showQuickPick: typeof origShowQuickPick;
+            }).showQuickPick = origShowQuickPick;
+          }
+        },
+      ),
+    );
+  }
   const coverageCfg = vscode.workspace.getConfiguration("dimfort");
   coverageProvider.setDebounceMs(coverageCfg.get<number>("coverage.debounceMs", 200));
   coverageProvider.setMode(
@@ -735,10 +854,16 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       ch.appendLine(`\n[${ts}] DimFort status\n${body}\n`);
+      // Return the body so the internal QA harness can inspect the
+      // snapshot without having to read the Output channel (which
+      // isn't publicly readable). No visible effect for palette
+      // callers — the palette discards the return value.
+      // eslint-disable-next-line consistent-return
       // ``preserveFocus = true`` so invoking from the palette
       // doesn't yank focus into the Output panel — the user can
       // glance at the bottom panel and keep editing.
       ch.show(true);
+      return body;
     }),
   );
 
