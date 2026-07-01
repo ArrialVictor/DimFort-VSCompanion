@@ -155,8 +155,8 @@ end subroutine
 ```
 
 ```toml
-[parser]
-unit_comment_delimiters = [
+[parser.unit_comments]
+unit = [
   { open = "@unit{", close = "}" },
   { open = "[",      close = "]" },
 ]
