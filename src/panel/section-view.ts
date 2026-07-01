@@ -103,23 +103,53 @@ export abstract class SectionView
   // Coordinator → view broadcast
   // ---------------------------------------------------------------------
 
+  // Per-message caches for the internal QA harness — see the
+  // `dimfort._test.getSectionViewState' command in extension.ts.
+  private _testLastData?: PanelPayload;
+  private _testLastEmpty?: { reason: string };
+  private _testLastStats?: unknown;
+  private _testLastSortMode?: SortMode;
+  private _testLastUnitDisplay?: UnitDisplayMode;
+
+  _testGetLastMessages(): {
+    data?: PanelPayload;
+    empty?: { reason: string };
+    stats?: unknown;
+    sortMode?: SortMode;
+    unitDisplay?: UnitDisplayMode;
+  } {
+    return {
+      data: this._testLastData,
+      empty: this._testLastEmpty,
+      stats: this._testLastStats,
+      sortMode: this._testLastSortMode,
+      unitDisplay: this._testLastUnitDisplay,
+    };
+  }
+
   onData(payload: PanelPayload): void {
+    this._testLastData = payload;
+    this._testLastEmpty = undefined;
     this.post({ kind: "data", ...payload, isEmpty: false });
   }
 
   onEmpty(reason: string): void {
+    this._testLastEmpty = { reason };
     this.post({ kind: "empty", reason, isEmpty: true });
   }
 
   onStats(snapshot: unknown): void {
+    this._testLastStats = snapshot;
     this.post({ kind: "stats", stats: snapshot });
   }
 
   onSortMode(mode: SortMode): void {
+    this._testLastSortMode = mode;
     this.post({ kind: "sortMode", mode });
   }
 
   onUnitDisplay(mode: UnitDisplayMode): void {
+    this._testLastUnitDisplay = mode;
     this.post({ kind: "unitDisplay", mode });
   }
 

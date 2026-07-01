@@ -49,10 +49,12 @@ is split:
 ### Test-only state hooks
 
 Some extension state isn't reachable via VS Code's public API — the
-WebviewViewProvider panel content, `TextEditor.setDecorations` state.
-For the internal QA harness to inspect these, the extension exposes
-two commands **only when the `DIMFORT_TEST_HOOKS=1` environment
-variable is set at extension-host launch time**:
+WebviewViewProvider panel content, `TextEditor.setDecorations` state,
+status-bar item text, transient `setStatusBarMessage` output. For
+the internal QA harness to inspect these, the extension exposes
+six commands + a `setStatusBarMessage` intercept **only when the
+`DIMFORT_TEST_HOOKS=1` environment variable is set at
+extension-host launch time**:
 
 - `dimfort._test.getPanelState` — returns the coordinator's latest
   broadcast (`{ kind: "data" | "empty", payload?, reason?, at,
@@ -60,10 +62,33 @@ variable is set at extension-host launch time**:
 - `dimfort._test.getCoverageState(uri)` — returns the current
   coverage mode plus the last painted per-tier line numbers for the
   given editor URI.
+- `dimfort._test.getSectionViewState(view)` — returns the last
+  received messages (`data` / `empty` / `stats` / `sortMode` /
+  `unitDisplay`) for one of the three section views (`"cursor"`,
+  `"scope"`, `"imports"`).
+- `dimfort._test.getStatusBarFooterText()` — returns the coverage
+  status-bar footer's current `text`.
+- `dimfort._test.getLastStatusBarMessages()` — returns the last 50
+  intercepted `setStatusBarMessage` calls as
+  `[{ text, at }, …]`.
+- `dimfort._test.openConfigDirect(fileType, flavour)` — invokes
+  `dimfort.openConfig` with the two `showQuickPick` calls
+  pre-answered (`fileType` is `"dimfortToml"` or `"unitsFile"`;
+  `flavour` is `"empty"` or `"reference"`).
 
-Without the env var, the commands are not registered — end users
-never see them. They're not listed in `package.json contributes.commands`
-either, so they don't appear in the Command Palette regardless.
+Without the env var, none of the six commands are registered and
+no `setStatusBarMessage` interception happens — end users see the
+extension exactly as shipped. The commands aren't listed in
+`package.json contributes.commands` either, so they don't appear
+in the Command Palette regardless. The intercept is a passthrough
+(it records + calls the original), so the visible UI is
+unchanged even when active.
+
+Additionally, `dimfort.status` returns its formatted body string
+(a plain multi-line string). The palette caller discards the
+return value; the harness uses it to assert row contents without
+needing to read the client's Output channel (which isn't publicly
+readable).
 
 ## Style + scope
 

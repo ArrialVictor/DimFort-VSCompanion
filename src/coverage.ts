@@ -204,6 +204,11 @@ export class CoverageProvider implements vscode.Disposable {
       // request failures during a restart cycle correctly silence.
       return;
     }
+    // audited(0.2.7): silent-OK — the server returns `null' as the
+    // "not-computed-yet" reply during warm-up (before its first
+    // diagnostics wave). Same "keep the last decorations, don't
+    // flash to nothing" rationale as the catch block above.
+    if (!response) return;
     this.applyDecorations(editor, response.lines);
   }
 
