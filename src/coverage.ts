@@ -66,6 +66,26 @@ export class CoverageProvider implements vscode.Disposable {
   private readonly tintDecorations: Record<CoverageTier, vscode.TextEditorDecorationType>;
   private readonly debounceTimers = new Map<string, NodeJS.Timeout>();
   private readonly disposables: vscode.Disposable[] = [];
+  // Latest paint state per editor URI, cached for the internal QA
+  // harness (`dimfort._test.getCoverageState' in extension.ts). Only
+  // exposed when the env-var guard is set. Empty until the first
+  // `applyDecorations' runs on each editor.
+  private _testLastPaint = new Map<
+    string,
+    {
+      mode: CoverageMode;
+      lines: Record<CoverageTier, number[]>;
+      at: number;
+    }
+  >();
+  _testGetLastPaint(uri: string): {
+    mode: CoverageMode;
+    lines: Record<CoverageTier, number[]>;
+    at: number;
+  } | undefined {
+    return this._testLastPaint.get(uri);
+  }
+  _testCurrentMode(): CoverageMode { return this.mode; }
 
   constructor(private readonly context: vscode.ExtensionContext) {
     this.gutterDecorations = this.buildDecorations({ withGutter: true, withTint: false });
@@ -194,13 +214,22 @@ export class CoverageProvider implements vscode.Disposable {
       red: [],
       blue: [],
     };
+    const painted: Record<CoverageTier, number[]> = {
+      green: [], yellow: [], red: [], blue: [],
+    };
     const lineCount = editor.document.lineCount;
     for (const entry of lines) {
       // Server returns 1-based line numbers; VSCode positions are 0-based.
       const lineIdx = entry.line - 1;
       if (lineIdx < 0 || lineIdx >= lineCount) continue;
       ranges[entry.status].push(editor.document.lineAt(lineIdx).range);
+      painted[entry.status].push(entry.line);
     }
+    this._testLastPaint.set(editor.document.uri.toString(), {
+      mode: this.mode,
+      lines: painted,
+      at: Date.now(),
+    });
     for (const tier of ["green", "yellow", "red", "blue"] as CoverageTier[]) {
       // The two visible modes are mutually exclusive: gutter paints in
       // the left-margin column, background paints behind the line text.

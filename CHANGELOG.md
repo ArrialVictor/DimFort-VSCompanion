@@ -109,6 +109,23 @@ commands, packaging).
   configuration overlap). Per-root deduped — same root never warns
   twice in one session. Only fires for `dimfort.toml` specifically.
 
+### Added
+
+- **Test-only state hooks (env-guarded).** Two new commands —
+  `dimfort._test.getPanelState` and
+  `dimfort._test.getCoverageState` — expose the panel
+  coordinator's latest broadcast and the coverage provider's last
+  painted per-tier line numbers, respectively. Registered **only
+  when `DIMFORT_TEST_HOOKS=1` is set at extension-host launch
+  time**; unregistered in normal user sessions. Not listed in
+  `package.json contributes.commands`, so they never appear in the
+  Command Palette regardless. The internal QA harness (in the
+  Homogeneity meta repo's `qa-automation/vscode/` directory) uses
+  these to inspect state that isn't otherwise reachable via VS
+  Code's public API — WebviewViewProvider payload content,
+  per-editor decoration ranges. Zero runtime cost when the env var
+  isn't set. See `CONTRIBUTING.md` for the full description.
+
 ### Changed
 
 - **`MANUAL_QA.md` delim scene — toml key updated to 0.2.7 nested

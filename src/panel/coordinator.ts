@@ -55,6 +55,30 @@ export class PanelCoordinator {
   // application of a button-click can resolve back to a real action.
   private actions: vscode.CodeAction[] = [];
   private actionDoc?: vscode.TextDocument;
+  // Latest broadcast, cached for the internal QA harness (see the
+  // `dimfort._test.getPanelState' command in extension.ts). Guarded
+  // by an env-var check at command-registration time; not exposed
+  // to end users.
+  private _testLastBroadcast: {
+    kind: "data" | "empty" | "none";
+    payload?: PanelPayload;
+    reason?: string;
+    at: number;
+  } = { kind: "none", at: 0 };
+  _testGetLastBroadcast(): {
+    kind: "data" | "empty" | "none";
+    payload?: PanelPayload;
+    reason?: string;
+    at: number;
+    sortMode: SortMode;
+    unitDisplay: UnitDisplayMode;
+  } {
+    return {
+      ...this._testLastBroadcast,
+      sortMode: readSortMode(),
+      unitDisplay: readUnitDisplay(),
+    };
+  }
 
   constructor(private readonly statsProvider: CoverageStatsProvider) {
     this.statsProvider.onDidChange(() => this.broadcastStats());
@@ -126,10 +150,12 @@ export class PanelCoordinator {
   // -------------------------------------------------------------------
 
   private broadcastData(payload: PanelPayload): void {
+    this._testLastBroadcast = { kind: "data", payload, at: Date.now() };
     for (const s of this.subscribers) s.onData(payload);
   }
 
   private broadcastEmpty(reason: string): void {
+    this._testLastBroadcast = { kind: "empty", reason, at: Date.now() };
     for (const s of this.subscribers) s.onEmpty(reason);
   }
 

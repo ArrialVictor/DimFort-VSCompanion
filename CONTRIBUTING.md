@@ -46,6 +46,25 @@ is split:
   Output channel `DimFort: Status`, Settings UI integration, code-action
   lightbulb) is covered by `MANUAL_QA.md`, run before each release.
 
+### Test-only state hooks
+
+Some extension state isn't reachable via VS Code's public API — the
+WebviewViewProvider panel content, `TextEditor.setDecorations` state.
+For the internal QA harness to inspect these, the extension exposes
+two commands **only when the `DIMFORT_TEST_HOOKS=1` environment
+variable is set at extension-host launch time**:
+
+- `dimfort._test.getPanelState` — returns the coordinator's latest
+  broadcast (`{ kind: "data" | "empty", payload?, reason?, at,
+  sortMode, unitDisplay }`).
+- `dimfort._test.getCoverageState(uri)` — returns the current
+  coverage mode plus the last painted per-tier line numbers for the
+  given editor URI.
+
+Without the env var, the commands are not registered — end users
+never see them. They're not listed in `package.json contributes.commands`
+either, so they don't appear in the Command Palette regardless.
+
 ## Style + scope
 
 - Keep the extension thin. Server requests use the existing `vscode-languageclient`

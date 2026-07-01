@@ -321,6 +321,27 @@ export function activate(context: vscode.ExtensionContext): void {
   coverageProvider = new CoverageProvider(context);
   coverageProvider.setClient(client);
   context.subscriptions.push(coverageProvider);
+
+  // Test-only state hooks — only registered when DIMFORT_TEST_HOOKS=1
+  // in the environment. Used by the internal QA harness at
+  // ../qa-automation/vscode/ to read state that isn't otherwise
+  // reachable via VS Code's public API (webview HTML, per-editor
+  // decoration ranges). Not exposed to end users: the guard prevents
+  // registration outside dev/test.
+  if (process.env.DIMFORT_TEST_HOOKS === "1") {
+    context.subscriptions.push(
+      vscode.commands.registerCommand("dimfort._test.getPanelState", () =>
+        panelCoordinator?._testGetLastBroadcast(),
+      ),
+      vscode.commands.registerCommand(
+        "dimfort._test.getCoverageState",
+        (uri: string) => ({
+          mode: coverageProvider?._testCurrentMode(),
+          paint: coverageProvider?._testGetLastPaint(uri),
+        }),
+      ),
+    );
+  }
   const coverageCfg = vscode.workspace.getConfiguration("dimfort");
   coverageProvider.setDebounceMs(coverageCfg.get<number>("coverage.debounceMs", 200));
   coverageProvider.setMode(
