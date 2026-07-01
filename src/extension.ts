@@ -377,6 +377,31 @@ export function activate(context: vscode.ExtensionContext): void {
         () => [...testStatusBarMessages],
       ),
       vscode.commands.registerCommand(
+        "dimfort._test.rawHover",
+        async (uri: string, line: number, character: number) => {
+          if (!client) return { error: "client undefined" };
+          try {
+            const params = {
+              textDocument: { uri },
+              position: { line, character },
+            };
+            const result = await client.sendRequest(
+              "textDocument/hover", params,
+            );
+            return { ok: true, result };
+          } catch (err) {
+            return { error: String(err) };
+          }
+        },
+      ),
+      vscode.commands.registerCommand(
+        "dimfort._test.lspClientState",
+        () => ({
+          state: client?.state,
+          hasClient: !!client,
+        }),
+      ),
+      vscode.commands.registerCommand(
         "dimfort._test.openConfigDirect",
         async (
           fileType: "dimfortToml" | "unitsFile",

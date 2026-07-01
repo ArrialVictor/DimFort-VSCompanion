@@ -75,6 +75,16 @@ extension-host launch time**:
   `dimfort.openConfig` with the two `showQuickPick` calls
   pre-answered (`fileType` is `"dimfortToml"` or `"unitsFile"`;
   `flavour` is `"empty"` or `"reference"`).
+- `dimfort._test.rawHover(uri, line, character)` — sends
+  `textDocument/hover` directly via the LanguageClient (bypassing
+  `vscode.executeHoverProvider`), returns `{ok, result}` or
+  `{error}`. Used to isolate hover flakes: if `rawHover` works but
+  `executeHoverProvider` doesn't, the LSP is fine and the flake is
+  in VS Code's provider registration timing.
+- `dimfort._test.lspClientState()` — returns the language
+  client's `{state, hasClient}` (state 2 = Running). Used by the
+  restart-or-not tests to verify a cycle command didn't
+  inadvertently restart the LSP.
 
 Without the env var, none of the six commands are registered and
 no `setStatusBarMessage` interception happens — end users see the

@@ -136,8 +136,14 @@ commands, packaging).
   - `dimfort._test.openConfigDirect(fileType, flavour)` —
     invokes `dimfort.openConfig` with the two `showQuickPick`
     calls pre-answered.
+  - `dimfort._test.rawHover(uri, line, character)` — sends
+    `textDocument/hover` directly via the LanguageClient,
+    bypassing `vscode.executeHoverProvider`. Used to isolate the
+    root cause of hover-flake-in-test-electron races.
+  - `dimfort._test.lspClientState()` — returns the language
+    client's `{state, hasClient}` (state 2 = Running).
 
-  All six are read-only (or single-shot for `openConfigDirect`);
+  All eight are read-only (or single-shot for `openConfigDirect`);
   zero runtime cost when the env var isn't set. See
   `CONTRIBUTING.md` for the full description.
 
