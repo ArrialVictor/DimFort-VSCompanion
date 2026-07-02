@@ -8,6 +8,10 @@ completion payloads) is verified by the LSP integration suite at
 `DimFort/tests/lsp_integration/` — this walk does **not** re-check
 those.
 
+> Items marked `*` are covered by the internal automated GUI harness
+> (`qa-automation/`, internal-only). Spot-check on release rather than
+> exhaustively re-walking.
+
 Each step lists the **exact** visible result; anything that differs
 is a regression to file. The same fixtures are reused across surfaces,
 so save all six before starting. Commands below are run from the
@@ -200,16 +204,16 @@ VS Code renders LSP diagnostics as inline squiggles and lists them
 in the Problems panel (`Cmd/Ctrl+Shift+M`). Confirm the three
 severities are visibly distinct on the qa fixtures:
 
-- [ ] **Error** — on `qa.f90:25` (`bogus = c_sound * t`): **red
+- [ ] * **Error** — on `qa.f90:25` (`bogus = c_sound * t`): **red
       squiggle** under the assignment text + entry in the Problems
       panel with red icon.
-- [ ] **Warning** — on `qa.f90:23` (`real :: t_celsius`):
+- [ ] * **Warning** — on `qa.f90:23` (`real :: t_celsius`):
       **orange/yellow squiggle** under the name + Problems entry
       with warning icon.
-- [ ] **Info (P001)** — on `unparsed_qa.f90:6` (`vel = * / +`):
+- [ ] * **Info (P001)** — on `unparsed_qa.f90:6` (`vel = * / +`):
       **faint blue squiggle** + Problems entry with info icon.
       Visibly distinct from the red `H001` on the line above.
-- [ ] **Info (U020)** — on `qa.f90:35` (the `@unit_assume` line):
+- [ ] * **Info (U020)** — on `qa.f90:35` (the `@unit_assume` line):
       surfaces only as the panel Diagnostics 🔵 row + a Problems
       entry with info icon; no inline squiggle (informational
       acknowledgement, not a problem).
@@ -223,7 +227,7 @@ severities are visibly distinct on the qa fixtures:
 Hover defaults to **`short`**. Mouse over a symbol or use
 `Cmd/Ctrl+K Cmd/Ctrl+I` to pin the hover popup.
 
-- [ ] **Single-symbol hover** — hover on `c_sound` (`qa.f90:2`):
+- [ ] * **Single-symbol hover** — hover on `c_sound` (`qa.f90:2`):
       the popup shows the single row `c_sound : m·s⁻¹` (the unit
       rendered with **middle dot** `·` and **superscript minus**
       `⁻¹`, not ASCII `m/s`).
@@ -354,7 +358,7 @@ Each view's title bar carries mode-aware action icons.
 - [ ] **Sort icon visible** — Scope and Imports each show a sort
       icon in their title bar. The icon **reflects the current
       mode** (mode-aware: one of by-line / alphabetic / by-status).
-- [ ] **Cycle on click** — clicking the sort icon on **either**
+- [ ] * **Cycle on click** — clicking the sort icon on **either**
       view cycles the mode (by-line → alphabetic → by-status →
       by-line). Status bar reports the new mode. Both views
       re-sort **synchronously** — they share the same setting.
@@ -369,7 +373,7 @@ Each view's title bar carries mode-aware action icons.
       star icon: **empty / half / full** for the three modes
       (canonical / input / both). Default is `canonical`
       (star-empty).
-- [ ] **Cycle on click** — clicking either star icon cycles
+- [ ] * **Cycle on click** — clicking either star icon cycles
       `canonical → input → both → canonical`. Column layout
       changes accordingly:
       - **canonical** (default): one unit column, base-SI form
@@ -450,14 +454,14 @@ small `qa.f90` sample completes too fast to read every phase).
 Coverage lives as a native VS Code status-bar item on the right
 (replaces the in-panel footer that existed pre-0.2.6).
 
-- [ ] **Item visible** — bottom-right status bar shows a
+- [ ] * **Item visible** — bottom-right status bar shows a
       `Coverage: <pct>%` item (or `Coverage: —` when no Fortran
       file is active).
 - [ ] **Hover tooltip** — hovering the item opens a tooltip with
       a **File / Project** table (columns: Coverage, Verified,
       Unverified, Violation). Project row shows `–` (italic, dim)
       until **DimFort: Check Workspace** runs.
-- [ ] **Refresh workspace coverage** — run the command. Project
+- [ ] * **Refresh workspace coverage** — run the command. Project
       row populates; tooltip updates async (lands on
       `dimfort/workspaceCheckCompleted`, not on command return).
 - [ ] **Project goes dim when stale** — edit any buffer after a
@@ -470,7 +474,7 @@ Coverage lives as a native VS Code status-bar item on the right
 
 ## Surface 9 — Status bar messages + info popups
 
-- [ ] **Cycle commands echo new mode** — each of the following
+- [ ] * **Cycle commands echo new mode** — each of the following
       reports the new mode in the status bar on every tick:
       - **DimFort: Cycle Hover Verbosity** → `DimFort: hover <mode>`
       - **DimFort: Cycle Scale Checking** → `DimFort: scale checking <mode>`
@@ -490,7 +494,7 @@ Coverage lives as a native VS Code status-bar item on the right
       block titled `[HH:MM:SS] DimFort status`. **Editor focus
       stays in the source file** — the reveal uses
       `preserveFocus = true`.
-- [ ] **17-row snapshot** — the block has all 17 rows: executable,
+- [ ] * **17-row snapshot** — the block has all 17 rows: executable,
       inlay hints, completion, code actions, go-to-definition,
       hover, cache mode, cache dir, scale checking, coverage
       layer, panel enabled, show.cursor, show.scope, show.imports,
@@ -511,11 +515,11 @@ Coverage lives as a native VS Code status-bar item on the right
 
 ## Surface 11 — Inlay hints display
 
-- [ ] **Toggle visibility** — **DimFort: Toggle Inlay Hints** →
+- [ ] * **Toggle visibility** — **DimFort: Toggle Inlay Hints** →
       `[m·s⁻¹]`-style ghost text appears after variable use sites
       (qa.f90 makes this easy to scan). Toggle again → ghost text
       disappears.
-- [ ] **Polymorphic vars full-weight** — open `poly_qa.f90`, toggle
+- [ ] * **Polymorphic vars full-weight** — open `poly_qa.f90`, toggle
       on, cursor in `avg_two`'s body. Ghost text on `x`, `y`,
       `mean` reads `['a]` at the same visual weight as a concrete
       `[m]`-style ghost (no muting — polymorphism is a real
@@ -529,14 +533,14 @@ Coverage lives as a native VS Code status-bar item on the right
 `Cmd/Ctrl+.` (Quick Fix lightbulb) with the cursor on the relevant
 fixture line.
 
-- [ ] **Add `@unit{}`** — cursor on `t_celsius` (`qa.f90:23`).
+- [ ] * **Add `@unit{}`** — cursor on `t_celsius` (`qa.f90:23`).
       Lightbulb surfaces **"add `@unit{}`"**. Applying:
       1. Inserts `!< @unit{}` and **leaves the cursor between the
          braces** (VS Code's snippet engine expands the `$0`
          tab-stop natively).
       2. **The unit-name completion list pops up automatically** —
          no manual `Ctrl+Space`.
-- [ ] **Extract literal** — cursor on `273.15` (`qa.f90:26`).
+- [ ] * **Extract literal** — cursor on `273.15` (`qa.f90:26`).
       Lightbulb surfaces **"extract literal to PARAMETER"**.
       Applying prompts via input-box for a name, then inserts a
       typed `real, parameter` declaration and replaces the
@@ -554,7 +558,7 @@ fixture line.
 
 ## Surface 13 — Navigation & completion
 
-- [ ] **F12 Go to Definition** — `F12` on a `c_sound` use lands
+- [ ] * **F12 Go to Definition** — `F12` on a `c_sound` use lands
       the cursor on `qa.f90:2` (the declaration line).
 - [ ] **Cross-file panel jump** — open `imports_qa.f90`, panel
       visible, cursor in `step`. In the Imports view, clicking
@@ -562,7 +566,7 @@ fixture line.
       `, only: …` filter on `solver`'s `use phys_constants` to
       expose the transitive `g0` row; clicking it **jumps
       cross-file** to `phys_base`'s declaration line.
-- [ ] **Completion popup in `@unit{`** — type a new `!< @unit{`.
+- [ ] * **Completion popup in `@unit{`** — type a new `!< @unit{`.
       VS Code's completion popup opens showing unit names.
 
 ## Surface 14 — `DimFort: Open Config…` command
@@ -573,24 +577,24 @@ directory before each subsection.
 
 ### `dimfort.toml`
 
-- [ ] **Empty cold-create** — run **DimFort: Open Config…**, pick
+- [ ] * **Empty cold-create** — run **DimFort: Open Config…**, pick
       `Project configuration file (dimfort.toml)`. A QuickPick
       sub-pick shows `Empty file` and
       `Reference template (all sections commented out)`. Pick
       `Empty file`. New `dimfort.toml` appears at the workspace
       root, opens, contains just the minimal header. Status bar:
       `DimFort: created dimfort.toml`.
-- [ ] **Reference cold-create** — same, pick
+- [ ] * **Reference cold-create** — same, pick
       `Reference template …`. File has all section headers
       (`[units]` / `[parser]` / `[diagnostics]` / `[scale]` /
       `[project]`) with `# `-prefixed lines.
-- [ ] **Warm-open** — run again, pick `Project configuration file
+- [ ] * **Warm-open** — run again, pick `Project configuration file
       …`. Opens existing file with **no sub-pick** and **no
       modification**. No status-bar message.
 
 ### `units.toml`
 
-- [ ] **Empty cold-create** — pick `Project units file
+- [ ] * **Empty cold-create** — pick `Project units file
       (units.toml)`. Sub-pick shows `Empty file` and
       `Reference template …`. Pick `Empty file`. New `units.toml`
       opens with empty-template stub. A new `dimfort.toml`
@@ -605,7 +609,7 @@ directory before each subsection.
       (no `[units]`). Run command, pick units file. The existing
       `dimfort.toml` is **appended with**
       `[units]\nfile = "units.toml"`; original sections preserved.
-- [ ] **Existing `[units]` declines** — pre-create `dimfort.toml`
+- [ ] * **Existing `[units]` declines** — pre-create `dimfort.toml`
       with `[units]\nother_key = "value"\n`. Run command, pick
       units file. Info toast: `DimFort: created units.toml. Your
       dimfort.toml already has a [units] section — add 'file =
@@ -616,7 +620,7 @@ directory before each subsection.
 
 ## Surface 15 — Cache cycle + clear
 
-- [ ] **Cycle cache mode (3-state)** — run **DimFort: Cycle
+- [ ] * **Cycle cache mode (3-state)** — run **DimFort: Cycle
       Content-Hash Cache (Off / Read-only / Read-write)**
       repeatedly. Status bar reports each tick:
       `DimFort: cache off → DimFort: cache read-only →
@@ -629,7 +633,7 @@ directory before each subsection.
 
 ## Surface 16 — Coverage visualization
 
-- [ ] **Three-mode cycle** — **DimFort: Cycle Coverage
+- [ ] * **Three-mode cycle** — **DimFort: Cycle Coverage
       Visualisation** cycles `gutter → background → disabled`.
       Status bar reports each tick (Surface 9 cross-check). Visual
       states:
@@ -643,7 +647,7 @@ directory before each subsection.
         the matching tier colour; gutter dots **gone**. The two
         modes are **mutually exclusive**.
       - **disabled**: all coverage decorations clear.
-- [ ] **No LSP restart on mode flip** — open Output panel
+- [ ] * **No LSP restart on mode flip** — open Output panel
       (`Cmd/Ctrl+Shift+U`) → DimFort Language Server channel.
       Cycle the coverage mode 2–3 times. Confirm **no**
       `language server restarted` / connection-restart lines
@@ -691,12 +695,12 @@ directory before each subsection.
 
 (Open `poly_qa.f90`.)
 
-- [ ] **Scope rows** — cursor in `avg_two`'s body. Scope view
+- [ ] * **Scope rows** — cursor in `avg_two`'s body. Scope view
       lists `x`, `y`, `mean` each with unit cell `'a` and `half`
       with `1`. The `'a` cells render at **full weight** (no
       muting) — same visual weight as concrete units like `m` in
       `caller_clean`'s Scope (also cursor inside it to compare).
-- [ ] **Inlay full weight** — covered under Surface 11
+- [ ] * **Inlay full weight** — covered under Surface 11
       (cross-check that polymorphic ghost text matches concrete
       ghost-text weight).
 - [ ] **Muting scope** — confirm the companion's muting fires only
@@ -708,11 +712,11 @@ directory before each subsection.
 (Open `delim_qa.f90` with the companion `dimfort.toml` saved next
 to it.)
 
-- [ ] **Bracket-pattern hover** — hover on `pa`, `a`/`b`/`c`, or
+- [ ] * **Bracket-pattern hover** — hover on `pa`, `a`/`b`/`c`, or
       `kg` shows the bracket-captured unit in the hover popup (the
       toml configures `[…]` as a unit delimiter pattern alongside
       `@unit{…}`).
-- [ ] **Plain `!` eligibility** — hover on `ws` (line 4) shows
+- [ ] * **Plain `!` eligibility** — hover on `ws` (line 4) shows
       `m/s`; the `! @unit{m/s}` form has no Doxygen marker but
       still surfaces the unit.
 - [ ] **U002 quick-fix** — Quick Fix (`Cmd/Ctrl+.`) on the
