@@ -2,7 +2,7 @@
   "name": "dimfort-vscode",
   "displayName": "DimFort",
   "description": "Dimensional homogeneity checker for Fortran (LSP client).",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "publisher": "arrialvictor",
   "license": "MIT",
   "icon": "icon.png",
